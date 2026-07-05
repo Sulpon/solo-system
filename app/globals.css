@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #020617;
+  --foreground: #f8fafc;
 }
 
 @theme inline {
@@ -12,15 +12,56 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: #020617;
 }
 
 body {
-  background: var(--background);
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 20% 0%, rgba(88, 28, 135, 0.26), transparent 34rem),
+    radial-gradient(circle at 90% 12%, rgba(8, 145, 178, 0.16), transparent 30rem),
+    linear-gradient(135deg, #020617 0%, #050816 42%, #020617 100%);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+
+.menace-shell {
+  background:
+    radial-gradient(circle at 18% 0%, rgb(var(--menace-accent, 168 85 247) / 0.24), transparent 34rem),
+    radial-gradient(circle at 92% 8%, rgba(6, 182, 212, 0.13), transparent 28rem),
+    linear-gradient(135deg, #020617, #050816 42%, #020617);
+}
+
+[data-theme="oled"] .menace-shell {
+  background:
+    radial-gradient(circle at 18% 0%, rgb(var(--menace-accent, 168 85 247) / 0.2), transparent 30rem),
+    radial-gradient(circle at 92% 8%, rgba(6, 182, 212, 0.08), transparent 26rem),
+    #000;
+}
+
+.menace-card {
+  border-color: rgb(var(--menace-accent, 168 85 247) / 0.2);
+  border-radius: var(--menace-radius, 1rem);
+}
+
+.menace-card:hover {
+  border-color: rgb(var(--menace-accent, 168 85 247) / 0.4);
+}
+
+.menace-progress-fill {
+  box-shadow: 0 0 18px rgb(var(--menace-accent, 168 85 247) / 0.55);
+}
+
+[data-density="compact"] main {
+  font-size: 0.95rem;
+}
+
+[data-density="spacious"] main {
+  font-size: 1.03rem;
 }
