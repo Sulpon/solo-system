@@ -3,35 +3,10 @@ import type { WidgetSize } from "../widgets/layout-list";
 import type { CategoryId } from "./category";
 import type { DailyQuest } from "./quest";
 
-export type DashboardWidgetType =
-  | "character"
-  | "daily-quests"
-  | "main-quest"
-  | "category-levels"
-  | "achievement"
-  | "statistics"
-  | "chart"
-  | "calendar"
-  | "recent-activity"
-  | "journal"
-  | "trading-watchlist"
-  | "trading-performance"
-  | "habit-tracker"
-  | "finance-overview"
-  | "social-feed"
-  | "ai-assistant"
-  | "experimental-lab"
-  | "command-center-header"
-  | "minimum-successful-day"
-  | "bonus-missions"
-  | "night-review"
-  | "dream-progress"
-  | "attribute-overview"
-  | "consistency-score"
-  | "today-progress-feed"
-  | "tomorrow-preview"
-  | "recent-milestones"
-  | "xp-overview";
+// Widened from a closed literal union to `string` so widgets sourced from the
+// unified catalog registry (app/(app)/_lib/widgets/catalog-registry.tsx) can
+// also be placed on the Dashboard grid alongside these built-in ids.
+export type DashboardWidgetType = string;
 
 export type WidgetCategory =
   | "Character"

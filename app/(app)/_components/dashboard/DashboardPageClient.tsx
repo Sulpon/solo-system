@@ -25,9 +25,11 @@ import { duplicateItemAfter, normalizeOrder, orderByPosition, removeItemById, to
 import type { DailyQuest, Quest } from "../../_lib/types/quest";
 import type { DashboardGridLayout, DashboardLayout, DashboardRow, DashboardWidget } from "../../_lib/types/dashboard-widget";
 import { WIDGET_LAYOUT_VERSION, createDefaultDashboardGridLayout, createDefaultDashboardLayout, createWidgetFromType, getWidgetDefinition, normalizeWidget } from "../../_lib/widgets/widget-registry";
+import { getCatalogWidget, getCatalogWidgetsForPage } from "../../_lib/widgets/catalog-registry";
+import { dashboardNativeCatalogWidgets } from "../../_lib/widgets/dashboard-native-previews";
+import WidgetCatalogModal from "../widgets/WidgetCatalogModal";
 import DashboardWidgetRenderer from "./DashboardWidgetRenderer";
 import SortableWidgetFrame from "./SortableWidgetFrame";
-import WidgetLibraryModal from "./WidgetLibraryModal";
 import WidgetSettingsModal from "./WidgetSettingsModal";
 
 type DropPosition = "left" | "right" | "above" | "below" | "row" | "new-row";
@@ -346,7 +348,7 @@ function GhostOverlay({
 
 export default function DashboardPageClient() {
   const [isEditing, setIsEditing] = useState(false);
-  const [isLibraryOpen, setIsLibraryOpen] = useState(false);
+  const [isCatalogOpen, setIsCatalogOpen] = useState(false);
   const [settingsWidget, setSettingsWidget] = useState<DashboardWidget | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [currentDropIntent, setCurrentDropIntent] = useState<WidgetDropIntent | null>(null);
@@ -380,6 +382,8 @@ export default function DashboardPageClient() {
   );
 
   const normalizedWidgets = useMemo(() => layout.widgets.map((widget) => normalizeWidget(widget)), [layout.widgets]);
+
+  const dashboardCatalogWidgets = useMemo(() => [...dashboardNativeCatalogWidgets, ...getCatalogWidgetsForPage("dashboard")], []);
 
   const normalizedLayout = useMemo(
     () => ({
@@ -547,7 +551,7 @@ export default function DashboardPageClient() {
   function toggleWidgetVisibility(widgetId: string) {
     const target = widgetsRef.current.find((widget) => widget.id === widgetId);
 
-    if (!target || !getWidgetDefinition(target.type)?.canHide) {
+    if (!target || (getWidgetDefinition(target.type)?.canHide ?? true) === false) {
       return;
     }
 
@@ -555,7 +559,7 @@ export default function DashboardPageClient() {
   }
 
   function duplicateWidget(widget: DashboardWidget) {
-    if (!getWidgetDefinition(widget.type)?.canDuplicate) {
+    if ((getWidgetDefinition(widget.type)?.canDuplicate ?? true) === false) {
       return;
     }
 
@@ -600,7 +604,7 @@ export default function DashboardPageClient() {
   function deleteWidget(widgetId: string) {
     const target = widgetsRef.current.find((widget) => widget.id === widgetId);
 
-    if (!target || !getWidgetDefinition(target.type)?.canDelete) {
+    if (!target || (getWidgetDefinition(target.type)?.canDelete ?? true) === false) {
       return;
     }
 
@@ -626,8 +630,9 @@ export default function DashboardPageClient() {
 
   function addWidget(widgetType: DashboardWidget["type"]) {
     const definition = getWidgetDefinition(widgetType);
+    const catalogWidget = definition ? null : getCatalogWidget(widgetType);
 
-    if (!definition) {
+    if (!definition && !catalogWidget) {
       return;
     }
 
@@ -652,14 +657,18 @@ export default function DashboardPageClient() {
       updatedAt: new Date().toISOString(),
     }));
 
+    // Catalog widgets have no natural row grouping (unlike built-in widgets,
+    // which declare a `defaultRow`), so each one starts in its own new row.
+    const defaultRow = definition?.defaultRow ?? `row-${newWidgetId}`;
+
     setGridLayout((current) => {
       const nextRows = cloneRows(current.rows.length > 0 ? current.rows : createFallbackGrid(nextWidgets).rows);
-      const targetRowIndex = nextRows.findIndex((row) => row.id === definition.defaultRow);
+      const targetRowIndex = nextRows.findIndex((row) => row.id === defaultRow);
 
       if (targetRowIndex >= 0) {
         nextRows[targetRowIndex] = { ...nextRows[targetRowIndex], widgetIds: [...nextRows[targetRowIndex].widgetIds, newWidgetId] };
       } else {
-        nextRows.push({ id: definition.defaultRow, widgetIds: [newWidgetId] });
+        nextRows.push({ id: defaultRow, widgetIds: [newWidgetId] });
       }
 
       return {
@@ -668,16 +677,6 @@ export default function DashboardPageClient() {
         updatedAt: new Date().toISOString(),
       };
     });
-  }
-
-  function restoreWidget(widgetId: string) {
-    const target = widgetsRef.current.find((widget) => widget.id === widgetId);
-
-    if (!target) {
-      return;
-    }
-
-    updateWidgets((widgets) => widgets.map((widget) => (widget.id === widgetId ? { ...widget, visible: true } : widget)));
   }
 
   function resetAllLayout() {
@@ -690,7 +689,7 @@ export default function DashboardPageClient() {
     setLayout(createDefaultDashboardLayout());
     setGridLayout(createDefaultDashboardGridLayout());
     clearDragState();
-    setIsLibraryOpen(false);
+    setIsCatalogOpen(false);
   }
 
   function renderDashboardWidget(widget: DashboardWidget, rowId: string) {
@@ -733,10 +732,10 @@ export default function DashboardPageClient() {
           {isEditing ? (
             <button
               type="button"
-              onClick={() => setIsLibraryOpen(true)}
+              onClick={() => setIsCatalogOpen(true)}
               className="rounded-xl border border-cyan-400/40 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/20"
             >
-              Widget Library
+              Add Widget
             </button>
           ) : null}
           <button
@@ -800,18 +799,15 @@ export default function DashboardPageClient() {
       </DndContext>
 
       {settingsWidget ? <WidgetSettingsModal widget={settingsWidget} categories={categories} onClose={() => setSettingsWidget(null)} onSave={saveWidget} /> : null}
-      {isLibraryOpen ? (
-        <WidgetLibraryModal
-          widgets={normalizedWidgets}
-          onClose={() => setIsLibraryOpen(false)}
-          onAddWidget={addWidget}
-          onHideWidget={toggleWidgetVisibility}
-          onRestoreWidget={restoreWidget}
-          onDeleteWidget={deleteWidget}
-          onEditWidget={(widget) => {
-            setSettingsWidget(widget);
-            setIsLibraryOpen(false);
+      {isCatalogOpen ? (
+        <WidgetCatalogModal
+          widgets={dashboardCatalogWidgets}
+          alreadyAddedIds={new Set(normalizedWidgets.map((widget) => widget.type))}
+          onAdd={(widget) => {
+            addWidget(widget.id);
+            setIsCatalogOpen(false);
           }}
+          onClose={() => setIsCatalogOpen(false)}
         />
       ) : null}
     </div>

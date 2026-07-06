@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import Card from "./Card";
 import AttributeActivityCard from "./AttributeActivityCard";
 import CustomizablePage from "./page-edit/CustomizablePage";
-import { getPageWidgetSections } from "./page-edit/page-widget-registry";
+import { getCatalogWidgetsForPage } from "../_lib/widgets/catalog-registry";
 import PageHeader from "./PageHeader";
 import Progress from "./Progress";
 import { getAttributePortfolio } from "../_lib/attribute-portfolio";
@@ -72,7 +72,7 @@ export default function AttributePage({ attributeId }: Readonly<{ attributeId: s
   const accentClass = attribute ? toAccentTextClass(attribute.accent) : "text-purple-300";
 
   const portfolio = useMemo(() => getAttributePortfolio(goalTree, questDefinitions, attributeId), [goalTree, questDefinitions, attributeId]);
-  const availableWidgets = useMemo(() => getPageWidgetSections(attributeId), [attributeId]);
+  const availableWidgets = useMemo(() => getCatalogWidgetsForPage(attributeId), [attributeId]);
   const categoryProgress = progression ?? null;
 
   const sections = useMemo<EditablePageSection[]>(

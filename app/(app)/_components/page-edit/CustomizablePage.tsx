@@ -4,9 +4,11 @@ import { useMemo, useRef, useState } from "react";
 import { STORAGE_KEYS } from "../../_lib/storage-keys";
 import { useLocalStorageState } from "../../_lib/hooks/use-local-storage-state";
 import { duplicateItemAfter, normalizeOrder, orderByPosition, removeItemById, toggleItemVisibility } from "../../_lib/widgets/layout-list";
-import PageWidgetLibraryModal from "./PageWidgetLibraryModal";
+import WidgetCatalogModal from "../widgets/WidgetCatalogModal";
+import WidgetRenderer from "../widgets/WidgetRenderer";
 import PageSectionSettingsModal from "./PageSectionSettingsModal";
 import SortablePageSection from "./SortablePageSection";
+import type { CatalogWidgetDefinition } from "../../_lib/widgets/catalog-types";
 import type { EditablePageSection, PageSectionLayout, PageSectionLayoutItem } from "./types";
 
 type CustomizablePageProps = Readonly<{
@@ -14,8 +16,19 @@ type CustomizablePageProps = Readonly<{
   title: string;
   subtitle?: string;
   sections: EditablePageSection[];
-  availableWidgets?: EditablePageSection[];
+  availableWidgets?: CatalogWidgetDefinition[];
 }>;
+
+function catalogWidgetToSection(widget: CatalogWidgetDefinition): EditablePageSection {
+  return {
+    id: widget.id,
+    title: widget.title,
+    description: widget.description,
+    size: widget.defaultSize,
+    readOnly: true,
+    content: <WidgetRenderer widget={widget} mode="live" />,
+  };
+}
 
 function createDefaultLayout(pageId: string, sections: EditablePageSection[]): PageSectionLayout {
   return {
@@ -73,11 +86,12 @@ function reorderById(sections: PageSectionLayoutItem[], activeId: string, overId
 }
 
 export default function CustomizablePage({ pageId, title, subtitle, sections, availableWidgets = [] }: CustomizablePageProps) {
+  const catalogSections = useMemo(() => availableWidgets.map(catalogWidgetToSection), [availableWidgets]);
   const allSections = useMemo(() => {
     const sectionMap = new Map<string, EditablePageSection>();
-    [...sections, ...availableWidgets].forEach((section) => sectionMap.set(section.id, section));
+    [...sections, ...catalogSections].forEach((section) => sectionMap.set(section.id, section));
     return Array.from(sectionMap.values());
-  }, [availableWidgets, sections]);
+  }, [catalogSections, sections]);
   const fallbackLayout = useMemo(() => createDefaultLayout(pageId, sections), [pageId, sections]);
   const storageKey = STORAGE_KEYS.pageWidgetLayoutPrefix + ":" + pageId;
   const [layout, setLayout, , resetLayout] = useLocalStorageState<PageSectionLayout>(storageKey, fallbackLayout);
@@ -103,10 +117,7 @@ export default function CustomizablePage({ pageId, title, subtitle, sections, av
     return isEditing ? ordered : ordered.filter((section) => section.visible);
   }, [isEditing, reconciledSections]);
 
-  const availableSections = useMemo(() => {
-    const activeBaseIds = new Set(reconciledSections.map((section) => section.baseId));
-    return allSections.filter((section) => !activeBaseIds.has(section.id));
-  }, [allSections, reconciledSections]);
+  const activeBaseIds = useMemo(() => new Set(reconciledSections.map((section) => section.baseId)), [reconciledSections]);
 
   function updateSections(updater: (sections: PageSectionLayoutItem[]) => PageSectionLayoutItem[]) {
     setLayout((current) => ({
@@ -244,7 +255,14 @@ export default function CustomizablePage({ pageId, title, subtitle, sections, av
       {settingsSection ? (
         <PageSectionSettingsModal item={settingsSection} onClose={() => setSettingsSection(null)} onSave={saveSection} />
       ) : null}
-      {libraryOpen ? <PageWidgetLibraryModal widgets={availableSections} onAdd={addSection} onClose={() => setLibraryOpen(false)} /> : null}
+      {libraryOpen ? (
+        <WidgetCatalogModal
+          widgets={availableWidgets}
+          alreadyAddedIds={activeBaseIds}
+          onAdd={(widget) => addSection(catalogWidgetToSection(widget))}
+          onClose={() => setLibraryOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }

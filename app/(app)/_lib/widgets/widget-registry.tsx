@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { getCatalogWidget } from "./catalog-registry";
 import AchievementCard from "../../_components/AchievementCard";
 import Card from "../../_components/Card";
 import CategoryCard from "../../_components/CategoryCard";
@@ -1171,11 +1172,26 @@ export function normalizeWidget(widget: DashboardWidget): DashboardWidget {
 export function createWidgetFromType(type: DashboardWidgetType, overrides?: Readonly<Partial<DashboardWidget>>) {
   const definition = getWidgetDefinition(type);
 
-  if (!definition) {
+  if (definition) {
+    return createWidgetInstance(definition, overrides);
+  }
+
+  const catalogWidget = getCatalogWidget(type);
+
+  if (!catalogWidget) {
     return null;
   }
 
-  return createWidgetInstance(definition, overrides);
+  return {
+    id: overrides?.id ?? catalogWidget.id,
+    type: catalogWidget.id,
+    title: overrides?.title ?? catalogWidget.title,
+    visible: overrides?.visible ?? true,
+    order: overrides?.order ?? 0,
+    size: overrides?.size ?? catalogWidget.defaultSize,
+    settings: cloneWidgetSettings(overrides?.settings ?? createDefaultWidgetSettings()),
+    config: overrides?.config,
+  };
 }
 
 export function getDefaultDashboardWidgetInstances() {

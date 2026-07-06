@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Card from "../Card";
 import CustomizablePage from "../page-edit/CustomizablePage";
-import { getPageWidgetSections } from "../page-edit/page-widget-registry";
+import { getCatalogWidgetsForPage } from "../../_lib/widgets/catalog-registry";
 import { QuestStatsCard, StatNumberCard } from "../page-edit/StatWidgets";
 import { isQuestScheduledForDate } from "../../_lib/daily-system";
 import { useProgression } from "../../_lib/hooks/useProgression";
@@ -22,7 +22,7 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
   const [form, setForm] = useState<QuestFormModel | null>(null);
   const [importanceFilter, setImportanceFilter] = useState<QuestImportanceFilter>("all");
   const { isReady, questDefinitions: quests, setQuestDefinitions, questCompletions, activityEvents, progressionSummary } = useProgression();
-  const availableWidgets = useMemo(() => getPageWidgetSections("quests"), []);
+  const availableWidgets = useMemo(() => getCatalogWidgetsForPage("quests"), []);
   const {
     pendingQuest,
     pendingGoal,

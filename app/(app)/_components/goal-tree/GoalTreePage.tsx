@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Card from "../Card";
 import CustomizablePage from "../page-edit/CustomizablePage";
-import { getPageWidgetSections } from "../page-edit/page-widget-registry";
+import { getCatalogWidgetsForPage } from "../../_lib/widgets/catalog-registry";
 import { GoalTreeStatsCard, StatNumberCard } from "../page-edit/StatWidgets";
 import { buildDefaultAttributeWeights } from "../../_lib/goal-tree-attributes";
 import { calculateGoalTree, summarizeGoalTree } from "../../_lib/goal-tree-progress";
@@ -180,7 +180,7 @@ function TipBanner() {
 export default function GoalTreePage() {
   const { goalTree, hasLoaded, createRootNode, createChildNode, saveNode, deleteNode, completeSequentialStep, undoSequentialStep } = useGoalTree();
   const { questDefinitions, setQuestDefinitions, activityEvents } = useProgression();
-  const availableWidgets = useMemo(() => getPageWidgetSections("goal-tree"), []);
+  const availableWidgets = useMemo(() => getCatalogWidgetsForPage("goal-tree"), []);
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(() => new Set());
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [pendingChildParentId, setPendingChildParentId] = useState<string | null>(null);

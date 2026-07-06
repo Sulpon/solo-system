@@ -151,7 +151,7 @@ function createSeries(completions: ReadonlyArray<QuestCompletion>, goalXpEvents:
   return buckets.map((bucket) => bucket.value);
 }
 
-function renderLine(points: number[], type: "line" | "area") {
+function renderLine(points: ReadonlyArray<number>, type: "line" | "area") {
   const maxValue = Math.max(...points, 1);
   const normalizedPoints = points.map((value, index) => {
     const x = points.length === 1 ? 50 : (index / (points.length - 1)) * 100;
@@ -168,13 +168,24 @@ function renderLine(points: number[], type: "line" | "area") {
   );
 }
 
-export default function ChartWidget({ title, config }: Readonly<{ title: string; config: ChartWidgetConfig }>) {
+type ChartWidgetProps = Readonly<{
+  title: string;
+  config: ChartWidgetConfig;
+  // When provided, renders this fixed series instead of deriving one from
+  // live progression data - used for Widget Catalog previews so they never
+  // show the current user's real numbers.
+  previewSeries?: ReadonlyArray<number>;
+}>;
+
+export default function ChartWidget({ title, config, previewSeries }: ChartWidgetProps) {
   const { questDefinitions, questCompletions, goalXpEvents } = useProgression();
 
-  const series = useMemo(
+  const liveSeries = useMemo(
     () => createSeries(questCompletions, goalXpEvents, questDefinitions, config),
     [config, goalXpEvents, questCompletions, questDefinitions],
   );
+
+  const series = previewSeries ?? liveSeries;
 
   const maxValue = Math.max(...series, 1);
 
