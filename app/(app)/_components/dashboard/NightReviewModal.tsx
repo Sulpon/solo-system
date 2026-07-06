@@ -1,7 +1,7 @@
 "use client";
 
 import Modal from "../Modal";
-import { categories } from "../../_lib/mock";
+import { useAttributes } from "../../_lib/hooks/useAttributes";
 import type { DailySnapshot } from "../../_lib/types/daily-system";
 
 type NightReviewModalProps = Readonly<{
@@ -11,11 +11,13 @@ type NightReviewModalProps = Readonly<{
   onFinish: () => void;
 }>;
 
-function getAttributeName(id: string) {
-  return categories.find((category) => category.id === id)?.name ?? id;
-}
-
 export default function NightReviewModal({ snapshot, alreadyReviewed, onClose, onFinish }: NightReviewModalProps) {
+  const { attributes: categories } = useAttributes();
+
+  function getAttributeName(id: string) {
+    return categories.find((category) => category.id === id)?.name ?? id;
+  }
+
   return (
     <Modal title="Mission Review" onClose={onClose}>
       <div className="space-y-5">

@@ -45,6 +45,47 @@ export function buildDefaultAttributeWeights(attributeIds: ReadonlyArray<Categor
   });
 }
 
+export function redistributeAttributeWeights(
+  attributeIds: ReadonlyArray<CategoryId>,
+  focusId?: CategoryId,
+  focusWeight?: number,
+): AttributeWeight[] {
+  if (attributeIds.length === 0) {
+    return [];
+  }
+
+  if (attributeIds.length === 1) {
+    return [{ attributeId: attributeIds[0], weight: 100 }];
+  }
+
+  if (focusId) {
+    const safeFocusWeight = Math.max(0, Math.min(100, Math.floor(Number(focusWeight) || 0)));
+    const remaining = 100 - safeFocusWeight;
+    const others = attributeIds.filter((id) => id !== focusId);
+    const base = Math.floor(remaining / others.length);
+    let remainder = remaining % others.length;
+
+    return attributeIds.map((attributeId) => {
+      if (attributeId === focusId) {
+        return { attributeId, weight: safeFocusWeight };
+      }
+
+      const bonus = remainder > 0 ? 1 : 0;
+      remainder -= bonus;
+      return { attributeId, weight: base + bonus };
+    });
+  }
+
+  const base = Math.floor(100 / attributeIds.length);
+  let remainder = 100 % attributeIds.length;
+
+  return attributeIds.map((attributeId) => {
+    const bonus = remainder > 0 ? 1 : 0;
+    remainder -= bonus;
+    return { attributeId, weight: base + bonus };
+  });
+}
+
 export function normalizeAttributeWeights(weights: ReadonlyArray<AttributeWeight>, attributeIds: ReadonlyArray<CategoryId>) {
   if (attributeIds.length === 0) {
     return [];

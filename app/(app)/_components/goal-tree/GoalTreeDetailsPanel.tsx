@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Card from "../Card";
 import Progress from "../Progress";
-import { categories } from "../../_lib/mock";
+import { useAttributes } from "../../_lib/hooks/useAttributes";
 import GoalTypeBadge from "./GoalTypeBadge";
 import type { GoalNodeView } from "../../_lib/goal-tree-progress";
 import type { AttributeWeight } from "../../_lib/types/goal-tree";
@@ -176,6 +176,7 @@ export default function GoalTreeDetailsPanel({
   onDeleteQuest,
   inheritedAttributeWeights,
 }: GoalTreeDetailsPanelProps) {
+  const { attributes: categories } = useAttributes();
   const [activeTab, setActiveTab] = useState<DetailTab>("children");
 
   if (!node) {

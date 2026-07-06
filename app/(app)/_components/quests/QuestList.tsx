@@ -1,6 +1,6 @@
 "use client";
 
-import { categories } from "../../_lib/mock";
+import { useAttributes } from "../../_lib/hooks/useAttributes";
 import { isQuestScheduledForDate } from "../../_lib/daily-system";
 import type { Quest, QuestCadence, QuestStatus } from "../../_lib/types/quest";
 
@@ -11,10 +11,6 @@ type QuestListProps = Readonly<{
   onDelete: (questId: string) => void;
   onComplete: (quest: Quest) => void;
 }>;
-
-function getCategoryName(id: Quest["categoryId"]) {
-  return categories.find((category) => category.id === id)?.name ?? id;
-}
 
 function formatCadence(cadence: QuestCadence) {
   return cadence.replace("-", " ");
@@ -33,6 +29,12 @@ function formatSchedule(quest: Quest) {
 }
 
 export default function QuestList({ quests, onEdit, onToggleStatus, onDelete, onComplete }: QuestListProps) {
+  const { attributes: categories } = useAttributes();
+
+  function getCategoryName(id: Quest["categoryId"]) {
+    return categories.find((category) => category.id === id)?.name ?? id;
+  }
+
   return (
     <div className="mt-5 space-y-3">
       {quests.map((quest) => (

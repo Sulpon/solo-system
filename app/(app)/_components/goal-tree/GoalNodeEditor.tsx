@@ -1,7 +1,8 @@
 "use client";
 
 import Modal from "../Modal";
-import { categories } from "../../_lib/mock";
+import { redistributeAttributeWeights } from "../../_lib/goal-tree-attributes";
+import { useAttributes } from "../../_lib/hooks/useAttributes";
 import type { CategoryId } from "../../_lib/types/category";
 import type { AttributeWeight, GoalNodeStatus, GoalNodeType, SequentialMilestoneStep } from "../../_lib/types/goal-tree";
 
@@ -50,45 +51,13 @@ const statusOptions: Array<{ value: GoalNodeStatus; label: string }> = [
 ];
 
 export default function GoalNodeEditor({ mode, form, parentTitle, onChange, onClose, onSave }: GoalNodeEditorProps) {
+  const { attributes: categories } = useAttributes();
   const isDream = form.type === "dream";
   const isProgressGoal = form.type === "progress_goal";
   const isSequential = form.type === "sequential_milestone";
 
   function rebuildWeights(attributeIds: ReadonlyArray<CategoryId>, focusId?: CategoryId, focusWeight?: number) {
-    if (attributeIds.length === 0) {
-      return [];
-    }
-
-    if (attributeIds.length === 1) {
-      return [{ attributeId: attributeIds[0], weight: 100 }];
-    }
-
-    if (focusId) {
-      const safeFocusWeight = Math.max(0, Math.min(100, Math.floor(Number(focusWeight) || 0)));
-      const remaining = 100 - safeFocusWeight;
-      const others = attributeIds.filter((id) => id !== focusId);
-      const base = Math.floor(remaining / others.length);
-      let remainder = remaining % others.length;
-
-      return attributeIds.map((attributeId) => {
-        if (attributeId === focusId) {
-          return { attributeId, weight: safeFocusWeight };
-        }
-
-        const bonus = remainder > 0 ? 1 : 0;
-        remainder -= bonus;
-        return { attributeId, weight: base + bonus };
-      });
-    }
-
-    const base = Math.floor(100 / attributeIds.length);
-    let remainder = 100 % attributeIds.length;
-
-    return attributeIds.map((attributeId) => {
-      const bonus = remainder > 0 ? 1 : 0;
-      remainder -= bonus;
-      return { attributeId, weight: base + bonus };
-    });
+    return redistributeAttributeWeights(attributeIds, focusId, focusWeight);
   }
 
   function getSequenceState(steps: SequentialMilestoneStep[]) {

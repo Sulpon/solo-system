@@ -4,8 +4,8 @@ import { useEffect, useMemo } from "react";
 import Modal from "../Modal";
 import { calculateQuestAttributeXP, buildDefaultAttributeWeights } from "../../_lib/goal-tree-attributes";
 import { getInheritedAttributeWeights, getInheritedAttributes } from "../../_lib/goal-tree-storage";
+import { useAttributes } from "../../_lib/hooks/useAttributes";
 import { useGoalTree } from "../../_lib/hooks/useGoalTree";
-import { categories } from "../../_lib/mock";
 import type { CategoryId } from "../../_lib/types/category";
 import type { AttributeWeight } from "../../_lib/types/goal-tree";
 import type { QuestAttributeReward, QuestCadence, QuestImportance } from "../../_lib/types/quest";
@@ -86,6 +86,7 @@ function redistributeManualRewards(rewards: ReadonlyArray<QuestAttributeReward>,
 }
 
 export default function QuestForm({ form, isEditing, onChange, onCancel, onSave }: QuestFormProps) {
+  const { attributes: categories } = useAttributes();
   const { goalTree, progressGoals } = useGoalTree();
   const linkedGoalOptions = useMemo(() => [...progressGoals].sort((first, second) => first.title.localeCompare(second.title)), [progressGoals]);
   const inheritedAttributeIds = useMemo(

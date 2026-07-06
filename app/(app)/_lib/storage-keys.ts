@@ -10,6 +10,9 @@ export const STORAGE_KEYS = {
   appearance: "menace-appearance-settings",
   pageLayoutPrefix: "menace-page-layout",
   pageWidgetLayoutPrefix: "menace-page-widgets",
+  attributes: "menace-attributes",
+  onboardingCompleted: "menace-onboarding-completed",
+  onboardingMigrated: "menace-onboarding-migrated",
 } as const;
 
 export const MENACE_STORAGE_EVENT = "menace-local-storage-change";

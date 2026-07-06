@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useProgression } from "../_lib/hooks/useProgression";
+import AuthControl from "./AuthControl";
 
 function formatTime(date: Date) {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -32,6 +33,7 @@ export default function TopBar() {
         <span className="rounded-full border border-slate-800 bg-slate-950/50 px-3 py-1">System Online</span>
         <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-cyan-200">+{todayXp} XP Today</span>
         <span className="text-cyan-300">{currentTime}</span>
+        <AuthControl />
       </div>
     </div>
   );

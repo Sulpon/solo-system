@@ -1,9 +1,9 @@
 "use client";
 
 import { createContext, useCallback, useEffect, useMemo, useRef } from "react";
+import { useAttributes } from "./hooks/useAttributes";
 import { useGoalTree } from "./hooks/useGoalTree";
 import { useLocalStorageState } from "./hooks/use-local-storage-state";
-import { categories } from "./mock/categories";
 import { STORAGE_KEYS } from "./storage-keys";
 import { addActivityEvents, createQuestActivityEvents, removeActivityEventsByCompletionId } from "./activity-events";
 import { isQuestScheduledForDate } from "./daily-system";
@@ -39,6 +39,7 @@ export const ProgressionContext = createContext<ProgressionStoreValue | null>(nu
 
 export function ProgressionProvider({ children }: Readonly<{ children: React.ReactNode }>) {
   const { goalXpEvents } = useGoalTree();
+  const { attributes: categories } = useAttributes();
   const [questDefinitions, setQuestDefinitions, hasQuestDefinitionsLoaded] = useLocalStorageState<Quest[]>(STORAGE_KEYS.questList, []);
   const [questCompletions, setQuestCompletions, hasQuestCompletionsLoaded] = useLocalStorageState<QuestCompletion[]>(STORAGE_KEYS.questCompletions, []);
   const [activityEvents, setActivityEvents, hasActivityEventsLoaded] = useLocalStorageState<ActivityEvent[]>(STORAGE_KEYS.activityEvents, []);
@@ -56,7 +57,7 @@ export function ProgressionProvider({ children }: Readonly<{ children: React.Rea
 
   const progressionSummary = useMemo(
     () => getProgressionSummary(categories, questDefinitions, questCompletions, goalXpEvents),
-    [goalXpEvents, questDefinitions, questCompletions],
+    [categories, goalXpEvents, questDefinitions, questCompletions],
   );
 
   const appendActivityEvents = useCallback(

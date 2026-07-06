@@ -4,7 +4,7 @@ import type { QuestFormModel } from "./QuestForm";
 export const emptyQuestForm: QuestFormModel = {
   title: "",
   description: "",
-  categoryId: "discipline",
+  categoryId: "",
   xp: 25,
   cadence: "daily",
   importance: "core",

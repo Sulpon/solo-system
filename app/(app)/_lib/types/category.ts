@@ -1,9 +1,4 @@
-export type CategoryId =
-  | "discipline"
-  | "career"
-  | "trading"
-  | "physical-health"
-  | "self-development";
+export type CategoryId = string;
 
 export type AttributeId = CategoryId;
 
@@ -12,5 +7,5 @@ export type Category = Readonly<{
   name: string;
   icon: string;
   accent: string;
-  description: string;
+  description?: string;
 }>;

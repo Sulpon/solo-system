@@ -16,7 +16,7 @@ import {
   type DragStartEvent,
   type Over,
 } from "@dnd-kit/core";
-import { categories } from "../../_lib/mock/categories";
+import { useAttributes } from "../../_lib/hooks/useAttributes";
 import { useLocalStorageState } from "../../_lib/hooks/use-local-storage-state";
 import { useProgression } from "../../_lib/hooks/useProgression";
 import { STORAGE_KEYS } from "../../_lib/storage-keys";
@@ -355,6 +355,13 @@ export default function DashboardPageClient() {
   const [layout, setLayout, , resetLayout] = useLocalStorageState<DashboardLayout>(STORAGE_KEYS.dashboardLayout, createDefaultDashboardLayout());
   const [gridLayout, setGridLayout, , resetGridLayout] = useLocalStorageState<DashboardGridLayout>(STORAGE_KEYS.dashboardGridLayout, createDefaultDashboardGridLayout());
   const { questDefinitions } = useProgression();
+  const { attributes: categories } = useAttributes();
+  const [isEntranceActive, setIsEntranceActive] = useState(true);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setIsEntranceActive(false), 1200);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const savedGridRef = useRef<DashboardGridLayout>(gridLayout);
   const widgetsRef = useRef<DashboardWidget[]>(layout.widgets);
@@ -757,7 +764,7 @@ export default function DashboardPageClient() {
         onDragCancel={handleDragCancel}
       >
         <div className="space-y-6">
-          {visibleGridLayout.rows.map((row) => {
+          {visibleGridLayout.rows.map((row, rowIndex) => {
             const rowWidgets = row.widgetIds
               .map((widgetId) => widgetsById.get(widgetId))
               .filter((widget): widget is DashboardWidget => Boolean(widget))
@@ -770,8 +777,13 @@ export default function DashboardPageClient() {
             return (
               <RowDropZone key={row.id} row={row} active={currentDropIntent?.type === "row" && currentDropIntent.rowId === row.id}>
                 <div
-                  className="dashboard-row grid min-w-0 grid-cols-1 gap-6 md:[grid-template-columns:var(--dashboard-row-columns)]"
-                  style={{ "--dashboard-row-columns": `repeat(${rowWidgets.length}, minmax(0, 1fr))` } as CSSProperties}
+                  className={"dashboard-row grid min-w-0 grid-cols-1 gap-6 md:[grid-template-columns:var(--dashboard-row-columns)] " + (isEntranceActive ? "dashboard-row-enter" : "")}
+                  style={
+                    {
+                      "--dashboard-row-columns": `repeat(${rowWidgets.length}, minmax(0, 1fr))`,
+                      ...(isEntranceActive ? { animationDelay: `${Math.min(rowIndex, 5) * 90}ms` } : {}),
+                    } as CSSProperties
+                  }
                 >
                   {rowWidgets.map((widget) => renderDashboardWidget(widget, row.id))}
                 </div>
