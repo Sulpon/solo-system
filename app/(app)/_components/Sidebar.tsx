@@ -1,9 +1,18 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { navItems } from "../_lib/mock-data";
+import { useAttributes } from "../_lib/hooks/useAttributes";
 import { useProgression } from "../_lib/hooks/useProgression";
+
+const leadingNavItems = [
+  { name: "Dashboard", href: "/" },
+  { name: "Quests", href: "/quests" },
+  { name: "Goal Tree", href: "/goals" },
+];
+
+const trailingNavItems = [{ name: "Settings", href: "/settings" }];
 
 function getRankLabel(level: number) {
   if (level >= 30) {
@@ -28,10 +37,20 @@ function getRankLabel(level: number) {
 export default function Sidebar() {
   const pathname = usePathname();
   const { isReady, progressionSummary } = useProgression();
+  const { attributes } = useAttributes();
   const currentLevel = isReady ? progressionSummary.currentLevel : 1;
   const currentRank = getRankLabel(currentLevel);
   const currentProgress = isReady ? progressionSummary.progress : 0;
   const currentXP = isReady ? progressionSummary.totalXP : 0;
+
+  const navItems = useMemo(() => {
+    const attributeNavItems = attributes.map((attribute) => ({
+      name: attribute.name,
+      href: `/attributes/${attribute.id}`,
+    }));
+
+    return [...leadingNavItems, ...attributeNavItems, ...trailingNavItems];
+  }, [attributes]);
 
   return (
     <aside className="sticky top-0 flex h-screen w-[260px] shrink-0 basis-[260px] flex-col border-r border-purple-500/20 bg-slate-950/70 p-5 shadow-[18px_0_45px_rgba(2,6,23,0.55)] backdrop-blur-xl">
@@ -47,7 +66,7 @@ export default function Sidebar() {
 
       <nav className="flex flex-col space-y-2">
         {navItems.map((item) => {
-          const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+          const isActive = item.href === "/" ? pathname === "/" : pathname === item.href || pathname.startsWith(item.href + "/");
 
           return (
             <Link
