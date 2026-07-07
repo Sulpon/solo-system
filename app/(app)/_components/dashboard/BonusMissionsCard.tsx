@@ -1,6 +1,7 @@
 "use client";
 
 import Card from "../Card";
+import FocusButton from "../focus/FocusButton";
 import type { Quest } from "../../_lib/types/quest";
 
 type BonusMissionsCardProps = Readonly<{
@@ -35,10 +36,8 @@ export default function BonusMissionsCard({ quests, unlocked, completedQuestIds,
             const completed = completedQuestIds.has(quest.id);
 
             return (
-              <button
+              <div
                 key={quest.id}
-                type="button"
-                onClick={() => onToggleQuest(quest, completed)}
                 className={
                   "flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition " +
                   (completed
@@ -46,12 +45,17 @@ export default function BonusMissionsCard({ quests, unlocked, completedQuestIds,
                     : "border-slate-800 bg-slate-950/45 text-slate-300 hover:border-amber-400/35 hover:text-white")
                 }
               >
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-semibold">{quest.title}</span>
-                  {quest.description ? <span className="mt-1 block truncate text-xs text-slate-500">{quest.description}</span> : null}
+                <button type="button" onClick={() => onToggleQuest(quest, completed)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold">{quest.title}</span>
+                    {quest.description ? <span className="mt-1 block truncate text-xs text-slate-500">{quest.description}</span> : null}
+                  </span>
+                </button>
+                <span className="flex shrink-0 items-center gap-3">
+                  {!completed ? <FocusButton quest={{ id: quest.id, title: quest.title, linkedProgressGoalId: quest.linkedProgressGoalId }} compact /> : null}
+                  <span className="text-sm font-semibold text-amber-200">+{quest.xp} XP</span>
                 </span>
-                <span className="shrink-0 text-sm font-semibold text-amber-200">+{quest.xp} XP</span>
-              </button>
+              </div>
             );
           })}
         </div>

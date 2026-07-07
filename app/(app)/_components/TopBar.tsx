@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useProgression } from "../_lib/hooks/useProgression";
 import AuthControl from "./AuthControl";
+import FocusMiniTimer from "./focus/FocusMiniTimer";
 
 function formatTime(date: Date) {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -43,7 +44,8 @@ export default function TopBar({ onOpenMenu }: TopBarProps) {
           <p className="mt-1 font-semibold text-purple-300">Atlas</p>
         </div>
       </div>
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
+        <FocusMiniTimer />
         <span className="hidden items-center gap-4 md:flex">
           <span className="rounded-full border border-slate-800 bg-slate-950/50 px-3 py-1">System Online</span>
           <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-cyan-200">+{todayXp} XP Today</span>

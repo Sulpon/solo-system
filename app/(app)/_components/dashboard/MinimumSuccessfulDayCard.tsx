@@ -1,8 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import Card from "../Card";
 import Progress from "../Progress";
 import DailyProgressRing from "./DailyProgressRing";
+import FocusButton from "../focus/FocusButton";
+import StartFocusModal from "../focus/StartFocusModal";
+import { useFocus } from "../../_lib/focus-store";
+import type { FocusMode } from "../../_lib/types/focus";
 import type { Quest } from "../../_lib/types/quest";
 
 type MinimumSuccessfulDayCardProps = Readonly<{
@@ -13,8 +18,18 @@ type MinimumSuccessfulDayCardProps = Readonly<{
 }>;
 
 export default function MinimumSuccessfulDayCard({ quests, completedQuestIds, successPercent, onToggleQuest }: MinimumSuccessfulDayCardProps) {
+  const { activeSession, startSession, expand } = useFocus();
+  const [pickerOpen, setPickerOpen] = useState(false);
   const completedCount = quests.filter((quest) => completedQuestIds.has(quest.id)).length;
   const dayWon = quests.length > 0 && completedCount === quests.length;
+
+  // Unlinked on purpose: each quest already has its own "Focus" button to
+  // start a session tied to that quest. This CTA is for "I just want to
+  // focus" without committing to a specific quest first.
+  function handleStart(mode: FocusMode, durationMinutes: number) {
+    startSession({ mode, durationSeconds: Math.round(durationMinutes * 60) });
+    setPickerOpen(false);
+  }
 
   return (
     <Card className="p-5">
@@ -25,9 +40,20 @@ export default function MinimumSuccessfulDayCard({ quests, completedQuestIds, su
           <p className="mt-2 text-sm text-slate-400">
             {dayWon ? "Day won. Optional tasks unlocked." : quests.length === 0 ? "Create a core daily quest to define what makes today count." : "Minimum not complete yet. Keep the target small and meaningful."}
           </p>
+          {quests.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => (activeSession ? expand() : setPickerOpen(true))}
+              className="mt-4 rounded-xl border border-cyan-400/40 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/20"
+            >
+              {activeSession ? "Resume Focus" : "Start Focus"}
+            </button>
+          ) : null}
         </div>
         <DailyProgressRing value={successPercent} />
       </div>
+
+      {pickerOpen ? <StartFocusModal onStart={handleStart} onClose={() => setPickerOpen(false)} /> : null}
 
       <div className="mt-5">
         <Progress
@@ -44,10 +70,8 @@ export default function MinimumSuccessfulDayCard({ quests, completedQuestIds, su
             const completed = completedQuestIds.has(quest.id);
 
             return (
-              <button
+              <div
                 key={quest.id}
-                type="button"
-                onClick={() => onToggleQuest(quest, completed)}
                 className={
                   "flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition " +
                   (completed
@@ -55,15 +79,18 @@ export default function MinimumSuccessfulDayCard({ quests, completedQuestIds, su
                     : "border-slate-800 bg-slate-950/45 text-slate-300 hover:border-cyan-400/35 hover:text-white")
                 }
               >
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-semibold">{quest.title}</span>
-                  {quest.description ? <span className="mt-1 block truncate text-xs text-slate-500">{quest.description}</span> : null}
-                </span>
+                <button type="button" onClick={() => onToggleQuest(quest, completed)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold">{quest.title}</span>
+                    {quest.description ? <span className="mt-1 block truncate text-xs text-slate-500">{quest.description}</span> : null}
+                  </span>
+                </button>
                 <span className="flex shrink-0 items-center gap-3">
+                  {!completed ? <FocusButton quest={{ id: quest.id, title: quest.title, linkedProgressGoalId: quest.linkedProgressGoalId }} compact /> : null}
                   <span className="text-sm font-semibold text-purple-200">+{quest.xp} XP</span>
                   <span className={completed ? "text-cyan-200" : "text-slate-500"}>{completed ? "Done" : "Open"}</span>
                 </span>
-              </button>
+              </div>
             );
           })
         ) : (

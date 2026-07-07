@@ -1,4 +1,5 @@
 import type { DailyQuest } from "../_lib/types";
+import FocusButton from "./focus/FocusButton";
 
 type QuestCardProps = Readonly<{
   quest: DailyQuest;
@@ -16,9 +17,17 @@ export default function QuestCard({ quest, completed, onToggle }: QuestCardProps
           : "border-slate-700/80 bg-slate-950/45 hover:border-purple-500/40 hover:bg-slate-900/80")
       }
     >
-      <span>
-        <span className={"block text-sm font-semibold " + (completed ? "text-purple-100" : "text-white")}>{quest.title}</span>
-        <span className="mt-1 block text-xs leading-5 text-slate-500 group-hover:text-slate-400">{quest.description}</span>
+      <span className="flex items-start justify-between gap-2">
+        <span className="min-w-0">
+          <span className={"block text-sm font-semibold " + (completed ? "text-purple-100" : "text-white")}>{quest.title}</span>
+          <span className="mt-1 block text-xs leading-5 text-slate-500 group-hover:text-slate-400">{quest.description}</span>
+        </span>
+        {!completed ? (
+          // eslint-disable-next-line jsx-a11y/no-static-element-interactions
+          <span onClick={(event) => event.preventDefault()}>
+            <FocusButton quest={{ id: quest.id, title: quest.title, linkedProgressGoalId: quest.linkedProgressGoalId }} compact />
+          </span>
+        ) : null}
       </span>
       <span className="mt-5 flex items-center justify-between text-sm">
         <input type="checkbox" checked={completed} onChange={() => onToggle(quest.id)} className="accent-purple-500" />

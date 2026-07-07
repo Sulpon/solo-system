@@ -2,6 +2,7 @@
 
 import { useAttributes } from "../../_lib/hooks/useAttributes";
 import { isQuestScheduledForDate } from "../../_lib/daily-system";
+import FocusButton from "../focus/FocusButton";
 import type { Quest, QuestCadence, QuestStatus } from "../../_lib/types/quest";
 
 type QuestListProps = Readonly<{
@@ -84,6 +85,12 @@ export default function QuestList({ quests, completedTodayIds, onEdit, onToggleS
             ) : (
               <span className="rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-500">Not scheduled today</span>
             )}
+            {!completedTodayIds?.has(quest.id) ? (
+              <FocusButton
+                quest={{ id: quest.id, title: quest.title, linkedProgressGoalId: quest.linkedProgressGoalId }}
+                className="rounded-lg border border-purple-400/40 bg-purple-500/10 px-3 py-2 text-sm font-semibold text-purple-100 transition hover:border-purple-300 hover:bg-purple-500/20"
+              />
+            ) : null}
             <button type="button" onClick={() => onEdit(quest)} className="rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300 transition hover:border-purple-400/60 hover:text-white">
               Edit
             </button>

@@ -3,6 +3,7 @@
 import Card from "../../_components/Card";
 import Progress from "../../_components/Progress";
 import { useAttributes } from "../hooks/useAttributes";
+import { useFocusHistory } from "../hooks/useFocusHistory";
 import { useGoalTree } from "../hooks/useGoalTree";
 import { useProgression } from "../hooks/useProgression";
 import { getLocalDayKey } from "../local-day";
@@ -14,8 +15,9 @@ export function useWidgetLiveContext() {
   const { goalTree } = useGoalTree();
   const { questDefinitions, questCompletions, activityEvents, dailySnapshots, progressionSummary, goalXpEvents, isReady } = useProgression();
   const { attributes } = useAttributes();
+  const { history: focusHistory } = useFocusHistory();
 
-  return { goalTree, questDefinitions, questCompletions, activityEvents, dailySnapshots, progressionSummary, goalXpEvents, attributes, isReady };
+  return { goalTree, questDefinitions, questCompletions, activityEvents, dailySnapshots, progressionSummary, goalXpEvents, attributes, focusHistory, isReady };
 }
 
 export type WidgetLiveContext = ReturnType<typeof useWidgetLiveContext>;

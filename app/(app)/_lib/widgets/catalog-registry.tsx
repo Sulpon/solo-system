@@ -7,6 +7,23 @@ import { getEventsByType } from "../activity-events";
 import { getConsistencyScore } from "../daily-system";
 import { calculateGoalTree, summarizeGoalTree, type GoalNodeView } from "../goal-tree-progress";
 import { getLiveDreamProgress, getWeeklyXpSeries } from "../../_components/dashboard/dashboard-overview.utils";
+import { useFocus } from "../focus-store";
+import {
+  getAverageSessionMinutes,
+  getDailyFocusBuckets,
+  getDeepWorkMinutes,
+  getFocusStreakDays,
+  getLifetimeFocusMinutes,
+  getLongestSessionMinutes,
+  getMonthlyFocusMinutes,
+  getSessionsCompletedToday,
+  getTodayFocusMinutes,
+  getWeeklyFocusMinutes,
+  getWeeklyFocusSeries,
+} from "../focus-stats";
+import { FOCUS_MODE_LABELS } from "../types/focus";
+import FocusTimer from "../../_components/focus/FocusTimer";
+import { formatFocusMinutesLabel } from "../../_components/focus/focus-format";
 import {
   EmptyWidgetState,
   MiniActivityFeed,
@@ -59,7 +76,18 @@ function toMiniItem(node: GoalNodeView): MiniProgressItem {
 // lets useMemo below skip recomputing goal-tree/XP aggregation on renders
 // that don't touch this widget's data.
 function ctxDeps(ctx: WidgetLiveContext) {
-  return [ctx.goalTree, ctx.questDefinitions, ctx.questCompletions, ctx.activityEvents, ctx.dailySnapshots, ctx.progressionSummary, ctx.goalXpEvents, ctx.attributes, ctx.isReady];
+  return [
+    ctx.goalTree,
+    ctx.questDefinitions,
+    ctx.questCompletions,
+    ctx.activityEvents,
+    ctx.dailySnapshots,
+    ctx.progressionSummary,
+    ctx.goalXpEvents,
+    ctx.attributes,
+    ctx.focusHistory,
+    ctx.isReady,
+  ];
 }
 
 // ---------------------------------------------------------------------------
@@ -1308,9 +1336,65 @@ const staticWidgets: CatalogWidgetDefinition[] = [
 
   // ---------------- Focus ----------------
   {
+    id: "focus-current-session",
+    title: "Current Focus Session",
+    description: "The focus session you're running right now, if any.",
+    category: "Focus",
+    icon: "CF",
+    defaultSize: "md",
+    allowedSizes: allSizes,
+    supportedPages: dashboardAndGoalPages,
+    readOnly: true,
+    searchKeywords: ["focus", "current", "session", "timer"],
+    component: function CurrentFocusSessionWidget({ mode }: CatalogWidgetComponentProps) {
+      if (mode === "preview") {
+        return (
+          <WidgetShell eyebrow="Focus" title="Current Focus Session">
+            <div className="flex items-center gap-4">
+              <FocusTimer remainingSeconds={12 * 60 + 34} totalSeconds={25 * 60} isPaused={false} size="md" />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-white">Journal every trade</p>
+                <p className="mt-1 text-xs text-slate-500">Pomodoro</p>
+              </div>
+            </div>
+          </WidgetShell>
+        );
+      }
+
+      // Bespoke live widget: reads the ticking FocusProvider context directly
+      // (rather than the generic, non-ticking WidgetLiveContext) so the
+      // countdown actually advances while this widget is on screen.
+      // eslint-disable-next-line react-hooks/rules-of-hooks
+      const { activeSession, remainingSeconds, isRunning } = useFocus();
+      // eslint-disable-next-line react-hooks/rules-of-hooks
+      const ctx = useWidgetLiveContext();
+      const linkedQuest = activeSession?.linkedQuestId ? ctx.questDefinitions.find((quest) => quest.id === activeSession.linkedQuestId) : null;
+
+      if (!activeSession) {
+        return (
+          <WidgetShell eyebrow="Focus" title="Current Focus Session">
+            <EmptyWidgetState text="No active focus session. Start one from a quest or the Dashboard." />
+          </WidgetShell>
+        );
+      }
+
+      return (
+        <WidgetShell eyebrow="Focus" title="Current Focus Session">
+          <div className="flex items-center gap-4">
+            <FocusTimer remainingSeconds={remainingSeconds} totalSeconds={activeSession.durationSeconds} isPaused={!isRunning} size="md" />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-white">{linkedQuest ? linkedQuest.title : "Free Focus Session"}</p>
+              <p className="mt-1 text-xs text-slate-500">{FOCUS_MODE_LABELS[activeSession.mode]}</p>
+            </div>
+          </div>
+        </WidgetShell>
+      );
+    },
+  },
+  {
     id: "focus-time-today",
-    title: "Focus Time Today",
-    description: "Deep work minutes logged today.",
+    title: "Today's Focus",
+    description: "Focus minutes logged today.",
     category: "Focus",
     icon: "FT",
     defaultSize: "sm",
@@ -1318,17 +1402,16 @@ const staticWidgets: CatalogWidgetDefinition[] = [
     supportedPages: dashboardAndGoalPages,
     readOnly: true,
     searchKeywords: ["focus", "time", "today"],
-    component: comingSoonWidget({
+    component: statGridWidget({
       eyebrow: "Focus",
-      title: "Focus Time Today",
-      description: "Focus tracking is not connected yet.",
-      previewNode: <StatValue label="Minutes" value={95} />,
+      title: "Today's Focus",
+      stats: [{ label: "Minutes", previewValue: 95, getLiveValue: (ctx) => getTodayFocusMinutes(ctx.focusHistory) }],
     }),
   },
   {
     id: "focus-weekly",
     title: "Weekly Focus",
-    description: "Deep work minutes across the current week.",
+    description: "Focus minutes across the current week.",
     category: "Focus",
     icon: "WF",
     defaultSize: "md",
@@ -1336,47 +1419,190 @@ const staticWidgets: CatalogWidgetDefinition[] = [
     supportedPages: dashboardAndGoalPages,
     readOnly: true,
     searchKeywords: ["focus", "weekly"],
-    component: comingSoonWidget({
+    component: barsWidget({
       eyebrow: "Focus",
       title: "Weekly Focus",
-      description: "Focus tracking is not connected yet.",
-      previewNode: <MiniBars values={[45, 60, 30, 90, 50, 20, 70]} labels={["M", "T", "W", "T", "F", "S", "S"]} />,
+      previewValues: [45, 60, 30, 90, 50, 20, 70],
+      previewLabels: ["M", "T", "W", "T", "F", "S", "S"],
+      getLiveValues: (ctx) => getWeeklyFocusSeries(ctx.focusHistory),
+    }),
+  },
+  {
+    id: "focus-monthly",
+    title: "Monthly Focus",
+    description: "Focus minutes across the last 30 days.",
+    category: "Focus",
+    icon: "MF",
+    defaultSize: "sm",
+    allowedSizes: allSizes,
+    supportedPages: dashboardAndGoalPages,
+    readOnly: true,
+    searchKeywords: ["focus", "monthly"],
+    component: statGridWidget({
+      eyebrow: "Focus",
+      title: "Monthly Focus",
+      stats: [{ label: "Minutes", previewValue: 620, getLiveValue: (ctx) => getMonthlyFocusMinutes(ctx.focusHistory) }],
+    }),
+  },
+  {
+    id: "focus-lifetime",
+    title: "Lifetime Focus",
+    description: "Total focus time since you started.",
+    category: "Focus",
+    icon: "LF",
+    defaultSize: "sm",
+    allowedSizes: allSizes,
+    supportedPages: dashboardAndGoalPages,
+    readOnly: true,
+    searchKeywords: ["focus", "lifetime", "total"],
+    component: statGridWidget({
+      eyebrow: "Focus",
+      title: "Lifetime Focus",
+      stats: [{ label: "Total", previewValue: "38h 20m", getLiveValue: (ctx) => formatFocusMinutesLabel(getLifetimeFocusMinutes(ctx.focusHistory)) }],
     }),
   },
   {
     id: "focus-deep-work",
-    title: "Deep Work",
-    description: "Longest uninterrupted focus session.",
+    title: "Deep Work Hours",
+    description: "Total time spent in Deep Work sessions.",
     category: "Focus",
     icon: "DW",
     defaultSize: "sm",
     allowedSizes: allSizes,
     supportedPages: dashboardAndGoalPages,
     readOnly: true,
-    searchKeywords: ["deep work", "focus"],
-    component: comingSoonWidget({
+    searchKeywords: ["deep work", "focus", "hours"],
+    component: statGridWidget({
       eyebrow: "Focus",
-      title: "Deep Work",
-      description: "Deep work tracking is not connected yet.",
-      previewNode: <StatValue label="Longest Session" value="90 min" />,
+      title: "Deep Work Hours",
+      stats: [{ label: "Deep Work", previewValue: "3h 40m", getLiveValue: (ctx) => formatFocusMinutesLabel(getDeepWorkMinutes(ctx.focusHistory)) }],
+    }),
+  },
+  {
+    id: "focus-streak",
+    title: "Focus Streak",
+    description: "Consecutive days with at least one focus session.",
+    category: "Focus",
+    icon: "FS",
+    defaultSize: "sm",
+    allowedSizes: allSizes,
+    supportedPages: dashboardAndGoalPages,
+    readOnly: true,
+    searchKeywords: ["focus", "streak"],
+    component: statGridWidget({
+      eyebrow: "Focus",
+      title: "Focus Streak",
+      stats: [{ label: "Days", previewValue: 5, getLiveValue: (ctx) => getFocusStreakDays(ctx.focusHistory) }],
+    }),
+  },
+  {
+    id: "focus-longest-session",
+    title: "Longest Session",
+    description: "Your longest single focus session.",
+    category: "Focus",
+    icon: "LS",
+    defaultSize: "sm",
+    allowedSizes: allSizes,
+    supportedPages: dashboardAndGoalPages,
+    readOnly: true,
+    searchKeywords: ["focus", "longest", "session"],
+    component: statGridWidget({
+      eyebrow: "Focus",
+      title: "Longest Session",
+      stats: [{ label: "Longest", previewValue: "90 min", getLiveValue: (ctx) => formatFocusMinutesLabel(getLongestSessionMinutes(ctx.focusHistory)) }],
+    }),
+  },
+  {
+    id: "focus-average-session",
+    title: "Average Session",
+    description: "Your average focus session length.",
+    category: "Focus",
+    icon: "AS",
+    defaultSize: "sm",
+    allowedSizes: allSizes,
+    supportedPages: dashboardAndGoalPages,
+    readOnly: true,
+    searchKeywords: ["focus", "average", "session"],
+    component: statGridWidget({
+      eyebrow: "Focus",
+      title: "Average Session",
+      stats: [{ label: "Average", previewValue: "38 min", getLiveValue: (ctx) => formatFocusMinutesLabel(getAverageSessionMinutes(ctx.focusHistory)) }],
     }),
   },
   {
     id: "focus-pomodoro",
-    title: "Pomodoro",
-    description: "Completed pomodoro sessions today.",
+    title: "Sessions Completed",
+    description: "Focus sessions completed today.",
     category: "Focus",
     icon: "PM",
     defaultSize: "sm",
     allowedSizes: allSizes,
     supportedPages: dashboardAndGoalPages,
     readOnly: true,
-    searchKeywords: ["pomodoro", "sessions"],
-    component: comingSoonWidget({
+    searchKeywords: ["sessions", "completed", "today"],
+    component: statGridWidget({
       eyebrow: "Focus",
-      title: "Pomodoro",
-      description: "Pomodoro tracking is not connected yet.",
-      previewNode: <StatValue label="Sessions" value={4} />,
+      title: "Sessions Completed",
+      stats: [{ label: "Today", previewValue: 4, getLiveValue: (ctx) => getSessionsCompletedToday(ctx.focusHistory) }],
+    }),
+  },
+  {
+    id: "focus-recent-sessions",
+    title: "Recent Sessions",
+    description: "Your most recently completed focus sessions.",
+    category: "Focus",
+    icon: "RS",
+    defaultSize: "lg",
+    allowedSizes: allSizes,
+    supportedPages: dashboardAndGoalPages,
+    readOnly: true,
+    searchKeywords: ["focus", "recent", "sessions", "history"],
+    component: function RecentFocusSessionsWidget({ mode }: CatalogWidgetComponentProps) {
+      const ctx = useWidgetLiveContext();
+      const items =
+        mode === "preview"
+          ? [
+              { id: "p-fs-1", title: "Journal every trade", subtitle: "Pomodoro · 25 min", progress: 100 },
+              { id: "p-fs-2", title: "Free Focus Session", subtitle: "Deep Work · 50 min", progress: 100 },
+            ]
+          : [...ctx.focusHistory]
+              .sort((first, second) => new Date(second.end).getTime() - new Date(first.end).getTime())
+              .slice(0, 6)
+              .map((entry) => {
+                const quest = entry.linkedQuestId ? ctx.questDefinitions.find((item) => item.id === entry.linkedQuestId) : null;
+                const minutes = Math.round(entry.duration / 60);
+                return {
+                  id: entry.id,
+                  title: quest ? quest.title : "Free Focus Session",
+                  subtitle: `${FOCUS_MODE_LABELS[entry.mode]} · ${minutes} min${entry.interrupted ? " · ended early" : ""}`,
+                  progress: entry.completedQuest ? 100 : 0,
+                };
+              });
+
+      return (
+        <WidgetShell eyebrow="Focus" title="Recent Sessions">
+          <MiniProgressList items={items} emptyText="Complete a focus session to see it here." />
+        </WidgetShell>
+      );
+    },
+  },
+  {
+    id: "focus-heatmap",
+    title: "Focus Heatmap",
+    description: "Daily focus minutes over the last 90 days.",
+    category: "Focus",
+    icon: "FH",
+    defaultSize: "xl",
+    allowedSizes: allSizes,
+    supportedPages: dashboardAndGoalPages,
+    readOnly: true,
+    searchKeywords: ["focus", "heatmap"],
+    component: heatmapWidget({
+      eyebrow: "Focus",
+      title: "Focus Heatmap",
+      columns: 15,
+      previewValues: Array.from({ length: 90 }, (_, index) => (index % 5 === 0 ? 0 : Math.round(Math.random() * 60 + 10))),
+      getLiveValues: (ctx) => getDailyFocusBuckets(ctx.focusHistory, 90),
     }),
   },
 

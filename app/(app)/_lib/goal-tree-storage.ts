@@ -390,6 +390,23 @@ export function findGoalNode(nodes: GoalTree, nodeId: string): GoalNode | null {
   return null;
 }
 
+// Path from a root node down to (and including) nodeId, or null if not found.
+export function getAncestorChain(nodes: GoalTree, nodeId: string): GoalNode[] | null {
+  for (const node of nodes) {
+    if (node.id === nodeId) {
+      return [node];
+    }
+
+    const nested = getAncestorChain(node.children, nodeId);
+
+    if (nested) {
+      return [node, ...nested];
+    }
+  }
+
+  return null;
+}
+
 export function insertGoalNode(nodes: GoalTree, parentId: string | null | undefined, nextNode: GoalNode): GoalNode[] {
   if (!parentId) {
     return [...nodes, nextNode];
