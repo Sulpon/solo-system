@@ -372,6 +372,7 @@ export default function DashboardPageClient() {
   const lastIntentSignatureRef = useRef<string>("");
   const activeDragIdRef = useRef<string | null>(null);
   const duplicateWidgetCounterRef = useRef(0);
+  const dragOverRafRef = useRef<number | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -472,6 +473,10 @@ export default function DashboardPageClient() {
   }
 
   function clearDragState() {
+    if (dragOverRafRef.current !== null) {
+      cancelAnimationFrame(dragOverRafRef.current);
+      dragOverRafRef.current = null;
+    }
     setActiveDragId(null);
     setCurrentDropIntent(null);
     setPreviewLayout(null);
@@ -524,7 +529,16 @@ export default function DashboardPageClient() {
   }
 
   function handleDragOver(event: DragOverEvent) {
-    buildPreview(parseDropIntent(event.over));
+    const intent = parseDropIntent(event.over);
+
+    if (dragOverRafRef.current !== null) {
+      cancelAnimationFrame(dragOverRafRef.current);
+    }
+
+    dragOverRafRef.current = requestAnimationFrame(() => {
+      dragOverRafRef.current = null;
+      buildPreview(intent);
+    });
   }
 
   function handleDragEnd(event: DragEndEvent) {
@@ -757,6 +771,7 @@ export default function DashboardPageClient() {
       <DndContext
         sensors={sensors}
         collisionDetection={createCollisionDetection()}
+        autoScroll={false}
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
