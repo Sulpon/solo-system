@@ -17,7 +17,7 @@ export default function BonusMissionsCard({ quests, unlocked, completedQuestIds,
     <Card className="p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-300">Bonus Missions</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-300">Optional Tasks</p>
           <h2 className="mt-1 text-xl font-black text-white">{unlocked ? `${completedCount} / ${quests.length} optional` : "Locked"}</h2>
         </div>
         <span className={unlocked ? "rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1.5 text-xs font-semibold text-amber-100" : "rounded-full border border-slate-700 bg-slate-950/60 px-3 py-1.5 text-xs font-semibold text-slate-400"}>
@@ -27,7 +27,7 @@ export default function BonusMissionsCard({ quests, unlocked, completedQuestIds,
 
       {!unlocked ? (
         <div className="mt-5 rounded-2xl border border-dashed border-slate-700 bg-slate-950/45 p-5 text-sm text-slate-400">
-          Bonus Missions Locked. Complete your Minimum Successful Day to unlock optional missions.
+          Optional Tasks are locked. Complete your Minimum Successful Day to unlock them.
         </div>
       ) : quests.length > 0 ? (
         <div className="mt-5 space-y-3">
@@ -57,7 +57,7 @@ export default function BonusMissionsCard({ quests, unlocked, completedQuestIds,
         </div>
       ) : (
         <div className="mt-5 rounded-2xl border border-dashed border-slate-700 bg-slate-950/45 p-5 text-sm text-slate-400">
-          No bonus missions yet. Optional quests can be added from the Quest Manager.
+          No optional tasks yet. Add one from Quest Manager.
         </div>
       )}
     </Card>

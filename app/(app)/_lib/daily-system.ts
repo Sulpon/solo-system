@@ -117,6 +117,7 @@ export function createDailySnapshot({
       .filter((update): update is { progressGoalId: string; questId: string } => Boolean(update)),
     dailySuccessPercent: calculateDailySuccess(coreQuests, completedQuestIds),
     reviewed: true,
+    reflectionNote: existingSnapshot?.reflectionNote,
     createdAt: existingSnapshot?.createdAt ?? now,
     updatedAt: now,
   };

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Modal from "../Modal";
 import { useAttributes } from "../../_lib/hooks/useAttributes";
 import type { DailySnapshot } from "../../_lib/types/daily-system";
@@ -8,18 +9,19 @@ type NightReviewModalProps = Readonly<{
   snapshot: DailySnapshot;
   alreadyReviewed: boolean;
   onClose: () => void;
-  onFinish: () => void;
+  onFinish: (reflectionNote?: string) => void;
 }>;
 
 export default function NightReviewModal({ snapshot, alreadyReviewed, onClose, onFinish }: NightReviewModalProps) {
   const { attributes: categories } = useAttributes();
+  const [reflectionNote, setReflectionNote] = useState(snapshot.reflectionNote ?? "");
 
   function getAttributeName(id: string) {
     return categories.find((category) => category.id === id)?.name ?? id;
   }
 
   return (
-    <Modal title="Mission Review" onClose={onClose}>
+    <Modal title="Daily Review" onClose={onClose}>
       <div className="space-y-5">
         {alreadyReviewed ? (
           <div className="rounded-xl border border-cyan-400/25 bg-cyan-400/10 p-4 text-sm text-cyan-100">
@@ -76,12 +78,22 @@ export default function NightReviewModal({ snapshot, alreadyReviewed, onClose, o
           </div>
         </div>
 
+        <label className="block space-y-2">
+          <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">What are you proud of today? (optional)</span>
+          <textarea
+            value={reflectionNote}
+            onChange={(event) => setReflectionNote(event.target.value)}
+            placeholder="A sentence is enough."
+            className="w-full min-h-20 rounded-xl border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none transition focus:border-purple-400"
+          />
+        </label>
+
         <div className="flex justify-end gap-3">
           <button type="button" onClick={onClose} className="rounded-xl border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:text-white">
             Close
           </button>
-          <button type="button" onClick={onFinish} className="rounded-xl border border-purple-400/50 bg-purple-500/15 px-4 py-2 text-sm font-semibold text-purple-100 transition hover:bg-purple-500/25">
-            Lock Day / Finish Review
+          <button type="button" onClick={() => onFinish(reflectionNote)} className="rounded-xl border border-purple-400/50 bg-purple-500/15 px-4 py-2 text-sm font-semibold text-purple-100 transition hover:bg-purple-500/25">
+            End Day
           </button>
         </div>
       </div>

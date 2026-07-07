@@ -1,7 +1,7 @@
 import type { CharacterProfile } from "../types/progression";
 
 export const characterProfile: CharacterProfile = {
-  name: "MENACE",
+  name: "Atlas",
   title: "System Initiate",
   rank: "D",
   overallXP: 0,

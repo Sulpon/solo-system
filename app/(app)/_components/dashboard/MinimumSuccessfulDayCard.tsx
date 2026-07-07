@@ -23,7 +23,7 @@ export default function MinimumSuccessfulDayCard({ quests, completedQuestIds, su
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">Minimum Successful Day</p>
           <h2 className="mt-1 text-2xl font-black text-white">{completedCount} / {quests.length} complete</h2>
           <p className="mt-2 text-sm text-slate-400">
-            {dayWon ? "Day won. Bonus missions unlocked." : quests.length === 0 ? "Create a core daily quest to define what makes today count." : "Minimum not complete yet. Keep the target small and meaningful."}
+            {dayWon ? "Day won. Optional tasks unlocked." : quests.length === 0 ? "Create a core daily quest to define what makes today count." : "Minimum not complete yet. Keep the target small and meaningful."}
           </p>
         </div>
         <DailyProgressRing value={successPercent} />

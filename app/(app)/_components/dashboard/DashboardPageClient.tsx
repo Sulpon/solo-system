@@ -694,7 +694,7 @@ export default function DashboardPageClient() {
   }
 
   function resetAllLayout() {
-    if (!window.confirm("Reset MENACE dashboard layout to defaults?")) {
+    if (!window.confirm("Reset dashboard layout to defaults?")) {
       return;
     }
 
@@ -734,8 +734,8 @@ export default function DashboardPageClient() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-purple-500/20 bg-slate-950/45 p-4 shadow-[0_0_30px_rgba(88,28,135,0.14)] backdrop-blur-xl">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Dashboard System</p>
-          <h1 className="mt-1 text-2xl font-black text-white">MENACE Command Center</h1>
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Dashboard</p>
+          <h1 className="mt-1 text-2xl font-black text-white">Overview</h1>
         </div>
         <div className="flex flex-wrap gap-2">
           {isEditing ? (
@@ -823,6 +823,7 @@ export default function DashboardPageClient() {
             setIsCatalogOpen(false);
           }}
           onClose={() => setIsCatalogOpen(false)}
+          pageId="dashboard"
         />
       ) : null}
     </div>

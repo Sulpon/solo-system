@@ -59,14 +59,17 @@ export const widgetCategories: WidgetCategory[] = [
   "Health",
   "Learning",
   "Statistics",
-  "Command Center",
+  "Today",
 ];
 
+// Ordered by daily priority: today's context, then today's core tasks, then
+// dream progress, then consistency, then the rest of the statistics - ending
+// with Daily Review, which is naturally an end-of-day action rather than
+// something to look at first thing in the morning.
 const defaultDashboardWidgetIds: DashboardWidgetType[] = [
   "command-center-header",
   "minimum-successful-day",
   "bonus-missions",
-  "night-review",
   "dream-progress",
   "attribute-overview",
   "consistency-score",
@@ -74,6 +77,7 @@ const defaultDashboardWidgetIds: DashboardWidgetType[] = [
   "tomorrow-preview",
   "recent-milestones",
   "xp-overview",
+  "night-review",
 ];
 
 function getRankLabel(level: number) {
@@ -559,7 +563,7 @@ function renderCommandCenterHeaderWidget({ onEnterEditMode }: WidgetRendererProp
   const headerSubtitle = alreadyReviewedToday
     ? "Day locked in. See you tomorrow."
     : bonusUnlocked
-      ? "Day won. Bonus missions are optional."
+      ? "Day won. Optional tasks are available."
       : "Complete your Minimum Successful Day.";
   const currentDate = formatDashboardDate(new Date());
 
@@ -649,15 +653,15 @@ function renderNightReviewWidget() {
   return (
     <>
       <Card className="p-5">
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-300">Night Review</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-300">Daily Review</p>
         <h2 className="mt-1 text-xl font-black text-white">Close today cleanly</h2>
-        <p className="mt-2 text-sm text-slate-400">Review today&apos;s core quests, optional missions, XP, and progress before you lock the day.</p>
+        <p className="mt-2 text-sm text-slate-400">Review today&apos;s core quests, optional tasks, XP, and progress before you lock the day.</p>
         <button
           type="button"
           onClick={openReview}
           className="mt-5 rounded-xl border border-purple-400/50 bg-purple-500/15 px-4 py-2 text-sm font-semibold text-purple-100 transition hover:bg-purple-500/25"
         >
-          Finish Day
+          End Day
         </button>
       </Card>
       {reviewOpen ? (
@@ -779,7 +783,7 @@ export const widgetRegistry: WidgetDefinition[] = [
   {
     id: "category-levels",
     title: "Attributes / Category Levels",
-    description: "Category progression panels for the first five MENACE pillars.",
+    description: "Category progression panels for the first five Atlas pillars.",
     icon: "C",
     category: "Statistics",
     defaultSize: "lg",
@@ -793,7 +797,7 @@ export const widgetRegistry: WidgetDefinition[] = [
   {
     id: "statistics",
     title: "Statistics",
-    description: "Current totals and summary metrics across MENACE.",
+    description: "Current totals and summary metrics across Atlas.",
     icon: "S",
     category: "Statistics",
     defaultSize: "md",
@@ -920,7 +924,7 @@ export const widgetRegistry: WidgetDefinition[] = [
   {
     id: "social-feed",
     title: "Social Feed",
-    description: "Updates and network signals from outside MENACE.",
+    description: "Updates and network signals from outside Atlas.",
     icon: "N",
     category: "Social",
     defaultSize: "md",
@@ -961,10 +965,10 @@ export const widgetRegistry: WidgetDefinition[] = [
   },
   {
     id: "command-center-header",
-    title: "Command Center Header",
-    description: "Today's date, daily success ring, and the Finish Day / Night Review trigger.",
+    title: "Today Overview",
+    description: "Today's date, daily success ring, and the End Day / Daily Review trigger.",
     icon: "CC",
-    category: "Command Center",
+    category: "Today",
     defaultSize: "xl",
     defaultRow: "row-command-center",
     canDuplicate: true,
@@ -978,7 +982,7 @@ export const widgetRegistry: WidgetDefinition[] = [
     title: "Minimum Successful Day",
     description: "Today's core quests and the minimum bar for a successful day.",
     icon: "MD",
-    category: "Command Center",
+    category: "Today",
     defaultSize: "lg",
     defaultRow: "row-minimum-day",
     canDuplicate: true,
@@ -989,10 +993,10 @@ export const widgetRegistry: WidgetDefinition[] = [
   },
   {
     id: "bonus-missions",
-    title: "Bonus Missions",
+    title: "Optional Tasks",
     description: "Optional quests unlocked after the Minimum Successful Day is complete.",
     icon: "BM",
-    category: "Command Center",
+    category: "Today",
     defaultSize: "lg",
     defaultRow: "row-minimum-day",
     canDuplicate: true,
@@ -1003,10 +1007,10 @@ export const widgetRegistry: WidgetDefinition[] = [
   },
   {
     id: "night-review",
-    title: "Night Review",
-    description: "Finish Day trigger that opens the Night Review snapshot summary.",
+    title: "Daily Review",
+    description: "End Day trigger that opens the Daily Review snapshot summary.",
     icon: "NR",
-    category: "Command Center",
+    category: "Today",
     defaultSize: "md",
     defaultRow: "row-night-review",
     canDuplicate: true,
@@ -1020,7 +1024,7 @@ export const widgetRegistry: WidgetDefinition[] = [
     title: "Dream Progress",
     description: "Live long-term system status from the Goal Tree.",
     icon: "DP",
-    category: "Command Center",
+    category: "Today",
     defaultSize: "lg",
     defaultRow: "row-dream-attributes",
     canDuplicate: true,
@@ -1032,9 +1036,9 @@ export const widgetRegistry: WidgetDefinition[] = [
   {
     id: "attribute-overview",
     title: "Attribute Overview",
-    description: "Live category growth across all MENACE attributes.",
+    description: "Live category growth across all your attributes.",
     icon: "AO",
-    category: "Command Center",
+    category: "Today",
     defaultSize: "lg",
     defaultRow: "row-dream-attributes",
     canDuplicate: true,
@@ -1048,7 +1052,7 @@ export const widgetRegistry: WidgetDefinition[] = [
     title: "Consistency Score",
     description: "Average daily success across recently reviewed days.",
     icon: "CS",
-    category: "Command Center",
+    category: "Today",
     defaultSize: "md",
     defaultRow: "row-daily-insight",
     canDuplicate: true,
@@ -1062,7 +1066,7 @@ export const widgetRegistry: WidgetDefinition[] = [
     title: "Today's Progress Feed",
     description: "Today's activity feed of quest, XP, and goal events.",
     icon: "TF",
-    category: "Command Center",
+    category: "Today",
     defaultSize: "md",
     defaultRow: "row-daily-insight",
     canDuplicate: true,
@@ -1076,7 +1080,7 @@ export const widgetRegistry: WidgetDefinition[] = [
     title: "Tomorrow Preview",
     description: "Tomorrow's scheduled core quests and the XP on the table.",
     icon: "TP",
-    category: "Command Center",
+    category: "Today",
     defaultSize: "md",
     defaultRow: "row-daily-insight",
     canDuplicate: true,
@@ -1090,7 +1094,7 @@ export const widgetRegistry: WidgetDefinition[] = [
     title: "Recent Milestones",
     description: "Recently completed dreams, goals, and milestones.",
     icon: "RM",
-    category: "Command Center",
+    category: "Today",
     defaultSize: "lg",
     defaultRow: "row-milestones-xp",
     canDuplicate: true,
@@ -1104,7 +1108,7 @@ export const widgetRegistry: WidgetDefinition[] = [
     title: "XP Overview",
     description: "Weekly XP output chart across quests and goal XP.",
     icon: "XO",
-    category: "Command Center",
+    category: "Today",
     defaultSize: "lg",
     defaultRow: "row-milestones-xp",
     canDuplicate: true,

@@ -6,6 +6,7 @@ import type { Quest, QuestCadence, QuestStatus } from "../../_lib/types/quest";
 
 type QuestListProps = Readonly<{
   quests: Quest[];
+  completedTodayIds?: ReadonlySet<string>;
   onEdit: (quest: Quest) => void;
   onToggleStatus: (quest: Quest) => void;
   onDelete: (questId: string) => void;
@@ -28,7 +29,7 @@ function formatSchedule(quest: Quest) {
   return days.map((day) => weekdayLabels[day] ?? "").filter(Boolean).join(", ");
 }
 
-export default function QuestList({ quests, onEdit, onToggleStatus, onDelete, onComplete }: QuestListProps) {
+export default function QuestList({ quests, completedTodayIds, onEdit, onToggleStatus, onDelete, onComplete }: QuestListProps) {
   const { attributes: categories } = useAttributes();
 
   function getCategoryName(id: Quest["categoryId"]) {
@@ -74,7 +75,9 @@ export default function QuestList({ quests, onEdit, onToggleStatus, onDelete, on
             ) : null}
           </div>
           <div className="flex flex-wrap gap-2">
-            {isQuestScheduledForDate(quest) ? (
+            {completedTodayIds?.has(quest.id) ? (
+              <span className="rounded-lg border border-cyan-400/40 bg-cyan-400/10 px-3 py-2 text-sm font-semibold text-cyan-200">Done today</span>
+            ) : isQuestScheduledForDate(quest) ? (
               <button type="button" onClick={() => onComplete(quest)} className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200 transition hover:border-emerald-300 hover:text-white">
                 Mark Complete
               </button>

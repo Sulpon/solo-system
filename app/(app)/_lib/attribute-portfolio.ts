@@ -63,7 +63,9 @@ export function getAttributePortfolio(goalTree: GoalTree, quests: ReadonlyArray<
 
   walk(tree, []);
 
-  const questsForAttribute = quests.filter((quest) => quest.linkedProgressGoalId && relatedProgressGoalIds.has(quest.linkedProgressGoalId));
+  const questsForAttribute = quests.filter(
+    (quest) => quest.categoryId === attributeId || (quest.linkedProgressGoalId && relatedProgressGoalIds.has(quest.linkedProgressGoalId)),
+  );
 
   return {
     dreams: sortByUpdatedAtDesc(dreams),

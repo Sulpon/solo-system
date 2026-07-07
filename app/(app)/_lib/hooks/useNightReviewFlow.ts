@@ -30,12 +30,14 @@ export function useNightReviewFlow() {
     setReviewOpen(false);
   }
 
-  function finishReview() {
+  function finishReview(reflectionNote?: string) {
+    const finalSnapshot = { ...todaySnapshot, reflectionNote: reflectionNote?.trim() || undefined };
+
     setDailySnapshots((current) => {
-      const withoutToday = current.filter((snapshot) => snapshot.date !== todaySnapshot.date);
-      return [...withoutToday, todaySnapshot].sort((first, second) => first.date.localeCompare(second.date));
+      const withoutToday = current.filter((snapshot) => snapshot.date !== finalSnapshot.date);
+      return [...withoutToday, finalSnapshot].sort((first, second) => first.date.localeCompare(second.date));
     });
-    addActivityEvents([createDailySnapshotSavedEvent(todaySnapshot)]);
+    addActivityEvents([createDailySnapshotSavedEvent(finalSnapshot)]);
     setReviewOpen(false);
   }
 

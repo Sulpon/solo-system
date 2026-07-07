@@ -23,6 +23,8 @@ export type DailySnapshot = Readonly<{
   progressGoalUpdates: DailyProgressGoalUpdate[];
   dailySuccessPercent: number;
   reviewed: boolean;
+  // Optional, user-written reflection - never required, never auto-filled.
+  reflectionNote?: string;
   createdAt: string;
   updatedAt: string;
 }>;

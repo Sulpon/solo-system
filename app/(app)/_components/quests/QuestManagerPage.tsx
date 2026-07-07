@@ -6,6 +6,7 @@ import CustomizablePage from "../page-edit/CustomizablePage";
 import { getCatalogWidgetsForPage } from "../../_lib/widgets/catalog-registry";
 import { QuestStatsCard, StatNumberCard } from "../page-edit/StatWidgets";
 import { isQuestScheduledForDate } from "../../_lib/daily-system";
+import { hasCompletedToday } from "../../_lib/quest-storage";
 import { useProgression } from "../../_lib/hooks/useProgression";
 import type { Quest, QuestStatus } from "../../_lib/types/quest";
 import QuestForm, { type QuestFormModel } from "./QuestForm";
@@ -40,6 +41,10 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
         .filter((quest) => importanceFilter !== "today" || (quest.status === "active" && quest.cadence === "daily" && isQuestScheduledForDate(quest)))
         .sort((first, second) => Number(first.status === "archived") - Number(second.status === "archived") || first.title.localeCompare(second.title)),
     [importanceFilter, quests],
+  );
+  const completedTodayIds = useMemo(
+    () => new Set(quests.filter((quest) => hasCompletedToday(quest.id, questCompletions)).map((quest) => quest.id)),
+    [quests, questCompletions],
   );
   const statsSections = useMemo<EditablePageSection[]>(
     () => [
@@ -150,6 +155,7 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
       ) : (
         <QuestList
           quests={sortedQuests}
+          completedTodayIds={completedTodayIds}
           onEdit={(quest) => setForm(toQuestForm(quest))}
           onToggleStatus={(quest) => setQuestStatus(quest, quest.status === "active" ? "archived" : "active")}
           onDelete={deleteQuest}

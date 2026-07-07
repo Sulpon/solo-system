@@ -2,8 +2,17 @@
 
 import type { ReactNode } from "react";
 import { useDraggable, useDroppable, type DraggableSyntheticListeners } from "@dnd-kit/core";
-import type { DashboardWidget } from "../../_lib/types/dashboard-widget";
+import type { DashboardWidget, WidgetAccent } from "../../_lib/types/dashboard-widget";
 import WidgetEditOverlay from "./WidgetEditOverlay";
+
+const accentEditModeClasses: Record<WidgetAccent, string> = {
+  purple: "border-purple-300/35 ring-purple-300/20 shadow-[0_0_28px_rgba(168,85,247,0.16)]",
+  cyan: "border-cyan-300/35 ring-cyan-300/20 shadow-[0_0_28px_rgba(34,211,238,0.12)]",
+  emerald: "border-emerald-300/35 ring-emerald-300/20 shadow-[0_0_28px_rgba(52,211,153,0.14)]",
+  amber: "border-amber-300/35 ring-amber-300/20 shadow-[0_0_28px_rgba(252,211,77,0.14)]",
+  rose: "border-rose-300/35 ring-rose-300/20 shadow-[0_0_28px_rgba(251,113,133,0.14)]",
+  blue: "border-blue-300/35 ring-blue-300/20 shadow-[0_0_28px_rgba(96,165,250,0.14)]",
+};
 
 type WidgetDropIntent =
   | Readonly<{ type: "widget"; rowId: string; widgetId: string; position: "left" | "right" | "above" | "below" | "center" }>
@@ -93,6 +102,8 @@ function ActiveWidgetFrame({
   const compactMode = widget.settings.compactMode;
   const transparency = Math.min(100, Math.max(0, widget.settings.transparency));
   const widgetOpacity = Math.max(0.45, 1 - transparency / 180);
+  const showBorder = widget.settings.showBorder;
+  const accentClasses = accentEditModeClasses[widget.settings.accentColor] ?? accentEditModeClasses.cyan;
 
   const dragHandleProps = {
     ...attributes,
@@ -104,7 +115,7 @@ function ActiveWidgetFrame({
       ref={setNodeRef}
       className={
         "widget-frame relative min-w-0 h-full w-full max-w-full overflow-hidden rounded-2xl transition " +
-        (isEditing ? "border border-cyan-300/35 p-1 ring-1 ring-cyan-300/20 shadow-[0_0_28px_rgba(34,211,238,0.12)] " : "") +
+        (isEditing && showBorder ? "border p-1 ring-1 " + accentClasses + " " : isEditing ? "p-1 " : "") +
         (isEditing && !widget.visible ? "opacity-50 " : "") +
         ((isDragging || isGhost) ? "widget-frame-dragging opacity-55 " : "")
       }

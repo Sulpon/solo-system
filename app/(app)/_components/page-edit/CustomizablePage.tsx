@@ -261,6 +261,7 @@ export default function CustomizablePage({ pageId, title, subtitle, sections, av
           alreadyAddedIds={activeBaseIds}
           onAdd={(widget) => addSection(catalogWidgetToSection(widget))}
           onClose={() => setLibraryOpen(false)}
+          pageId={pageId}
         />
       ) : null}
     </div>

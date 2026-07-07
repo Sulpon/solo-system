@@ -27,7 +27,6 @@ export default function CharacterCard({ character }: CharacterCardProps) {
             <div className="rounded-xl border border-purple-500/40 bg-purple-500/10 px-5 py-4 shadow-[0_0_24px_rgba(168,85,247,0.14)]">
               <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Rank</p>
               <p className="mt-1 text-6xl font-black leading-none text-purple-300">{character.rank}</p>
-              <p className="mt-2 text-[11px] uppercase tracking-[0.18em] text-slate-500">Power {character.powerScore}</p>
             </div>
             <div className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-5 py-4">
               <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Streak</p>
@@ -54,7 +53,7 @@ export default function CharacterCard({ character }: CharacterCardProps) {
           <div className="relative flex h-44 w-36 items-center justify-center rounded-full bg-purple-500/10 shadow-[0_0_85px_rgba(168,85,247,0.45)]">
             <div className="absolute h-56 w-40 rounded-full border border-purple-400/20" />
             <div className="absolute h-32 w-24 rounded-full bg-cyan-400/10 blur-2xl" />
-            <div className="relative text-7xl font-black text-purple-200">M</div>
+            <div className="relative text-7xl font-black text-purple-200">A</div>
           </div>
         </div>
       </div>

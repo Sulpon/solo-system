@@ -13,7 +13,7 @@ import type { ActivityEvent } from "../types/activity-event";
 import type { CatalogWidgetDefinition, CatalogWidgetSize } from "./catalog-types";
 
 // Dashboard's own built-in widgets (Character, Daily Quests, Chart, the
-// Command Center set, etc.) are not read-only stat widgets - several of them
+// Today set, etc.) are not read-only stat widgets - several of them
 // drive real interactions (completing quests, finishing the day). They stay
 // on the original Dashboard widget system (app/(app)/_lib/widgets/widget-registry.tsx)
 // and are rendered live through DashboardWidgetRenderer exactly as before.
@@ -229,14 +229,14 @@ export const dashboardNativeCatalogWidgets: CatalogWidgetDefinition[] = [
   }),
   nativePreview({
     id: "command-center-header",
-    title: "Command Center Header",
-    description: "Today's date, daily success ring, and the Finish Day trigger.",
-    category: "Command Center",
+    title: "Today Overview",
+    description: "Today's date, daily success ring, and the End Day trigger.",
+    category: "Today",
     icon: "CC",
     defaultSize: "xl",
-    searchKeywords: ["command center", "daily success", "finish day"],
+    searchKeywords: ["today", "overview", "daily success", "end day"],
     preview: (
-      <WidgetShell eyebrow="Command Center" title="Command Center">
+      <WidgetShell eyebrow="Today" title="Today">
         <div className="grid grid-cols-2 gap-2">
           <StatValue label="Daily Success" value="72%" />
           <StatValue label="Status" value="In Progress" />
@@ -248,12 +248,12 @@ export const dashboardNativeCatalogWidgets: CatalogWidgetDefinition[] = [
     id: "minimum-successful-day",
     title: "Minimum Successful Day",
     description: "Today's core quests and the minimum bar for a successful day.",
-    category: "Command Center",
+    category: "Today",
     icon: "MD",
     defaultSize: "lg",
     searchKeywords: ["minimum", "successful day", "core quests"],
     preview: (
-      <WidgetShell eyebrow="Command Center" title="Minimum Successful Day">
+      <WidgetShell eyebrow="Today" title="Minimum Successful Day">
         <MiniChecklist
           items={[
             { id: "p-msd-1", title: "Journal every trade", xp: 25, completed: true },
@@ -266,28 +266,28 @@ export const dashboardNativeCatalogWidgets: CatalogWidgetDefinition[] = [
   }),
   nativePreview({
     id: "bonus-missions",
-    title: "Bonus Missions",
+    title: "Optional Tasks",
     description: "Optional quests unlocked after the Minimum Successful Day is complete.",
-    category: "Command Center",
+    category: "Today",
     icon: "BM",
     defaultSize: "lg",
-    searchKeywords: ["bonus", "missions", "optional"],
+    searchKeywords: ["optional", "tasks"],
     preview: (
-      <WidgetShell eyebrow="Command Center" title="Bonus Missions">
+      <WidgetShell eyebrow="Today" title="Optional Tasks">
         <MiniChecklist items={[{ id: "p-bm-1", title: "Deep-clean the desk", xp: 10, completed: false }]} />
       </WidgetShell>
     ),
   }),
   nativePreview({
     id: "night-review",
-    title: "Night Review",
-    description: "Finish Day trigger that opens the Night Review snapshot summary.",
-    category: "Command Center",
+    title: "Daily Review",
+    description: "End Day trigger that opens the Daily Review snapshot summary.",
+    category: "Today",
     icon: "NR",
     defaultSize: "md",
-    searchKeywords: ["night review", "finish day", "recap"],
+    searchKeywords: ["daily review", "end day", "recap"],
     preview: (
-      <WidgetShell eyebrow="Command Center" title="Night Review">
+      <WidgetShell eyebrow="Today" title="Daily Review">
         <div className="grid grid-cols-2 gap-2">
           <StatValue label="Reviewed Days" value={12} />
           <StatValue label="Last Success" value="80%" />
@@ -299,12 +299,12 @@ export const dashboardNativeCatalogWidgets: CatalogWidgetDefinition[] = [
     id: "dream-progress",
     title: "Dream Progress",
     description: "Live long-term system status from the Goal Tree.",
-    category: "Command Center",
+    category: "Today",
     icon: "DP",
     defaultSize: "lg",
     searchKeywords: ["dream", "progress"],
     preview: (
-      <WidgetShell eyebrow="Command Center" title="Dream Progress">
+      <WidgetShell eyebrow="Today" title="Dream Progress">
         <MiniProgressList
           items={[
             { id: "p-dpv-1", title: "Become a top trader", subtitle: "dream", progress: 62 },
@@ -318,12 +318,12 @@ export const dashboardNativeCatalogWidgets: CatalogWidgetDefinition[] = [
     id: "attribute-overview",
     title: "Attribute Overview",
     description: "Live category growth across all your attributes.",
-    category: "Command Center",
+    category: "Today",
     icon: "AO",
     defaultSize: "lg",
     searchKeywords: ["attribute", "overview"],
     preview: (
-      <WidgetShell eyebrow="Command Center" title="Attribute Overview">
+      <WidgetShell eyebrow="Today" title="Attribute Overview">
         <MiniProgressList
           items={[
             { id: "p-aov-1", title: "Trading", subtitle: "Level 3", progress: 64 },
@@ -337,12 +337,12 @@ export const dashboardNativeCatalogWidgets: CatalogWidgetDefinition[] = [
     id: "consistency-score",
     title: "Consistency Score",
     description: "Average daily success across recently reviewed days.",
-    category: "Command Center",
+    category: "Today",
     icon: "CS",
     defaultSize: "md",
     searchKeywords: ["consistency", "score"],
     preview: (
-      <WidgetShell eyebrow="Command Center" title="Consistency Score">
+      <WidgetShell eyebrow="Today" title="Consistency Score">
         <div className="grid grid-cols-2 gap-2">
           <StatValue label="Score" value="82%" />
           <StatValue label="Reviewed Days" value={12} />
@@ -354,12 +354,12 @@ export const dashboardNativeCatalogWidgets: CatalogWidgetDefinition[] = [
     id: "today-progress-feed",
     title: "Today's Progress Feed",
     description: "Today's activity feed of quest, XP, and goal events.",
-    category: "Command Center",
+    category: "Today",
     icon: "TF",
     defaultSize: "md",
     searchKeywords: ["today", "progress", "feed"],
     preview: (
-      <WidgetShell eyebrow="Command Center" title="Today's Progress Feed">
+      <WidgetShell eyebrow="Today" title="Today's Progress Feed">
         <MiniActivityFeed events={[previewEvent("p-tpf-1", "Journal every trade completed", "+25 XP")]} />
       </WidgetShell>
     ),
@@ -368,12 +368,12 @@ export const dashboardNativeCatalogWidgets: CatalogWidgetDefinition[] = [
     id: "tomorrow-preview",
     title: "Tomorrow Preview",
     description: "Tomorrow's scheduled core quests and the XP on the table.",
-    category: "Command Center",
+    category: "Today",
     icon: "TP2",
     defaultSize: "md",
     searchKeywords: ["tomorrow", "preview"],
     preview: (
-      <WidgetShell eyebrow="Command Center" title="Tomorrow Preview">
+      <WidgetShell eyebrow="Today" title="Tomorrow Preview">
         <div className="grid grid-cols-2 gap-2">
           <StatValue label="Core Quests" value={3} />
           <StatValue label="Available XP" value={75} />
@@ -385,12 +385,12 @@ export const dashboardNativeCatalogWidgets: CatalogWidgetDefinition[] = [
     id: "recent-milestones",
     title: "Recent Milestones",
     description: "Recently completed dreams, goals, and milestones.",
-    category: "Command Center",
+    category: "Today",
     icon: "RM",
     defaultSize: "lg",
     searchKeywords: ["recent", "milestones"],
     preview: (
-      <WidgetShell eyebrow="Command Center" title="Recent Milestones">
+      <WidgetShell eyebrow="Today" title="Recent Milestones">
         <MiniProgressList items={[{ id: "p-rmv-1", title: "First 100 backtests", subtitle: "milestone", progress: 100 }]} />
       </WidgetShell>
     ),
@@ -399,12 +399,12 @@ export const dashboardNativeCatalogWidgets: CatalogWidgetDefinition[] = [
     id: "xp-overview",
     title: "XP Overview",
     description: "Weekly XP output chart across quests and goal XP.",
-    category: "Command Center",
+    category: "Today",
     icon: "XO",
     defaultSize: "lg",
     searchKeywords: ["xp", "overview", "weekly"],
     preview: (
-      <WidgetShell eyebrow="Command Center" title="XP Overview">
+      <WidgetShell eyebrow="Today" title="XP Overview">
         <MiniBars values={[20, 45, 30, 60, 25, 70, 40]} labels={["M", "T", "W", "T", "F", "S", "S"]} />
       </WidgetShell>
     ),

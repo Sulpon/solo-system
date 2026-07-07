@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Modal from "../Modal";
 import { achievements } from "../../_lib/mock/achievements";
 import { getWidgetDefinition, createDefaultWidgetSettings } from "../../_lib/widgets/widget-registry";
@@ -38,7 +38,6 @@ function getDefaultSettings(widget: DashboardWidget) {
 }
 
 export default function WidgetSettingsModal({ widget, categories, onClose, onSave }: WidgetSettingsModalProps) {
-  const definition = useMemo(() => getWidgetDefinition(widget.type), [widget.type]);
   const [title, setTitle] = useState(widget.title);
   const [settings, setSettings] = useState<WidgetSettings>(widget.settings ?? getDefaultSettings(widget));
   const [showCompletedCount, setShowCompletedCount] = useState(
@@ -102,7 +101,7 @@ export default function WidgetSettingsModal({ widget, categories, onClose, onSav
             </select>
           </label>
 
-          <label className="space-y-2">
+          <label className="space-y-2 md:col-span-2">
             <span className={labelClass}>Transparency</span>
             <input
               type="range"
@@ -114,30 +113,9 @@ export default function WidgetSettingsModal({ widget, categories, onClose, onSav
             />
             <div className="text-xs text-slate-500">{settings.transparency}%</div>
           </label>
-
-          <label className="space-y-2">
-            <span className={labelClass}>Refresh Interval</span>
-            <input
-              type="number"
-              min={0}
-              placeholder="Minutes"
-              value={settings.refreshInterval ?? ""}
-              onChange={(event) =>
-                setSettings({
-                  ...settings,
-                  refreshInterval: event.target.value === "" ? null : Number(event.target.value),
-                })
-              }
-              className={inputClass}
-            />
-          </label>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/45 px-4 py-3">
-            <span className={labelClass}>Show Title</span>
-            <input type="checkbox" checked={settings.showTitle} onChange={(event) => setSettings({ ...settings, showTitle: event.target.checked })} className="h-4 w-4 accent-purple-500" />
-          </label>
           <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/45 px-4 py-3">
             <span className={labelClass}>Compact Mode</span>
             <input type="checkbox" checked={settings.compactMode} onChange={(event) => setSettings({ ...settings, compactMode: event.target.checked })} className="h-4 w-4 accent-purple-500" />
@@ -145,10 +123,6 @@ export default function WidgetSettingsModal({ widget, categories, onClose, onSav
           <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/45 px-4 py-3">
             <span className={labelClass}>Show Border</span>
             <input type="checkbox" checked={settings.showBorder} onChange={(event) => setSettings({ ...settings, showBorder: event.target.checked })} className="h-4 w-4 accent-purple-500" />
-          </label>
-          <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/45 px-4 py-3">
-            <span className={labelClass}>Open Settings for {definition?.title ?? "Widget"}</span>
-            <span className="text-xs text-slate-500">Stored locally</span>
           </label>
         </div>
 

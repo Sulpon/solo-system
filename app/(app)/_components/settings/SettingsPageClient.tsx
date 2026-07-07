@@ -3,15 +3,11 @@
 import { useState } from "react";
 import type { SettingsSection } from "../../_lib/types/customization";
 import AppearanceSettingsPanel from "./AppearanceSettingsPanel";
-import DashboardSettingsPanel from "./DashboardSettingsPanel";
 import DataSettingsPanel from "./DataSettingsPanel";
 import GeneralSettingsPanel from "./GeneralSettingsPanel";
-import QuestManager from "./QuestManager";
 
 const sections: { id: SettingsSection; label: string }[] = [
   { id: "general", label: "General" },
-  { id: "dashboard", label: "Dashboard" },
-  { id: "quests", label: "Quests" },
   { id: "appearance", label: "Appearance" },
   { id: "data", label: "Data" },
 ];
@@ -22,9 +18,9 @@ export default function SettingsPageClient() {
   return (
     <div className="space-y-5">
       <div className="rounded-2xl border border-purple-500/20 bg-slate-950/45 p-5 shadow-[0_0_30px_rgba(88,28,135,0.14)] backdrop-blur-xl">
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-300">Settings</p>
-        <h1 className="mt-2 text-3xl font-black text-white">Customize MENACE</h1>
-        <p className="mt-2 text-sm text-slate-400">Control quests, dashboard widgets, charts, appearance, and local data.</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-300">Atlas</p>
+        <h1 className="mt-2 text-3xl font-black text-white">Settings</h1>
+        <p className="mt-2 text-sm text-slate-400">Onboarding, appearance, and local data.</p>
         <div className="mt-5 flex flex-wrap gap-2">
           {sections.map((section) => (
             <button
@@ -45,8 +41,6 @@ export default function SettingsPageClient() {
       </div>
 
       {activeSection === "general" ? <GeneralSettingsPanel /> : null}
-      {activeSection === "dashboard" ? <DashboardSettingsPanel /> : null}
-      {activeSection === "quests" ? <QuestManager /> : null}
       {activeSection === "appearance" ? <AppearanceSettingsPanel /> : null}
       {activeSection === "data" ? <DataSettingsPanel /> : null}
     </div>

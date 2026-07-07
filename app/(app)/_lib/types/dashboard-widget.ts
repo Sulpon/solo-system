@@ -20,7 +20,7 @@ export type WidgetCategory =
   | "Social"
   | "AI"
   | "Experimental"
-  | "Command Center";
+  | "Today";
 
 export type DashboardWidgetSize = WidgetSize;
 export type WidgetPadding = "compact" | "normal" | "relaxed";

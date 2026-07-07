@@ -10,4 +10,4 @@ export type AppearanceSettings = Readonly<{
   theme: MenaceTheme;
 }>;
 
-export type SettingsSection = "general" | "dashboard" | "quests" | "appearance" | "data";
+export type SettingsSection = "general" | "appearance" | "data";

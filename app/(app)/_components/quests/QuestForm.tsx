@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Modal from "../Modal";
 import { calculateQuestAttributeXP, buildDefaultAttributeWeights } from "../../_lib/goal-tree-attributes";
 import { getInheritedAttributeWeights, getInheritedAttributes } from "../../_lib/goal-tree-storage";
@@ -86,6 +86,7 @@ function redistributeManualRewards(rewards: ReadonlyArray<QuestAttributeReward>,
 }
 
 export default function QuestForm({ form, isEditing, onChange, onCancel, onSave }: QuestFormProps) {
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const { attributes: categories } = useAttributes();
   const { goalTree, progressGoals } = useGoalTree();
   const linkedGoalOptions = useMemo(() => [...progressGoals].sort((first, second) => first.title.localeCompare(second.title)), [progressGoals]);
@@ -142,15 +143,7 @@ export default function QuestForm({ form, isEditing, onChange, onCancel, onSave 
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="space-y-2 sm:col-span-2">
           <span className={labelClass}>Title</span>
-          <input value={form.title} onChange={(event) => onChange({ ...form, title: event.target.value })} className={inputClass} />
-        </label>
-        <label className="space-y-2 sm:col-span-2">
-          <span className={labelClass}>Description</span>
-          <textarea value={form.description} onChange={(event) => onChange({ ...form, description: event.target.value })} className={inputClass + " min-h-24"} />
-        </label>
-        <label className="space-y-2">
-          <span className={labelClass}>XP</span>
-          <input type="number" min={0} value={form.xp} onChange={(event) => onChange({ ...form, xp: Number(event.target.value) })} className={inputClass} />
+          <input autoFocus value={form.title} onChange={(event) => onChange({ ...form, title: event.target.value })} className={inputClass} />
         </label>
         <label className="space-y-2">
           <span className={labelClass}>Cadence</span>
@@ -166,10 +159,6 @@ export default function QuestForm({ form, isEditing, onChange, onCancel, onSave 
             <option value="core">Core</option>
             <option value="bonus">Bonus</option>
           </select>
-        </label>
-        <label className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-950/45 px-3 py-2 text-sm text-slate-300">
-          <input type="checkbox" checked={form.active} onChange={(event) => onChange({ ...form, active: event.target.checked })} className="accent-purple-500" />
-          Active
         </label>
         <div className="space-y-3 rounded-2xl border border-slate-800 bg-slate-950/45 p-4 sm:col-span-2">
           <div>
@@ -230,7 +219,7 @@ export default function QuestForm({ form, isEditing, onChange, onCancel, onSave 
           ) : null}
         </div>
         <label className="space-y-2 sm:col-span-2">
-          <span className={labelClass}>Linked Progress Goal</span>
+          <span className={labelClass}>Goal Link (optional)</span>
           <select
             value={form.linkedProgressGoalId ?? ""}
             onChange={(event) => {
@@ -267,7 +256,32 @@ export default function QuestForm({ form, isEditing, onChange, onCancel, onSave 
           </select>
         </label>
 
-        <div className="sm:col-span-2 rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-4">
+        <div className="sm:col-span-2">
+          <button
+            type="button"
+            onClick={() => setShowAdvanced((current) => !current)}
+            className="text-sm font-semibold text-purple-300 transition hover:text-purple-100"
+          >
+            {showAdvanced ? "Hide Advanced Settings" : "Advanced Settings"}
+          </button>
+        </div>
+
+        {showAdvanced ? (
+          <>
+            <label className="space-y-2 sm:col-span-2">
+              <span className={labelClass}>Description</span>
+              <textarea value={form.description} onChange={(event) => onChange({ ...form, description: event.target.value })} className={inputClass + " min-h-24"} />
+            </label>
+            <label className="space-y-2">
+              <span className={labelClass}>XP</span>
+              <input type="number" min={0} value={form.xp} onChange={(event) => onChange({ ...form, xp: Number(event.target.value) })} className={inputClass} />
+            </label>
+            <label className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-950/45 px-3 py-2 text-sm text-slate-300">
+              <input type="checkbox" checked={form.active} onChange={(event) => onChange({ ...form, active: event.target.checked })} className="accent-purple-500" />
+              Active
+            </label>
+
+            <div className="sm:col-span-2 rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100">Inherited Attributes</p>
@@ -369,7 +383,9 @@ export default function QuestForm({ form, isEditing, onChange, onCancel, onSave 
               </div>
             )}
           </div>
-        </div>
+            </div>
+          </>
+        ) : null}
       </div>
 
       <div className="mt-6 flex justify-end gap-3">

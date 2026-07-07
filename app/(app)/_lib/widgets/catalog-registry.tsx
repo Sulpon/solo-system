@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import ChartWidget from "../../_components/dashboard/ChartWidget";
 import { getAttributePortfolio } from "../attribute-portfolio";
 import { getEventsByType } from "../activity-events";
@@ -32,6 +33,13 @@ const dashboardAndGoalPages: CatalogSupportedPage[] = ["dashboard", "goal-tree",
 const dashboardOnly: CatalogSupportedPage[] = ["dashboard", "quests"];
 const allSizes: CatalogWidgetSize[] = ["sm", "md", "lg", "xl"];
 
+// A handful of generic widgets duplicate a Dashboard-native widget under the
+// same title (see dashboard-native-previews.tsx). Excluding "dashboard" here
+// avoids showing the same widget twice in the catalog when browsing from the
+// Dashboard - the native version already covers that page.
+const goalPagesOnly: CatalogSupportedPage[] = ["goal-tree", "attributes", "quests"];
+const questsOnly: CatalogSupportedPage[] = ["quests"];
+
 function flattenGoalNodes(nodes: ReadonlyArray<GoalNodeView>): GoalNodeView[] {
   return nodes.flatMap((node) => [node, ...flattenGoalNodes(node.children)]);
 }
@@ -43,6 +51,15 @@ function keywordMatch(value: string | undefined, keywords: ReadonlyArray<string>
 
 function toMiniItem(node: GoalNodeView): MiniProgressItem {
   return { id: node.id, title: node.title, subtitle: node.description ?? node.type.replaceAll("_", " "), progress: node.progress };
+}
+
+// `useWidgetLiveContext()` returns a brand-new object every render, but its
+// individual fields are only replaced when the underlying localStorage-backed
+// data actually changes. Depending on the fields (not the wrapper object)
+// lets useMemo below skip recomputing goal-tree/XP aggregation on renders
+// that don't touch this widget's data.
+function ctxDeps(ctx: WidgetLiveContext) {
+  return [ctx.goalTree, ctx.questDefinitions, ctx.questCompletions, ctx.activityEvents, ctx.dailySnapshots, ctx.progressionSummary, ctx.goalXpEvents, ctx.attributes, ctx.isReady];
 }
 
 // ---------------------------------------------------------------------------
@@ -60,7 +77,7 @@ function progressListWidget(options: {
 }) {
   return function Component({ mode }: CatalogWidgetComponentProps) {
     const ctx = useWidgetLiveContext();
-    const items = mode === "preview" ? options.previewItems : options.getLiveItems(ctx);
+    const items = useMemo(() => (mode === "preview" ? options.previewItems : options.getLiveItems(ctx)), [mode, ...ctxDeps(ctx)]);
 
     return (
       <WidgetShell eyebrow={options.eyebrow} title={options.title}>
@@ -79,12 +96,16 @@ function statGridWidget(options: {
   return function Component({ mode }: CatalogWidgetComponentProps) {
     const ctx = useWidgetLiveContext();
     const columnsClass = options.columns === 4 ? "sm:grid-cols-4" : options.columns === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2";
+    const values = useMemo(
+      () => options.stats.map((stat) => (mode === "preview" ? stat.previewValue : stat.getLiveValue(ctx))),
+      [mode, ...ctxDeps(ctx)],
+    );
 
     return (
       <WidgetShell eyebrow={options.eyebrow} title={options.title}>
         <div className={"grid gap-3 " + columnsClass}>
-          {options.stats.map((stat) => (
-            <StatValue key={stat.label} label={stat.label} value={mode === "preview" ? stat.previewValue : stat.getLiveValue(ctx)} />
+          {options.stats.map((stat, index) => (
+            <StatValue key={stat.label} label={stat.label} value={values[index]} />
           ))}
         </div>
       </WidgetShell>
@@ -101,8 +122,10 @@ function barsWidget(options: {
 }) {
   return function Component({ mode }: CatalogWidgetComponentProps) {
     const ctx = useWidgetLiveContext();
-    const { values, labels } =
-      mode === "preview" ? { values: options.previewValues, labels: options.previewLabels } : options.getLiveValues(ctx);
+    const { values, labels } = useMemo(
+      () => (mode === "preview" ? { values: options.previewValues, labels: options.previewLabels } : options.getLiveValues(ctx)),
+      [mode, ...ctxDeps(ctx)],
+    );
 
     return (
       <WidgetShell eyebrow={options.eyebrow} title={options.title}>
@@ -121,7 +144,7 @@ function heatmapWidget(options: {
 }) {
   return function Component({ mode }: CatalogWidgetComponentProps) {
     const ctx = useWidgetLiveContext();
-    const values = mode === "preview" ? options.previewValues : options.getLiveValues(ctx);
+    const values = useMemo(() => (mode === "preview" ? options.previewValues : options.getLiveValues(ctx)), [mode, ...ctxDeps(ctx)]);
 
     return (
       <WidgetShell eyebrow={options.eyebrow} title={options.title}>
@@ -139,7 +162,7 @@ function radarWidget(options: {
 }) {
   return function Component({ mode }: CatalogWidgetComponentProps) {
     const ctx = useWidgetLiveContext();
-    const items = mode === "preview" ? options.previewItems : options.getLiveItems(ctx);
+    const items = useMemo(() => (mode === "preview" ? options.previewItems : options.getLiveItems(ctx)), [mode, ...ctxDeps(ctx)]);
 
     return (
       <WidgetShell eyebrow={options.eyebrow} title={options.title}>
@@ -158,7 +181,7 @@ function activityFeedWidget(options: {
 }) {
   return function Component({ mode }: CatalogWidgetComponentProps) {
     const ctx = useWidgetLiveContext();
-    const events = mode === "preview" ? options.previewEvents : options.getLiveEvents(ctx);
+    const events = useMemo(() => (mode === "preview" ? options.previewEvents : options.getLiveEvents(ctx)), [mode, ...ctxDeps(ctx)]);
 
     return (
       <WidgetShell eyebrow={options.eyebrow} title={options.title}>
@@ -248,7 +271,7 @@ const staticWidgets: CatalogWidgetDefinition[] = [
     icon: "MD",
     defaultSize: "md",
     allowedSizes: allSizes,
-    supportedPages: dashboardOnly,
+    supportedPages: questsOnly,
     readOnly: true,
     searchKeywords: ["daily", "minimum", "successful", "core quests"],
     component: statGridWidget({
@@ -262,18 +285,18 @@ const staticWidgets: CatalogWidgetDefinition[] = [
   },
   {
     id: "daily-bonus-missions-summary",
-    title: "Bonus Missions",
-    description: "Optional missions unlocked after your minimum day is complete.",
+    title: "Optional Tasks",
+    description: "Optional tasks unlocked after your minimum day is complete.",
     category: "Daily System",
     icon: "BM",
     defaultSize: "md",
     allowedSizes: allSizes,
-    supportedPages: dashboardOnly,
+    supportedPages: questsOnly,
     readOnly: true,
-    searchKeywords: ["bonus", "missions", "optional quests"],
+    searchKeywords: ["optional", "tasks"],
     component: statGridWidget({
       eyebrow: "Daily System",
-      title: "Bonus Missions",
+      title: "Optional Tasks",
       stats: [{ label: "Bonus Quests", previewValue: 2, getLiveValue: (ctx) => ctx.questDefinitions.filter((quest) => (quest.importance ?? "core") === "bonus").length }],
     }),
   },
@@ -285,7 +308,7 @@ const staticWidgets: CatalogWidgetDefinition[] = [
     icon: "TP",
     defaultSize: "md",
     allowedSizes: allSizes,
-    supportedPages: dashboardOnly,
+    supportedPages: questsOnly,
     readOnly: true,
     searchKeywords: ["tomorrow", "preview", "schedule"],
     component: statGridWidget({
@@ -299,7 +322,7 @@ const staticWidgets: CatalogWidgetDefinition[] = [
   },
   {
     id: "daily-night-review-summary",
-    title: "Night Review Summary",
+    title: "Daily Review Summary",
     description: "Recap of the most recently reviewed day.",
     category: "Daily System",
     icon: "NR",
@@ -307,10 +330,10 @@ const staticWidgets: CatalogWidgetDefinition[] = [
     allowedSizes: allSizes,
     supportedPages: dashboardOnly,
     readOnly: true,
-    searchKeywords: ["night", "review", "recap", "finish day"],
+    searchKeywords: ["daily review", "recap", "end day"],
     component: statGridWidget({
       eyebrow: "Daily System",
-      title: "Night Review Summary",
+      title: "Daily Review Summary",
       stats: [
         { label: "Reviewed Days", previewValue: 12, getLiveValue: (ctx) => ctx.dailySnapshots.length },
         {
@@ -329,7 +352,7 @@ const staticWidgets: CatalogWidgetDefinition[] = [
     icon: "CS",
     defaultSize: "md",
     allowedSizes: allSizes,
-    supportedPages: dashboardAndGoalPages,
+    supportedPages: goalPagesOnly,
     readOnly: true,
     searchKeywords: ["consistency", "score", "streak"],
     component: statGridWidget({
@@ -391,18 +414,18 @@ const staticWidgets: CatalogWidgetDefinition[] = [
   },
   {
     id: "daily-bonus-missions-summary-today",
-    title: "Today's Bonus Missions Summary",
-    description: "Read-only summary of bonus missions scheduled for today.",
+    title: "Today's Optional Tasks Summary",
+    description: "Read-only summary of optional tasks scheduled for today.",
     category: "Daily System",
     icon: "BQ",
     defaultSize: "md",
     allowedSizes: allSizes,
     supportedPages: dashboardAndGoalPages,
     readOnly: true,
-    searchKeywords: ["today", "bonus missions", "summary"],
+    searchKeywords: ["today", "optional tasks", "summary"],
     component: statGridWidget({
       eyebrow: "Daily System",
-      title: "Today's Bonus Missions Summary",
+      title: "Today's Optional Tasks Summary",
       stats: [
         { label: "Scheduled", previewValue: 2, getLiveValue: (ctx) => ctx.questDefinitions.filter((quest) => (quest.importance ?? "core") === "bonus" && quest.status === "active").length },
         {
@@ -427,7 +450,7 @@ const staticWidgets: CatalogWidgetDefinition[] = [
     icon: "DP",
     defaultSize: "lg",
     allowedSizes: allSizes,
-    supportedPages: dashboardAndGoalPages,
+    supportedPages: goalPagesOnly,
     readOnly: true,
     searchKeywords: ["dream", "progress", "long term"],
     component: progressListWidget({
@@ -771,7 +794,7 @@ const staticWidgets: CatalogWidgetDefinition[] = [
     icon: "AO",
     defaultSize: "lg",
     allowedSizes: allSizes,
-    supportedPages: dashboardAndGoalPages,
+    supportedPages: goalPagesOnly,
     readOnly: true,
     searchKeywords: ["attribute", "overview"],
     component: progressListWidget({
@@ -857,19 +880,22 @@ const staticWidgets: CatalogWidgetDefinition[] = [
     searchKeywords: ["attribute", "xp", "today"],
     component: function Component({ mode }: CatalogWidgetComponentProps) {
       const ctx = useWidgetLiveContext();
-      const items =
-        mode === "preview"
-          ? [
-              { id: "trading", name: "Trading", xp: 25 },
-              { id: "discipline", name: "Discipline", xp: 15 },
-            ]
-          : ctx.progressionSummary.categoryProgression.map((category) => {
-              const today = new Date().toISOString().slice(0, 10);
-              const xp = getEventsByType(ctx.activityEvents, "attribute_xp_awarded")
-                .filter((event) => event.metadata.attributeId === category.id && event.createdAt.slice(0, 10) === today)
-                .reduce((sum, event) => sum + (typeof event.metadata.xp === "number" ? event.metadata.xp : 0), 0);
-              return { id: category.id, name: category.name, xp };
-            });
+      const items = useMemo(
+        () =>
+          mode === "preview"
+            ? [
+                { id: "trading", name: "Trading", xp: 25 },
+                { id: "discipline", name: "Discipline", xp: 15 },
+              ]
+            : ctx.progressionSummary.categoryProgression.map((category) => {
+                const today = new Date().toISOString().slice(0, 10);
+                const xp = getEventsByType(ctx.activityEvents, "attribute_xp_awarded")
+                  .filter((event) => event.metadata.attributeId === category.id && event.createdAt.slice(0, 10) === today)
+                  .reduce((sum, event) => sum + (typeof event.metadata.xp === "number" ? event.metadata.xp : 0), 0);
+                return { id: category.id, name: category.name, xp };
+              }),
+        [mode, ctx.progressionSummary, ctx.activityEvents],
+      );
 
       return (
         <WidgetShell eyebrow="Attributes" title="Attribute XP Today">
@@ -1210,7 +1236,7 @@ const staticWidgets: CatalogWidgetDefinition[] = [
     icon: "RM",
     defaultSize: "lg",
     allowedSizes: allSizes,
-    supportedPages: dashboardAndGoalPages,
+    supportedPages: goalPagesOnly,
     readOnly: true,
     searchKeywords: ["recent", "milestones"],
     component: activityFeedWidget({
