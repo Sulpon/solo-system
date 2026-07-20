@@ -19,6 +19,7 @@ export function useQuestCompletionFlow() {
   const { setQuestCompletionForToday, hasQuestCompletedToday } = useProgression();
   const { goalTree, findNode, updateProgressGoal } = useGoalTree();
   const [pendingQuest, setPendingQuest] = useState<QuestCompletionTarget | null>(null);
+  const [pendingCompletedAt, setPendingCompletedAt] = useState(() => new Date().toISOString());
   const [progressValue, setProgressValue] = useState("1");
 
   const pendingGoal = useMemo(() => {
@@ -31,6 +32,7 @@ export function useQuestCompletionFlow() {
 
   const clearPending = useCallback(() => {
     setPendingQuest(null);
+    setPendingCompletedAt(new Date().toISOString());
     setProgressValue("1");
   }, []);
 
@@ -52,8 +54,8 @@ export function useQuestCompletionFlow() {
   }, [goalTree, pendingQuest]);
 
   const beginQuestCompletion = useCallback(
-    (quest: QuestCompletionTarget) => {
-      if (hasQuestCompletedToday(quest.id)) {
+    (quest: QuestCompletionTarget, completedAt = new Date().toISOString()) => {
+      if (hasQuestCompletedToday(quest.id, new Date(completedAt))) {
         return false;
       }
 
@@ -62,12 +64,13 @@ export function useQuestCompletionFlow() {
 
         if (linkedGoal) {
           setPendingQuest(quest);
+          setPendingCompletedAt(completedAt);
           setProgressValue("1");
           return true;
         }
       }
 
-      setQuestCompletionForToday(quest.id, true, new Date().toISOString(), pendingAttributeRewards);
+      setQuestCompletionForToday(quest.id, true, completedAt, pendingAttributeRewards);
       return true;
     },
     [findNode, hasQuestCompletedToday, pendingAttributeRewards, setQuestCompletionForToday],
@@ -92,14 +95,14 @@ export function useQuestCompletionFlow() {
       updateProgressGoal(pendingQuest.linkedProgressGoalId, increment);
     }
 
-    const completed = setQuestCompletionForToday(pendingQuest.id, true, new Date().toISOString(), pendingAttributeRewards);
+    const completed = setQuestCompletionForToday(pendingQuest.id, true, pendingCompletedAt, pendingAttributeRewards);
     clearPending();
     return completed;
-  }, [clearPending, pendingAttributeRewards, pendingGoal, pendingQuest, progressValue, setQuestCompletionForToday, updateProgressGoal]);
+  }, [clearPending, pendingAttributeRewards, pendingCompletedAt, pendingGoal, pendingQuest, progressValue, setQuestCompletionForToday, updateProgressGoal]);
 
   const removeQuestCompletion = useCallback(
-    (questId: string) => {
-      setQuestCompletionForToday(questId, false);
+    (questId: string, completedAt = new Date().toISOString()) => {
+      setQuestCompletionForToday(questId, false, completedAt);
     },
     [setQuestCompletionForToday],
   );

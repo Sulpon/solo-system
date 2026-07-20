@@ -7,6 +7,7 @@ type QuestCompletionModalProps = Readonly<{
   questTitle: string;
   goal: GoalNode | null;
   progressValue: string;
+  logDateLabel?: string;
   onChange: (nextValue: string) => void;
   onCancel: () => void;
   onConfirm: () => void;
@@ -15,7 +16,7 @@ type QuestCompletionModalProps = Readonly<{
 const inputClass = "w-full rounded-xl border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none transition focus:border-purple-400";
 const labelClass = "text-xs font-semibold uppercase tracking-[0.18em] text-slate-500";
 
-export default function QuestCompletionModal({ questTitle, goal, progressValue, onChange, onCancel, onConfirm }: QuestCompletionModalProps) {
+export default function QuestCompletionModal({ questTitle, goal, progressValue, logDateLabel, onChange, onCancel, onConfirm }: QuestCompletionModalProps) {
   const unitLabel = goal?.unit?.trim() || "value";
   const currentValue = Math.max(0, Number(goal?.currentValue ?? 0));
   const targetValue = Math.max(1, Number(goal?.targetValue ?? 1));
@@ -23,6 +24,9 @@ export default function QuestCompletionModal({ questTitle, goal, progressValue, 
   return (
     <Modal title="Quest Complete" onClose={onCancel}>
       <div className="space-y-5">
+        {logDateLabel ? (
+          <p className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs font-semibold text-amber-200">Logging for {logDateLabel}, not today</p>
+        ) : null}
         <div className="rounded-xl border border-slate-800 bg-slate-950/55 px-4 py-3">
           <p className={labelClass}>Quest</p>
           <p className="mt-1 text-lg font-bold text-white">{questTitle}</p>

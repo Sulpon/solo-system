@@ -7,6 +7,7 @@ import { getCatalogWidgetsForPage } from "../../_lib/widgets/catalog-registry";
 import { QuestStatsCard, StatNumberCard } from "../page-edit/StatWidgets";
 import { isQuestScheduledForDate } from "../../_lib/daily-system";
 import { hasCompletedToday } from "../../_lib/quest-storage";
+import { getLocalDayKey, parseLocalDayKey } from "../../_lib/local-day";
 import { useProgression } from "../../_lib/hooks/useProgression";
 import type { Quest, QuestStatus } from "../../_lib/types/quest";
 import QuestForm, { type QuestFormModel } from "./QuestForm";
@@ -22,6 +23,7 @@ type QuestImportanceFilter = "all" | "today" | "core" | "bonus";
 export default function QuestManagerPage({}: QuestManagerPageProps) {
   const [form, setForm] = useState<QuestFormModel | null>(null);
   const [importanceFilter, setImportanceFilter] = useState<QuestImportanceFilter>("all");
+  const [logDayKey, setLogDayKey] = useState(() => getLocalDayKey());
   const { isReady, questDefinitions: quests, setQuestDefinitions, questCompletions, activityEvents, progressionSummary } = useProgression();
   const availableWidgets = useMemo(() => getCatalogWidgetsForPage("quests"), []);
   const {
@@ -32,7 +34,23 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
     beginQuestCompletion,
     confirmQuestCompletion,
     cancelQuestCompletion,
+    removeQuestCompletion,
   } = useQuestCompletionFlow();
+
+  const todayDayKey = useMemo(() => getLocalDayKey(), []);
+  const logDate = useMemo(() => parseLocalDayKey(logDayKey), [logDayKey]);
+  const isLoggingPastDay = logDayKey !== todayDayKey;
+
+  function completionTimestampForLogDay() {
+    if (!isLoggingPastDay) {
+      return new Date().toISOString();
+    }
+
+    const now = new Date();
+    const backdated = new Date(logDate);
+    backdated.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
+    return backdated.toISOString();
+  }
 
   const sortedQuests = useMemo(
     () =>
@@ -42,9 +60,9 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
         .sort((first, second) => Number(first.status === "archived") - Number(second.status === "archived") || first.title.localeCompare(second.title)),
     [importanceFilter, quests],
   );
-  const completedTodayIds = useMemo(
-    () => new Set(quests.filter((quest) => hasCompletedToday(quest.id, questCompletions)).map((quest) => quest.id)),
-    [quests, questCompletions],
+  const completedForLogDayIds = useMemo(
+    () => new Set(quests.filter((quest) => hasCompletedToday(quest.id, questCompletions, logDate)).map((quest) => quest.id)),
+    [quests, questCompletions, logDate],
   );
   const statsSections = useMemo<EditablePageSection[]>(
     () => [
@@ -122,7 +140,28 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
         </button>
       </div>
 
-      <div className="mt-5 flex flex-wrap gap-2">
+      <div className="mt-5 flex flex-wrap items-end justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/45 p-3">
+        <label className="space-y-1.5">
+          <span className="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Log completions for</span>
+          <input
+            type="date"
+            value={logDayKey}
+            max={todayDayKey}
+            onChange={(event) => setLogDayKey(event.target.value || todayDayKey)}
+            className="rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none transition focus:border-purple-400"
+          />
+        </label>
+        {isLoggingPastDay ? (
+          <div className="flex items-center gap-2">
+            <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1.5 text-xs font-semibold text-amber-200">Logging a past day</span>
+            <button type="button" onClick={() => setLogDayKey(todayDayKey)} className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-300 transition hover:border-purple-400/60 hover:text-white">
+              Back to today
+            </button>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2">
         {(["all", "today", "core", "bonus"] as const).map((filter) => (
           <button
             key={filter}
@@ -155,11 +194,14 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
       ) : (
         <QuestList
           quests={sortedQuests}
-          completedTodayIds={completedTodayIds}
+          questCompletions={questCompletions}
+          completedTodayIds={completedForLogDayIds}
+          referenceDate={logDate}
           onEdit={(quest) => setForm(toQuestForm(quest))}
           onToggleStatus={(quest) => setQuestStatus(quest, quest.status === "active" ? "archived" : "active")}
           onDelete={deleteQuest}
-          onComplete={(quest) => beginQuestCompletion(quest)}
+          onComplete={(quest) => beginQuestCompletion(quest, completionTimestampForLogDay())}
+          onUndoComplete={(quest) => removeQuestCompletion(quest.id, logDate.toISOString())}
         />
       )}
 
@@ -170,6 +212,7 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
           questTitle={pendingQuest.title}
           goal={pendingGoal}
           progressValue={progressValue}
+          logDateLabel={isLoggingPastDay ? logDayKey : undefined}
           onChange={setProgressValue}
           onCancel={cancelQuestCompletion}
           onConfirm={confirmQuestCompletion}

@@ -123,6 +123,67 @@ export function createDailySnapshot({
   };
 }
 
+export function calculateQuestStreak(quest: Quest, completions: ReadonlyArray<QuestCompletion>, referenceDate = new Date()) {
+  const completionDays = new Set(
+    completions.filter((completion) => completion.questId === quest.id).map((completion) => getLocalDayKey(completion.completedAt)),
+  );
+  const cursor = new Date(referenceDate);
+  cursor.setHours(0, 0, 0, 0);
+
+  let streak = 0;
+
+  for (let daysChecked = 0; daysChecked < 3650; daysChecked += 1) {
+    if (isQuestScheduledForDate(quest, cursor)) {
+      const dayKey = getLocalDayKey(cursor);
+
+      if (completionDays.has(dayKey)) {
+        streak += 1;
+      } else if (daysChecked > 0) {
+        break;
+      }
+    }
+
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  return streak;
+}
+
+export function calculateQuestConsistency(quest: Quest, completions: ReadonlyArray<QuestCompletion>, referenceDate = new Date(), windowDays = 30) {
+  const completionDays = new Set(
+    completions.filter((completion) => completion.questId === quest.id).map((completion) => getLocalDayKey(completion.completedAt)),
+  );
+  const end = new Date(referenceDate);
+  end.setHours(0, 0, 0, 0);
+  const windowStart = new Date(end);
+  windowStart.setDate(windowStart.getDate() - (windowDays - 1));
+  const createdAt = new Date(quest.createdAt);
+  createdAt.setHours(0, 0, 0, 0);
+  const start = createdAt > windowStart ? createdAt : windowStart;
+
+  let scheduledDaysCount = 0;
+  let completedDaysCount = 0;
+  const cursor = new Date(start);
+
+  while (cursor <= end) {
+    if (isQuestScheduledForDate(quest, cursor)) {
+      scheduledDaysCount += 1;
+
+      if (completionDays.has(getLocalDayKey(cursor))) {
+        completedDaysCount += 1;
+      }
+    }
+
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  if (scheduledDaysCount === 0) {
+    return 0;
+  }
+
+  return Math.round((completedDaysCount / scheduledDaysCount) * 100);
+}
+
 export function getConsistencyScore(snapshots: ReadonlyArray<DailySnapshot>, referenceDate = new Date()) {
   const end = new Date(referenceDate);
   end.setHours(0, 0, 0, 0);
