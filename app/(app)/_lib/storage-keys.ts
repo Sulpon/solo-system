@@ -15,6 +15,12 @@ export const STORAGE_KEYS = {
   onboardingMigrated: "menace-onboarding-migrated",
   // Finished focus sessions - syncs to the cloud like everything else here.
   focusHistory: "menace-focus-history",
+  workoutTemplates: "menace-workout-templates",
+  workoutSessions: "menace-workout-sessions",
+  bodyweightEntries: "menace-bodyweight-entries",
+  // Exercises the user has created, remembered across templates and ad-hoc
+  // logging so they can be picked from a dropdown instead of retyped.
+  exerciseLibrary: "menace-exercise-library",
 } as const;
 
 export const MENACE_STORAGE_EVENT = "menace-local-storage-change";
@@ -28,3 +34,10 @@ export const FOCUS_ACTIVE_SESSION_KEY = "atlas-focus-active-session";
 // Whether the overlay is currently minimized to the TopBar pill - purely a
 // local UI preference, same non-synced reasoning as the key above.
 export const FOCUS_MINIMIZED_KEY = "atlas-focus-minimized";
+
+// Same reasoning as the Focus session keys above: an in-progress workout is
+// local, ephemeral, device-specific state that must never be synced or
+// overwritten by another device's snapshot. Only finished sessions in
+// STORAGE_KEYS.workoutSessions are meant to travel to the cloud.
+export const WORKOUT_ACTIVE_SESSION_KEY = "atlas-workout-active-session";
+export const WORKOUT_MINIMIZED_KEY = "atlas-workout-minimized";

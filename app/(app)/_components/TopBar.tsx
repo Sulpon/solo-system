@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useProgression } from "../_lib/hooks/useProgression";
 import AuthControl from "./AuthControl";
 import FocusMiniTimer from "./focus/FocusMiniTimer";
+import WorkoutMiniTimer from "./workouts/WorkoutMiniTimer";
 
 function formatTime(date: Date) {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -45,6 +46,7 @@ export default function TopBar({ onOpenMenu }: TopBarProps) {
         </div>
       </div>
       <div className="flex items-center gap-3">
+        <WorkoutMiniTimer />
         <FocusMiniTimer />
         <span className="hidden items-center gap-4 md:flex">
           <span className="rounded-full border border-slate-800 bg-slate-950/50 px-3 py-1">System Online</span>

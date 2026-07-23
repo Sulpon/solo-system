@@ -6,6 +6,7 @@ import { calculateQuestAttributeXP, buildDefaultAttributeWeights } from "../../_
 import { getInheritedAttributeWeights, getInheritedAttributes } from "../../_lib/goal-tree-storage";
 import { useAttributes } from "../../_lib/hooks/useAttributes";
 import { useGoalTree } from "../../_lib/hooks/useGoalTree";
+import { useWorkoutTemplates } from "../../_lib/hooks/useWorkoutTemplates";
 import type { CategoryId } from "../../_lib/types/category";
 import type { AttributeWeight } from "../../_lib/types/goal-tree";
 import type { QuestAttributeReward, QuestCadence, QuestImportance } from "../../_lib/types/quest";
@@ -21,6 +22,7 @@ type QuestFormModel = Readonly<{
   scheduledDays: number[];
   active: boolean;
   linkedProgressGoalId: string | null;
+  linkedWorkoutTemplateId: string | null;
   useInheritedAttributeDistribution: boolean;
   attributeXPOverride: QuestAttributeReward[];
   inheritedAttributeIds: CategoryId[];
@@ -89,7 +91,9 @@ export default function QuestForm({ form, isEditing, onChange, onCancel, onSave 
   const [showAdvanced, setShowAdvanced] = useState(false);
   const { attributes: categories } = useAttributes();
   const { goalTree, progressGoals } = useGoalTree();
+  const { templates: workoutTemplates } = useWorkoutTemplates();
   const linkedGoalOptions = useMemo(() => [...progressGoals].sort((first, second) => first.title.localeCompare(second.title)), [progressGoals]);
+  const linkedWorkoutTemplateOptions = useMemo(() => [...workoutTemplates].sort((first, second) => first.title.localeCompare(second.title)), [workoutTemplates]);
   const inheritedAttributeIds = useMemo(
     () => (form.linkedProgressGoalId ? getInheritedAttributes(goalTree, form.linkedProgressGoalId) : form.inheritedAttributeIds),
     [form.inheritedAttributeIds, form.linkedProgressGoalId, goalTree],
@@ -254,6 +258,23 @@ export default function QuestForm({ form, isEditing, onChange, onCancel, onSave 
               );
             })}
           </select>
+        </label>
+
+        <label className="space-y-2 sm:col-span-2">
+          <span className={labelClass}>Workout Link (optional)</span>
+          <select
+            value={form.linkedWorkoutTemplateId ?? ""}
+            onChange={(event) => onChange({ ...form, linkedWorkoutTemplateId: event.target.value || null })}
+            className={inputClass}
+          >
+            <option value="">None</option>
+            {linkedWorkoutTemplateOptions.map((template) => (
+              <option key={template.id} value={template.id}>
+                {template.title}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-slate-500">When linked, this quest starts the workout session instead of a plain complete button. Finishing the workout completes the quest.</p>
         </label>
 
         <div className="sm:col-span-2">

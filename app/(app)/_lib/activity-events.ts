@@ -1,11 +1,13 @@
 import { categories } from "./mock/categories";
 import { getLocalDayKey } from "./local-day";
 import type { ActivityEvent, ActivityEventType } from "./types/activity-event";
+import type { BodyweightEntry } from "./types/bodyweight";
 import type { CategoryId } from "./types/category";
 import type { DailySnapshot } from "./types/daily-system";
 import type { GoalNode, GoalTree } from "./types/goal-tree";
 import type { XpEvent } from "./types/progression";
 import type { Quest, QuestAttributeReward, QuestCompletion } from "./types/quest";
+import type { PersonalRecordEvent, WorkoutSession } from "./types/workout";
 
 export const MAX_ACTIVITY_EVENTS = 2000;
 
@@ -267,6 +269,79 @@ export function createGoalXpActivityEvents(events: ReadonlyArray<XpEvent>): Acti
       },
     })),
   ]);
+}
+
+const PERSONAL_RECORD_LABELS: Readonly<Record<PersonalRecordEvent["type"], string>> = {
+  max_weight: "Max Weight",
+  max_volume: "Max Volume",
+  max_reps: "Max Reps",
+  longest_session: "Longest Session",
+  most_sets: "Most Sets",
+  best_estimated_1rm: "Best Estimated 1RM",
+};
+
+function formatPersonalRecordValue(record: PersonalRecordEvent) {
+  if (record.type === "longest_session") {
+    return `${Math.round(record.value / 60)} min`;
+  }
+
+  return record.unit ? `${record.value.toLocaleString()} ${record.unit}` : record.value.toLocaleString();
+}
+
+export function createWorkoutActivityEvents(session: WorkoutSession): ActivityEvent[] {
+  const exerciseCount = session.exerciseLogs.length;
+  const title = session.templateTitle ? `${session.templateTitle} completed` : "Workout completed";
+
+  return [
+    {
+      id: activityEventId("workout_completed", session.id, session.endedAt),
+      type: "workout_completed",
+      createdAt: session.endedAt,
+      title,
+      description: `${exerciseCount} exercise${exerciseCount === 1 ? "" : "s"} · ${session.totalVolume.toLocaleString()} volume`,
+      sourceType: "workout",
+      sourceId: session.id,
+      metadata: {
+        sessionId: session.id,
+        templateId: session.templateId ?? null,
+        durationSeconds: session.durationSeconds,
+        totalVolume: session.totalVolume,
+      },
+    },
+    ...session.personalRecordsAchieved.map((record) => ({
+      id: activityEventId("personal_record_achieved", session.id, session.endedAt, record.id),
+      type: "personal_record_achieved" as const,
+      createdAt: record.achievedAt,
+      title: record.exerciseName ? `${record.exerciseName} PR: ${PERSONAL_RECORD_LABELS[record.type]}` : `Session PR: ${PERSONAL_RECORD_LABELS[record.type]}`,
+      description: formatPersonalRecordValue(record),
+      sourceType: "workout" as const,
+      sourceId: session.id,
+      metadata: {
+        sessionId: session.id,
+        recordId: record.id,
+        recordType: record.type,
+        exerciseName: record.exerciseName ?? null,
+        value: record.value,
+      },
+    })),
+  ];
+}
+
+export function createBodyweightActivityEvent(entry: BodyweightEntry): ActivityEvent {
+  return {
+    id: activityEventId("bodyweight_logged", entry.id, entry.createdAt),
+    type: "bodyweight_logged",
+    createdAt: entry.createdAt,
+    title: `Bodyweight logged: ${entry.weight} ${entry.unit}`,
+    description: entry.date,
+    sourceType: "bodyweight",
+    sourceId: entry.id,
+    metadata: {
+      entryId: entry.id,
+      weight: entry.weight,
+      unit: entry.unit,
+    },
+  };
 }
 
 export function createDailySnapshotSavedEvent(snapshot: DailySnapshot): ActivityEvent {

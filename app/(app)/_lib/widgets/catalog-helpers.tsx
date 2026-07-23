@@ -3,9 +3,12 @@
 import Card from "../../_components/Card";
 import Progress from "../../_components/Progress";
 import { useAttributes } from "../hooks/useAttributes";
+import { useBodyweight } from "../hooks/useBodyweight";
 import { useFocusHistory } from "../hooks/useFocusHistory";
 import { useGoalTree } from "../hooks/useGoalTree";
 import { useProgression } from "../hooks/useProgression";
+import { useWorkoutSessions } from "../hooks/useWorkoutSessions";
+import { useWorkoutTemplates } from "../hooks/useWorkoutTemplates";
 import { getLocalDayKey } from "../local-day";
 import type { ActivityEvent } from "../types/activity-event";
 import type { QuestCompletion } from "../types/quest";
@@ -16,8 +19,11 @@ export function useWidgetLiveContext() {
   const { questDefinitions, questCompletions, activityEvents, dailySnapshots, progressionSummary, goalXpEvents, isReady } = useProgression();
   const { attributes } = useAttributes();
   const { history: focusHistory } = useFocusHistory();
+  const { templates: workoutTemplates } = useWorkoutTemplates();
+  const { sessions: workoutSessions } = useWorkoutSessions();
+  const { entries: bodyweightEntries } = useBodyweight();
 
-  return { goalTree, questDefinitions, questCompletions, activityEvents, dailySnapshots, progressionSummary, goalXpEvents, attributes, focusHistory, isReady };
+  return { goalTree, questDefinitions, questCompletions, activityEvents, dailySnapshots, progressionSummary, goalXpEvents, attributes, focusHistory, workoutTemplates, workoutSessions, bodyweightEntries, isReady };
 }
 
 export type WidgetLiveContext = ReturnType<typeof useWidgetLiveContext>;

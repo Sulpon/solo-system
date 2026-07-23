@@ -9,6 +9,7 @@ import { isQuestScheduledForDate } from "../../_lib/daily-system";
 import { hasCompletedToday } from "../../_lib/quest-storage";
 import { getLocalDayKey, parseLocalDayKey } from "../../_lib/local-day";
 import { useProgression } from "../../_lib/hooks/useProgression";
+import { useWorkout } from "../../_lib/workout-store";
 import type { Quest, QuestStatus } from "../../_lib/types/quest";
 import QuestForm, { type QuestFormModel } from "./QuestForm";
 import QuestCompletionModal from "./QuestCompletionModal";
@@ -25,6 +26,7 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
   const [importanceFilter, setImportanceFilter] = useState<QuestImportanceFilter>("all");
   const [logDayKey, setLogDayKey] = useState(() => getLocalDayKey());
   const { isReady, questDefinitions: quests, setQuestDefinitions, questCompletions, activityEvents, progressionSummary } = useProgression();
+  const { startSession: startWorkoutSession } = useWorkout();
   const availableWidgets = useMemo(() => getCatalogWidgetsForPage("quests"), []);
   const {
     pendingQuest,
@@ -202,6 +204,7 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
           onDelete={deleteQuest}
           onComplete={(quest) => beginQuestCompletion(quest, completionTimestampForLogDay())}
           onUndoComplete={(quest) => removeQuestCompletion(quest.id, logDate.toISOString())}
+          onStartWorkout={(quest) => startWorkoutSession({ templateId: quest.linkedWorkoutTemplateId, linkedQuestId: quest.id })}
         />
       )}
 

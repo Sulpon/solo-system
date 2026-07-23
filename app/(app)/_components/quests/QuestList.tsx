@@ -15,6 +15,7 @@ type QuestListProps = Readonly<{
   onDelete: (questId: string) => void;
   onComplete: (quest: Quest) => void;
   onUndoComplete?: (quest: Quest) => void;
+  onStartWorkout?: (quest: Quest) => void;
 }>;
 
 function formatSchedule(quest: Quest) {
@@ -89,6 +90,7 @@ export default function QuestList({
   onDelete,
   onComplete,
   onUndoComplete,
+  onStartWorkout,
 }: QuestListProps) {
   const { attributes: categories } = useAttributes();
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -179,6 +181,7 @@ export default function QuestList({
                 <span className="rounded-full border border-slate-700 px-1.5 py-0.5 text-slate-400">{quest.cadence.replace("-", " ")}</span>
                 <span className="rounded-full border border-slate-700 bg-slate-950/50 px-1.5 py-0.5 text-slate-400">{formatSchedule(quest)}</span>
                 {quest.linkedProgressGoalId ? <span className="rounded-full border border-cyan-400/20 bg-cyan-400/5 px-1.5 py-0.5 text-cyan-200">Linked Goal</span> : null}
+                {quest.linkedWorkoutTemplateId ? <span className="rounded-full border border-emerald-400/20 bg-emerald-400/5 px-1.5 py-0.5 text-emerald-200">Linked Workout</span> : null}
                 {streak > 0 ? (
                   <span className="text-slate-500">
                     <span className="font-semibold text-orange-300">{streak}</span> day streak
@@ -211,6 +214,14 @@ export default function QuestList({
 
               {isCompleted ? (
                 <span className="rounded-full border border-emerald-400/50 bg-emerald-500/15 px-3 py-1.5 text-xs font-semibold text-emerald-200">Logged</span>
+              ) : isScheduled && quest.linkedWorkoutTemplateId && onStartWorkout ? (
+                <button
+                  type="button"
+                  onClick={() => onStartWorkout(quest)}
+                  className="rounded-full border border-emerald-500/50 bg-emerald-500/15 px-3 py-1.5 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-500/25"
+                >
+                  Start Workout
+                </button>
               ) : isScheduled ? (
                 <button
                   type="button"

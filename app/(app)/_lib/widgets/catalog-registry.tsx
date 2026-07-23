@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import ChartWidget from "../../_components/dashboard/ChartWidget";
+import PRTimeline from "../../_components/workouts/PRTimeline";
 import { getAttributePortfolio } from "../attribute-portfolio";
 import { getEventsByType } from "../activity-events";
 import { getConsistencyScore } from "../daily-system";
@@ -23,7 +24,25 @@ import {
 } from "../focus-stats";
 import { FOCUS_MODE_LABELS } from "../types/focus";
 import FocusTimer from "../../_components/focus/FocusTimer";
-import { formatFocusMinutesLabel } from "../../_components/focus/focus-format";
+import { formatFocusDuration, formatFocusMinutesLabel } from "../../_components/focus/focus-format";
+import {
+  getAverageSessionDurationSeconds,
+  getBestLifetimeLift,
+  getDaysSinceLastWorkout,
+  getExerciseHistory,
+  getFavoriteExercise,
+  getLongestSession,
+  getMonthlyVolume,
+  getMostImprovedExercise,
+  getMuscleGroupDistribution,
+  getTrainedDayBuckets,
+  getTrainingFrequency,
+  getVolumeDayBuckets,
+  getWeeklyVolume,
+  getWeightTrend,
+  getWorkoutStreak,
+  listLoggedExerciseNames,
+} from "../engines/workout-engine";
 import {
   EmptyWidgetState,
   MiniActivityFeed,
@@ -45,9 +64,11 @@ import {
 } from "./catalog-helpers";
 import type { CatalogSupportedPage, CatalogWidgetComponentProps, CatalogWidgetDefinition, CatalogWidgetSize } from "./catalog-types";
 import type { ActivityEvent, ActivityEventType } from "../types/activity-event";
+import type { PersonalRecordEvent } from "../types/workout";
 
 const dashboardAndGoalPages: CatalogSupportedPage[] = ["dashboard", "goal-tree", "attributes", "quests"];
 const dashboardOnly: CatalogSupportedPage[] = ["dashboard", "quests"];
+const dashboardAndWorkoutsPages: CatalogSupportedPage[] = ["dashboard", "workouts"];
 const allSizes: CatalogWidgetSize[] = ["sm", "md", "lg", "xl"];
 
 // A handful of generic widgets duplicate a Dashboard-native widget under the
@@ -86,6 +107,9 @@ function ctxDeps(ctx: WidgetLiveContext) {
     ctx.goalXpEvents,
     ctx.attributes,
     ctx.focusHistory,
+    ctx.workoutTemplates,
+    ctx.workoutSessions,
+    ctx.bodyweightEntries,
     ctx.isReady,
   ];
 }
@@ -1796,6 +1820,493 @@ const staticWidgets: CatalogWidgetDefinition[] = [
       emptyText: "No attribute XP yet.",
     }),
   },
+
+  // ---------------- Workouts ----------------
+  {
+    id: "workouts-calendar",
+    title: "Workout Calendar",
+    description: "Days trained over the last 90 days.",
+    category: "Workouts",
+    icon: "WC2",
+    defaultSize: "xl",
+    allowedSizes: allSizes,
+    supportedPages: dashboardAndWorkoutsPages,
+    readOnly: true,
+    searchKeywords: ["workout", "calendar", "trained"],
+    component: heatmapWidget({
+      eyebrow: "Workouts",
+      title: "Workout Calendar",
+      columns: 15,
+      previewValues: Array.from({ length: 90 }, (_, index) => (index % 4 === 0 ? 0 : 1)),
+      getLiveValues: (ctx) => getTrainedDayBuckets(ctx.workoutSessions, 90),
+    }),
+  },
+  {
+    id: "workouts-training-heatmap",
+    title: "Training Heatmap",
+    description: "Daily training volume intensity over the last 28 days.",
+    category: "Workouts",
+    icon: "TH",
+    defaultSize: "lg",
+    allowedSizes: allSizes,
+    supportedPages: dashboardAndWorkoutsPages,
+    readOnly: true,
+    searchKeywords: ["workout", "heatmap", "volume"],
+    component: heatmapWidget({
+      eyebrow: "Workouts",
+      title: "Training Heatmap",
+      columns: 7,
+      previewValues: Array.from({ length: 28 }, (_, index) => (index % 4 === 0 ? 0 : Math.round(Math.random() * 80 + 10))),
+      getLiveValues: (ctx) => getVolumeDayBuckets(ctx.workoutSessions, 28),
+    }),
+  },
+  {
+    id: "workouts-current-prs",
+    title: "Current PRs",
+    description: "Your current personal record for each exercise and record type.",
+    category: "Workouts",
+    icon: "PR",
+    defaultSize: "lg",
+    allowedSizes: allSizes,
+    supportedPages: dashboardAndWorkoutsPages,
+    readOnly: true,
+    searchKeywords: ["pr", "personal record", "workout"],
+    component: function CurrentPRsWidget({ mode }: CatalogWidgetComponentProps) {
+      const ctx = useWidgetLiveContext();
+
+      if (mode === "preview") {
+        return (
+          <WidgetShell eyebrow="Workouts" title="Current PRs">
+            <PRTimeline
+              records={[
+                { id: "p-pr-1", type: "max_weight", exerciseName: "Bench Press", value: 100, unit: "kg", sessionId: "p", achievedAt: new Date().toISOString() },
+                { id: "p-pr-2", type: "best_estimated_1rm", exerciseName: "Squat", value: 140, unit: "kg", sessionId: "p", achievedAt: new Date().toISOString() },
+              ]}
+            />
+          </WidgetShell>
+        );
+      }
+
+      const latestByKey = new Map<string, PersonalRecordEvent>();
+
+      ctx.workoutSessions.forEach((session) => {
+        session.personalRecordsAchieved.forEach((record) => {
+          const key = `${record.type}:${record.exerciseName ?? ""}`;
+          const existing = latestByKey.get(key);
+
+          if (!existing || new Date(record.achievedAt).getTime() > new Date(existing.achievedAt).getTime()) {
+            latestByKey.set(key, record);
+          }
+        });
+      });
+
+      return (
+        <WidgetShell eyebrow="Workouts" title="Current PRs">
+          <PRTimeline records={Array.from(latestByKey.values())} emptyText="Log workouts to start tracking personal records." />
+        </WidgetShell>
+      );
+    },
+  },
+  {
+    id: "workouts-exercise-progress",
+    title: "Exercise Progress",
+    description: "Estimated 1RM trend for one exercise you've logged. Configure which exercise per instance.",
+    category: "Workouts",
+    icon: "EP",
+    defaultSize: "lg",
+    allowedSizes: allSizes,
+    supportedPages: dashboardAndWorkoutsPages,
+    readOnly: true,
+    searchKeywords: ["exercise", "progress", "1rm", "bench", "squat", "deadlift"],
+    configFields: [
+      {
+        key: "exerciseName",
+        label: "Exercise",
+        options: (ctx) => listLoggedExerciseNames(ctx.workoutSessions).map((name) => ({ value: name, label: name })),
+      },
+    ],
+    component: function ExerciseProgressWidget({ mode, config }: CatalogWidgetComponentProps) {
+      const ctx = useWidgetLiveContext();
+
+      if (mode === "preview") {
+        return (
+          <WidgetShell eyebrow="Workouts" title="Exercise Progress">
+            <MiniBars values={[80, 82.5, 85, 85, 90]} labels={["1", "2", "3", "4", "5"]} />
+          </WidgetShell>
+        );
+      }
+
+      const exerciseName = config?.exerciseName;
+
+      if (!exerciseName) {
+        return (
+          <WidgetShell eyebrow="Workouts" title="Exercise Progress">
+            <EmptyWidgetState text="Open section settings and choose an exercise to track." />
+          </WidgetShell>
+        );
+      }
+
+      const history = getExerciseHistory(ctx.workoutSessions, exerciseName);
+
+      return (
+        <WidgetShell eyebrow="Workouts" title={`${exerciseName} Progress`}>
+          {history.length === 0 ? (
+            <EmptyWidgetState text={`No logged sets for ${exerciseName} yet.`} />
+          ) : (
+            <>
+              <StatValue label="Best Estimated 1RM" value={`${Math.max(...history.map((point) => point.estimated1RM)).toLocaleString()}`} />
+              <div className="mt-4">
+                <MiniBars values={history.map((point) => point.estimated1RM)} />
+              </div>
+            </>
+          )}
+        </WidgetShell>
+      );
+    },
+  },
+  {
+    id: "workouts-weekly-volume",
+    title: "Weekly Volume",
+    description: "Total training volume so far this week.",
+    category: "Workouts",
+    icon: "WV",
+    defaultSize: "sm",
+    allowedSizes: allSizes,
+    supportedPages: dashboardAndWorkoutsPages,
+    readOnly: true,
+    searchKeywords: ["volume", "weekly", "workout"],
+    component: statGridWidget({
+      eyebrow: "Workouts",
+      title: "Weekly Volume",
+      stats: [{ label: "Volume", previewValue: 12400, getLiveValue: (ctx) => getWeeklyVolume(ctx.workoutSessions) }],
+    }),
+  },
+  {
+    id: "workouts-monthly-volume",
+    title: "Monthly Volume",
+    description: "Total training volume this calendar month.",
+    category: "Workouts",
+    icon: "MV",
+    defaultSize: "sm",
+    allowedSizes: allSizes,
+    supportedPages: dashboardAndWorkoutsPages,
+    readOnly: true,
+    searchKeywords: ["volume", "monthly", "workout"],
+    component: statGridWidget({
+      eyebrow: "Workouts",
+      title: "Monthly Volume",
+      stats: [{ label: "Volume", previewValue: 48600, getLiveValue: (ctx) => getMonthlyVolume(ctx.workoutSessions) }],
+    }),
+  },
+  {
+    id: "workouts-muscle-group-distribution",
+    title: "Muscle Group Distribution",
+    description: "Share of logged sets per muscle group.",
+    category: "Workouts",
+    icon: "MG",
+    defaultSize: "lg",
+    allowedSizes: allSizes,
+    supportedPages: dashboardAndWorkoutsPages,
+    readOnly: true,
+    searchKeywords: ["muscle", "group", "distribution", "balance"],
+    component: progressListWidget({
+      eyebrow: "Workouts",
+      title: "Muscle Group Distribution",
+      previewItems: [
+        { id: "p-mg-1", title: "Chest", subtitle: "24 sets", progress: 40 },
+        { id: "p-mg-2", title: "Back", subtitle: "18 sets", progress: 30 },
+      ],
+      getLiveItems: (ctx) => getMuscleGroupDistribution(ctx.workoutSessions).map((entry) => ({ id: entry.group, title: entry.group, subtitle: `${entry.setCount} set${entry.setCount === 1 ? "" : "s"}`, progress: entry.percent })),
+      emptyText: "Log workouts with muscle groups tagged to see your balance.",
+    }),
+  },
+  {
+    id: "workouts-frequency",
+    title: "Workout Frequency",
+    description: "Sessions logged this week and this month.",
+    category: "Workouts",
+    icon: "WF2",
+    defaultSize: "sm",
+    allowedSizes: allSizes,
+    supportedPages: dashboardAndWorkoutsPages,
+    readOnly: true,
+    searchKeywords: ["frequency", "workout", "sessions"],
+    component: statGridWidget({
+      eyebrow: "Workouts",
+      title: "Workout Frequency",
+      stats: [
+        { label: "This Week", previewValue: 4, getLiveValue: (ctx) => getTrainingFrequency(ctx.workoutSessions, 7) },
+        { label: "This Month", previewValue: 14, getLiveValue: (ctx) => getTrainingFrequency(ctx.workoutSessions, 30) },
+      ],
+    }),
+  },
+  {
+    id: "workouts-current-weight",
+    title: "Current Weight",
+    description: "Your most recently logged bodyweight.",
+    category: "Workouts",
+    icon: "CW",
+    defaultSize: "sm",
+    allowedSizes: allSizes,
+    supportedPages: dashboardAndWorkoutsPages,
+    readOnly: true,
+    searchKeywords: ["weight", "bodyweight", "current"],
+    component: function CurrentWeightWidget({ mode }: CatalogWidgetComponentProps) {
+      const ctx = useWidgetLiveContext();
+
+      if (mode === "preview") {
+        return (
+          <WidgetShell eyebrow="Workouts" title="Current Weight">
+            <StatValue label="Weight" value="75.4 kg" />
+          </WidgetShell>
+        );
+      }
+
+      const latest = [...ctx.bodyweightEntries].sort((first, second) => new Date(second.date).getTime() - new Date(first.date).getTime())[0];
+
+      return (
+        <WidgetShell eyebrow="Workouts" title="Current Weight">
+          {latest ? <StatValue label="Weight" value={`${latest.weight} ${latest.unit}`} /> : <EmptyWidgetState text="Log a bodyweight entry to see it here." />}
+        </WidgetShell>
+      );
+    },
+  },
+  {
+    id: "workouts-weight-trend",
+    title: "Weight Trend",
+    description: "Recent bodyweight entries, normalized to kg.",
+    category: "Workouts",
+    icon: "WT2",
+    defaultSize: "md",
+    allowedSizes: allSizes,
+    supportedPages: dashboardAndWorkoutsPages,
+    readOnly: true,
+    searchKeywords: ["weight", "trend", "bodyweight"],
+    component: barsWidget({
+      eyebrow: "Workouts",
+      title: "Weight Trend",
+      previewValues: [76, 75.6, 75.8, 75.2, 75.4],
+      getLiveValues: (ctx) => ({ values: getWeightTrend(ctx.bodyweightEntries) }),
+    }),
+  },
+  {
+    id: "workouts-estimated-1rm",
+    title: "Estimated 1RM",
+    description: "Your best lifetime estimated one-rep max, auto-selected.",
+    category: "Workouts",
+    icon: "1RM",
+    defaultSize: "sm",
+    allowedSizes: allSizes,
+    supportedPages: dashboardAndWorkoutsPages,
+    readOnly: true,
+    searchKeywords: ["1rm", "one rep max", "strength"],
+    component: function EstimatedOneRepMaxWidget({ mode }: CatalogWidgetComponentProps) {
+      const ctx = useWidgetLiveContext();
+
+      if (mode === "preview") {
+        return (
+          <WidgetShell eyebrow="Workouts" title="Estimated 1RM">
+            <StatValue label="Bench Press" value="102.5 kg" />
+          </WidgetShell>
+        );
+      }
+
+      const best = getBestLifetimeLift(ctx.workoutSessions);
+
+      return (
+        <WidgetShell eyebrow="Workouts" title="Estimated 1RM">
+          {best && best.estimated1RM > 0 ? <StatValue label={best.exerciseName} value={best.estimated1RM.toLocaleString()} /> : <EmptyWidgetState text="Log a few sets to estimate your 1RM." />}
+        </WidgetShell>
+      );
+    },
+  },
+  {
+    id: "workouts-session-history",
+    title: "Session History",
+    description: "Your most recently completed workout sessions.",
+    category: "Workouts",
+    icon: "SH",
+    defaultSize: "lg",
+    allowedSizes: allSizes,
+    supportedPages: dashboardAndWorkoutsPages,
+    readOnly: true,
+    searchKeywords: ["session", "history", "workout"],
+    component: function SessionHistoryWidget({ mode }: CatalogWidgetComponentProps) {
+      const ctx = useWidgetLiveContext();
+      const previewItems: MiniProgressItem[] = [
+        { id: "p-sh-1", title: "Push Day", subtitle: `${new Date().toLocaleDateString()} · 5,400 volume`, progress: 100 },
+        { id: "p-sh-2", title: "Pull Day", subtitle: `${new Date().toLocaleDateString()} · 4,800 volume`, progress: 100 },
+      ];
+
+      if (mode === "preview") {
+        return (
+          <WidgetShell eyebrow="Workouts" title="Session History">
+            <MiniProgressList items={previewItems} />
+          </WidgetShell>
+        );
+      }
+
+      const items: MiniProgressItem[] = [...ctx.workoutSessions]
+        .sort((first, second) => new Date(second.endedAt).getTime() - new Date(first.endedAt).getTime())
+        .slice(0, 6)
+        .map((session) => ({
+          id: session.id,
+          title: session.templateTitle ?? "Freeform Workout",
+          subtitle: `${new Date(session.endedAt).toLocaleDateString()} · ${session.totalVolume.toLocaleString()} volume`,
+          progress: 100,
+        }));
+
+      return (
+        <WidgetShell eyebrow="Workouts" title="Session History">
+          <MiniProgressList items={items} emptyText="Finish a workout to see it here." />
+        </WidgetShell>
+      );
+    },
+  },
+  {
+    id: "workouts-streak",
+    title: "Workout Streak",
+    description: "Consecutive days trained.",
+    category: "Workouts",
+    icon: "WS",
+    defaultSize: "sm",
+    allowedSizes: allSizes,
+    supportedPages: dashboardAndWorkoutsPages,
+    readOnly: true,
+    searchKeywords: ["streak", "workout"],
+    component: statGridWidget({
+      eyebrow: "Workouts",
+      title: "Workout Streak",
+      stats: [{ label: "Days", previewValue: 4, getLiveValue: (ctx) => getWorkoutStreak(ctx.workoutSessions) }],
+    }),
+  },
+  {
+    id: "workouts-recovery-status",
+    title: "Recovery Status",
+    description: "Days since your last workout.",
+    category: "Workouts",
+    icon: "RS2",
+    defaultSize: "sm",
+    allowedSizes: allSizes,
+    supportedPages: dashboardAndWorkoutsPages,
+    readOnly: true,
+    searchKeywords: ["recovery", "rest", "days since"],
+    component: statGridWidget({
+      eyebrow: "Workouts",
+      title: "Recovery Status",
+      stats: [{ label: "Days Since Last Workout", previewValue: 1, getLiveValue: (ctx) => getDaysSinceLastWorkout(ctx.workoutSessions) ?? "—" }],
+    }),
+  },
+  {
+    id: "workouts-training-time",
+    title: "Training Time",
+    description: "Average workout session duration.",
+    category: "Workouts",
+    icon: "TT",
+    defaultSize: "sm",
+    allowedSizes: allSizes,
+    supportedPages: dashboardAndWorkoutsPages,
+    readOnly: true,
+    searchKeywords: ["training", "time", "duration", "average"],
+    component: statGridWidget({
+      eyebrow: "Workouts",
+      title: "Training Time",
+      stats: [{ label: "Average", previewValue: "48 min", getLiveValue: (ctx) => formatFocusDuration(getAverageSessionDurationSeconds(ctx.workoutSessions)) }],
+    }),
+  },
+  {
+    id: "workouts-longest",
+    title: "Longest Workout",
+    description: "Your longest single workout session.",
+    category: "Workouts",
+    icon: "LW",
+    defaultSize: "sm",
+    allowedSizes: allSizes,
+    supportedPages: dashboardAndWorkoutsPages,
+    readOnly: true,
+    searchKeywords: ["longest", "workout", "session"],
+    component: function LongestWorkoutWidget({ mode }: CatalogWidgetComponentProps) {
+      const ctx = useWidgetLiveContext();
+
+      if (mode === "preview") {
+        return (
+          <WidgetShell eyebrow="Workouts" title="Longest Workout">
+            <StatValue label="Duration" value="1h 24m" />
+          </WidgetShell>
+        );
+      }
+
+      const longest = getLongestSession(ctx.workoutSessions);
+
+      return (
+        <WidgetShell eyebrow="Workouts" title="Longest Workout">
+          {longest ? <StatValue label={new Date(longest.endedAt).toLocaleDateString()} value={formatFocusDuration(longest.durationSeconds)} /> : <EmptyWidgetState text="Finish a workout to see it here." />}
+        </WidgetShell>
+      );
+    },
+  },
+  {
+    id: "workouts-favorite-exercise",
+    title: "Favorite Exercise",
+    description: "The exercise with the most logged sets.",
+    category: "Workouts",
+    icon: "FE",
+    defaultSize: "sm",
+    allowedSizes: allSizes,
+    supportedPages: dashboardAndWorkoutsPages,
+    readOnly: true,
+    searchKeywords: ["favorite", "exercise", "most", "sets"],
+    component: function FavoriteExerciseWidget({ mode }: CatalogWidgetComponentProps) {
+      const ctx = useWidgetLiveContext();
+
+      if (mode === "preview") {
+        return (
+          <WidgetShell eyebrow="Workouts" title="Favorite Exercise">
+            <StatValue label="Bench Press" value="42 sets" />
+          </WidgetShell>
+        );
+      }
+
+      const favorite = getFavoriteExercise(ctx.workoutSessions);
+
+      return (
+        <WidgetShell eyebrow="Workouts" title="Favorite Exercise">
+          {favorite ? <StatValue label={favorite.exerciseName} value={`${favorite.setCount} sets`} /> : <EmptyWidgetState text="Log workouts to find your favorite exercise." />}
+        </WidgetShell>
+      );
+    },
+  },
+  {
+    id: "workouts-most-improved",
+    title: "Most Improved Exercise",
+    description: "The exercise with the largest recent estimated 1RM gain.",
+    category: "Workouts",
+    icon: "MI",
+    defaultSize: "sm",
+    allowedSizes: allSizes,
+    supportedPages: dashboardAndWorkoutsPages,
+    readOnly: true,
+    searchKeywords: ["most improved", "exercise", "progress"],
+    component: function MostImprovedExerciseWidget({ mode }: CatalogWidgetComponentProps) {
+      const ctx = useWidgetLiveContext();
+
+      if (mode === "preview") {
+        return (
+          <WidgetShell eyebrow="Workouts" title="Most Improved Exercise">
+            <StatValue label="Overhead Press" value="+7.5 kg" />
+          </WidgetShell>
+        );
+      }
+
+      const mostImproved = getMostImprovedExercise(ctx.workoutSessions);
+
+      return (
+        <WidgetShell eyebrow="Workouts" title="Most Improved Exercise">
+          {mostImproved && mostImproved.delta > 0 ? <StatValue label={mostImproved.exerciseName} value={`+${mostImproved.delta.toLocaleString()}`} /> : <EmptyWidgetState text="Not enough history yet to detect improvement." />}
+        </WidgetShell>
+      );
+    },
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -1929,7 +2440,7 @@ export function getCatalogWidget(id: string) {
 }
 
 function isAttributeishPage(pageId: string) {
-  return pageId !== "dashboard" && pageId !== "goal-tree" && pageId !== "quests";
+  return pageId !== "dashboard" && pageId !== "goal-tree" && pageId !== "quests" && pageId !== "workouts";
 }
 
 /**

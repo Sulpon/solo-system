@@ -18,6 +18,9 @@ export type PageSectionLayoutItem = Readonly<{
   visible: boolean;
   order: number;
   size: PageSectionSize;
+  // Only meaningful for catalog widgets that declare `configFields` (see
+  // catalog-types.ts) - e.g. which exercise an "Exercise Progress" instance tracks.
+  config?: Record<string, string>;
 }>;
 
 export type PageSectionLayout = Readonly<{

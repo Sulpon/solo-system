@@ -10,9 +10,12 @@ export type ActivityEventType =
   | "goal_completed"
   | "dream_completed"
   | "goal_xp_awarded"
-  | "daily_snapshot_saved";
+  | "daily_snapshot_saved"
+  | "workout_completed"
+  | "personal_record_achieved"
+  | "bodyweight_logged";
 
-export type ActivityEventSourceType = "quest" | "attribute" | "progress_goal" | "milestone" | "goal" | "dream" | "daily_snapshot";
+export type ActivityEventSourceType = "quest" | "attribute" | "progress_goal" | "milestone" | "goal" | "dream" | "daily_snapshot" | "workout" | "bodyweight";
 
 export type ActivityEventMetadataValue = string | number | boolean | null | ActivityEventMetadata | ActivityEventMetadataValue[];
 

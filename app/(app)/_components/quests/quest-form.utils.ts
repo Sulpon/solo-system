@@ -11,6 +11,7 @@ export const emptyQuestForm: QuestFormModel = {
   scheduledDays: [],
   active: true,
   linkedProgressGoalId: null,
+  linkedWorkoutTemplateId: null,
   useInheritedAttributeDistribution: true,
   attributeXPOverride: [],
   inheritedAttributeIds: [],
@@ -40,6 +41,7 @@ export function toQuestForm(quest: Quest): QuestFormModel {
     scheduledDays: [...(quest.scheduledDays ?? [])],
     active: quest.status === "active",
     linkedProgressGoalId: quest.linkedProgressGoalId ?? null,
+    linkedWorkoutTemplateId: quest.linkedWorkoutTemplateId ?? null,
     useInheritedAttributeDistribution: !quest.attributeXPOverride || quest.attributeXPOverride.length === 0,
     attributeXPOverride: quest.attributeXPOverride?.map((reward) => ({
       attributeId: reward.attributeId,
@@ -70,6 +72,7 @@ export function upsertQuestFromForm(quests: ReadonlyArray<Quest>, form: QuestFor
             scheduledDays,
             status,
             linkedProgressGoalId: form.linkedProgressGoalId || undefined,
+            linkedWorkoutTemplateId: form.linkedWorkoutTemplateId || undefined,
             attributeXPOverride: form.useInheritedAttributeDistribution ? undefined : form.attributeXPOverride,
             updatedAt: now,
           }
@@ -92,6 +95,7 @@ export function upsertQuestFromForm(quests: ReadonlyArray<Quest>, form: QuestFor
       scheduledDays,
       status,
       linkedProgressGoalId: form.linkedProgressGoalId || undefined,
+      linkedWorkoutTemplateId: form.linkedWorkoutTemplateId || undefined,
       attributeXPOverride: form.useInheritedAttributeDistribution ? undefined : form.attributeXPOverride,
       createdAt: now,
       updatedAt: now,

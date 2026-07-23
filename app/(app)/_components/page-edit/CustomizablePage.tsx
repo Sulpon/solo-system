@@ -46,7 +46,7 @@ function createDefaultLayout(pageId: string, sections: EditablePageSection[]): P
   };
 }
 
-function reconcileLayout(layout: PageSectionLayout, defaultSections: EditablePageSection[], allSections: EditablePageSection[]) {
+function reconcileLayout(layout: PageSectionLayout, defaultSections: EditablePageSection[], allSections: EditablePageSection[]): PageSectionLayout {
   const knownSectionIds = new Set(allSections.map((section) => section.id));
   const currentSections = layout.sections.filter((section) => knownSectionIds.has(section.baseId));
   const currentBaseIds = new Set(currentSections.map((section) => section.baseId));
@@ -87,6 +87,7 @@ function reorderById(sections: PageSectionLayoutItem[], activeId: string, overId
 
 export default function CustomizablePage({ pageId, title, subtitle, sections, availableWidgets = [] }: CustomizablePageProps) {
   const catalogSections = useMemo(() => availableWidgets.map(catalogWidgetToSection), [availableWidgets]);
+  const widgetByBaseId = useMemo(() => new Map(availableWidgets.map((widget) => [widget.id, widget])), [availableWidgets]);
   const allSections = useMemo(() => {
     const sectionMap = new Map<string, EditablePageSection>();
     [...sections, ...catalogSections].forEach((section) => sectionMap.set(section.id, section));
@@ -225,7 +226,9 @@ export default function CustomizablePage({ pageId, title, subtitle, sections, av
 
       <div className="grid grid-flow-row-dense gap-6 lg:grid-cols-12">
         {renderedSections.map((section) => {
-          const content = sectionContentById.get(section.baseId);
+          const widget = widgetByBaseId.get(section.baseId);
+          const isConfigurable = Boolean(widget?.configFields && widget.configFields.length > 0);
+          const content = isConfigurable && widget ? <WidgetRenderer widget={widget} mode="live" config={section.config} /> : sectionContentById.get(section.baseId);
 
           if (!content) {
             return null;
@@ -243,7 +246,7 @@ export default function CustomizablePage({ pageId, title, subtitle, sections, av
               onDragEnd={endDrag}
               onHide={() => toggleVisibility(section.id)}
               onSettings={() => setSettingsSection(section)}
-              onDuplicate={undefined}
+              onDuplicate={isConfigurable ? () => duplicateSection(section) : undefined}
               onDelete={() => deleteSection(section.id)}
             >
               {content}
@@ -253,7 +256,7 @@ export default function CustomizablePage({ pageId, title, subtitle, sections, av
       </div>
 
       {settingsSection ? (
-        <PageSectionSettingsModal item={settingsSection} onClose={() => setSettingsSection(null)} onSave={saveSection} />
+        <PageSectionSettingsModal item={settingsSection} widget={widgetByBaseId.get(settingsSection.baseId)} onClose={() => setSettingsSection(null)} onSave={saveSection} />
       ) : null}
       {libraryOpen ? (
         <WidgetCatalogModal

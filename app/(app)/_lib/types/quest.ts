@@ -27,6 +27,7 @@ export type Quest = Readonly<{
   scheduledDays?: ReadonlyArray<number>;
   status: QuestStatus;
   linkedProgressGoalId?: string | null;
+  linkedWorkoutTemplateId?: string | null;
   attributeXPOverride?: ReadonlyArray<QuestAttributeReward>;
   createdAt: string;
   updatedAt: string;
@@ -42,6 +43,7 @@ export type DailyQuest = Readonly<{
   scheduledDays?: ReadonlyArray<number>;
   completed: boolean;
   linkedProgressGoalId?: string | null;
+  linkedWorkoutTemplateId?: string | null;
   attributeXPOverride?: ReadonlyArray<QuestAttributeReward>;
 }>;
 
