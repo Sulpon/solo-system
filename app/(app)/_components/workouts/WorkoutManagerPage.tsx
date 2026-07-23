@@ -24,7 +24,7 @@ export default function WorkoutManagerPage() {
   const [tab, setTab] = useState<WorkoutTab>("templates");
   const { templates, setTemplates } = useWorkoutTemplates();
   const { sessions, setSessions } = useWorkoutSessions();
-  const { startSession } = useWorkout();
+  const { startSession, activeSession, expand } = useWorkout();
   const [form, setForm] = useState<TemplateFormModel | null>(null);
   const [selectedSession, setSelectedSession] = useState<WorkoutSession | null>(null);
   const [showLogPastWorkout, setShowLogPastWorkout] = useState(false);
@@ -113,6 +113,15 @@ export default function WorkoutManagerPage() {
     setTemplates((current) => current.filter((template) => template.id !== templateId));
   }
 
+  function handleStartWorkout() {
+    if (activeSession) {
+      expand();
+      return;
+    }
+
+    startSession();
+  }
+
   return (
     <div className="space-y-5">
       <CustomizablePage pageId="workouts" title="Workout Widgets" subtitle="Read-only workout statistics and progress panels." sections={statsSections} availableWidgets={availableWidgets} />
@@ -121,19 +130,24 @@ export default function WorkoutManagerPage() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300">Workout Manager</p>
-            <h2 className="mt-2 text-2xl font-black text-white">Templates, sessions, and bodyweight</h2>
-            <p className="mt-2 text-sm text-slate-400">Build reusable templates, log sessions, and track your bodyweight over time.</p>
+            <h2 className="mt-2 text-2xl font-black text-white">Track your workouts</h2>
+            <p className="mt-2 text-sm text-slate-400">Jump in and record what you did - no template required. Save one only if you want a shortcut for a routine you repeat.</p>
           </div>
-          {tab === "templates" ? (
-            <button type="button" onClick={() => setForm(createEmptyTemplateForm())} className="rounded-xl border border-purple-400/50 bg-purple-500/15 px-4 py-2 text-sm font-semibold text-purple-100 transition hover:bg-purple-500/25">
-              Create Template
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={handleStartWorkout} className="rounded-xl border border-emerald-500/50 bg-emerald-500/15 px-4 py-2 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-500/25">
+              {activeSession ? "Resume Workout" : "Start Workout"}
             </button>
-          ) : null}
-          {tab === "history" ? (
-            <button type="button" onClick={() => setShowLogPastWorkout(true)} className="rounded-xl border border-purple-400/50 bg-purple-500/15 px-4 py-2 text-sm font-semibold text-purple-100 transition hover:bg-purple-500/25">
-              Log Past Workout
-            </button>
-          ) : null}
+            {tab === "templates" ? (
+              <button type="button" onClick={() => setForm(createEmptyTemplateForm())} className="rounded-xl border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:border-purple-400/60 hover:text-white">
+                Create Template
+              </button>
+            ) : null}
+            {tab === "history" ? (
+              <button type="button" onClick={() => setShowLogPastWorkout(true)} className="rounded-xl border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:border-purple-400/60 hover:text-white">
+                Log Past Workout
+              </button>
+            ) : null}
+          </div>
         </div>
 
         <div className="mt-5 flex flex-wrap gap-2">

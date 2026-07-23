@@ -14,8 +14,8 @@ export default function TemplateList({ templates, onStart, onEdit, onDuplicate, 
   if (templates.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/45 p-8 text-center">
-        <h3 className="text-lg font-bold text-white">No workout templates yet</h3>
-        <p className="mt-2 text-sm text-slate-400">Create a template to start logging structured workouts.</p>
+        <h3 className="text-lg font-bold text-white">No templates yet</h3>
+        <p className="mt-2 text-sm text-slate-400">Templates are optional - use &ldquo;Start Workout&rdquo; above to log freely, or save a template if you repeat a routine and want to skip re-adding exercises each time.</p>
       </div>
     );
   }
