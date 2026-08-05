@@ -13,6 +13,7 @@ import { useWorkout } from "../../_lib/workout-store";
 import type { Quest, QuestStatus } from "../../_lib/types/quest";
 import QuestForm, { type QuestFormModel } from "./QuestForm";
 import QuestCompletionModal from "./QuestCompletionModal";
+import QuestReflectionModal from "./QuestReflectionModal";
 import QuestList from "./QuestList";
 import { useQuestCompletionFlow } from "./useQuestCompletionFlow";
 import { createQuestFormModel, toQuestForm, upsertQuestFromForm } from "./quest-form.utils";
@@ -37,6 +38,9 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
     confirmQuestCompletion,
     cancelQuestCompletion,
     removeQuestCompletion,
+    pendingReflectionQuest,
+    submitReflection,
+    skipReflection,
   } = useQuestCompletionFlow();
 
   const todayDayKey = useMemo(() => getLocalDayKey(), []);
@@ -220,6 +224,10 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
           onCancel={cancelQuestCompletion}
           onConfirm={confirmQuestCompletion}
         />
+      ) : null}
+
+      {pendingReflectionQuest ? (
+        <QuestReflectionModal questTitle={pendingReflectionQuest.title} onSkip={skipReflection} onSubmit={submitReflection} />
       ) : null}
       </Card>
     </div>

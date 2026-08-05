@@ -5,8 +5,17 @@ import ChartWidget from "../../_components/dashboard/ChartWidget";
 import PRTimeline from "../../_components/workouts/PRTimeline";
 import { getAttributePortfolio } from "../attribute-portfolio";
 import { getEventsByType } from "../activity-events";
-import { getConsistencyScore } from "../daily-system";
+import { calculateQuestStreak, getConsistencyScore } from "../daily-system";
 import { calculateGoalTree, summarizeGoalTree, type GoalNodeView } from "../goal-tree-progress";
+import { getLocalDayKey, parseLocalDayKey } from "../local-day";
+import QuestActivityCalendar from "../../_components/quests/QuestActivityCalendar";
+import {
+  buildQuestCalendarWeeks,
+  calculateQuestBestStreak,
+  getAggregateQuestCalendarDays,
+  getQuestCompletionPercent,
+} from "../engines/quest-calendar-engine";
+import { getAverageFeelingAfterScore, getAverageMoodScore, getHardestDistribution } from "../engines/reflection-engine";
 import { getLiveDreamProgress, getWeeklyXpSeries } from "../../_components/dashboard/dashboard-overview.utils";
 import { useFocus } from "../focus-store";
 import {
@@ -110,6 +119,7 @@ function ctxDeps(ctx: WidgetLiveContext) {
     ctx.workoutTemplates,
     ctx.workoutSessions,
     ctx.bodyweightEntries,
+    ctx.questReflections,
     ctx.isReady,
   ];
 }
@@ -2306,6 +2316,221 @@ const staticWidgets: CatalogWidgetDefinition[] = [
         </WidgetShell>
       );
     },
+  },
+
+  // -------------------------------------------------------------------------
+  // Quest Calendar + Reflection widgets. Read-only views over questCompletions
+  // and questReflections - never write, never auto-placed on any dashboard.
+  // -------------------------------------------------------------------------
+  {
+    id: "quest-activity-calendar",
+    title: "Quest Calendar",
+    description: "A GitHub-style activity calendar for one quest, with streaks and completion rate. Configure which quest per instance.",
+    category: "Quests",
+    icon: "QC",
+    defaultSize: "lg",
+    allowedSizes: allSizes,
+    supportedPages: dashboardOnly,
+    readOnly: true,
+    searchKeywords: ["quest", "calendar", "streak", "heatmap", "activity", "contribution"],
+    configFields: [
+      {
+        key: "questId",
+        label: "Quest",
+        options: (ctx) => ctx.questDefinitions.map((quest) => ({ value: quest.id, label: quest.title })),
+      },
+    ],
+    component: function QuestCalendarWidget({ mode, config }: CatalogWidgetComponentProps) {
+      const ctx = useWidgetLiveContext();
+
+      if (mode === "preview") {
+        return (
+          <WidgetShell eyebrow="Quests" title="Quest Calendar">
+            <StatValue label="Current Streak" value={6} />
+          </WidgetShell>
+        );
+      }
+
+      const questId = config?.questId;
+      const quest = questId ? ctx.questDefinitions.find((item) => item.id === questId) : undefined;
+
+      if (!quest) {
+        return (
+          <WidgetShell eyebrow="Quests" title="Quest Calendar">
+            <EmptyWidgetState text="Open section settings and choose a quest to track." />
+          </WidgetShell>
+        );
+      }
+
+      const weeks = buildQuestCalendarWeeks(quest, ctx.questCompletions);
+      const currentStreak = calculateQuestStreak(quest, ctx.questCompletions);
+      const bestStreak = calculateQuestBestStreak(quest, ctx.questCompletions);
+      const completionPercent = {
+        weekly: getQuestCompletionPercent(quest, ctx.questCompletions, "weekly"),
+        monthly: getQuestCompletionPercent(quest, ctx.questCompletions, "monthly"),
+        yearly: getQuestCompletionPercent(quest, ctx.questCompletions, "yearly"),
+      };
+
+      return (
+        <WidgetShell eyebrow="Quests" title={quest.title}>
+          <QuestActivityCalendar weeks={weeks} currentStreak={currentStreak} bestStreak={bestStreak} completionPercent={completionPercent} />
+        </WidgetShell>
+      );
+    },
+  },
+  {
+    id: "quest-completion-calendar",
+    title: "Quest Completion Calendar",
+    description: "A GitHub-style activity calendar showing every day at least one quest was completed.",
+    category: "Quests",
+    icon: "QX",
+    defaultSize: "lg",
+    allowedSizes: allSizes,
+    supportedPages: dashboardOnly,
+    readOnly: true,
+    searchKeywords: ["quest", "calendar", "streak", "heatmap", "activity", "contribution", "aggregate"],
+    component: function QuestCompletionCalendarWidget({ mode }: CatalogWidgetComponentProps) {
+      const ctx = useWidgetLiveContext();
+
+      if (mode === "preview") {
+        return (
+          <WidgetShell eyebrow="Quests" title="Quest Completion Calendar">
+            <StatValue label="Current Streak" value={9} />
+          </WidgetShell>
+        );
+      }
+
+      if (ctx.questCompletions.length === 0) {
+        return (
+          <WidgetShell eyebrow="Quests" title="Quest Completion Calendar">
+            <EmptyWidgetState text="Complete a quest to start building this calendar." />
+          </WidgetShell>
+        );
+      }
+
+      const weeks = getAggregateQuestCalendarDays(ctx.questCompletions);
+      const completionDayKeys = new Set(ctx.questCompletions.map((completion) => getLocalDayKey(completion.completedAt)));
+      let currentStreak = 0;
+      const cursor = new Date();
+      cursor.setHours(0, 0, 0, 0);
+
+      while (completionDayKeys.has(getLocalDayKey(cursor))) {
+        currentStreak += 1;
+        cursor.setDate(cursor.getDate() - 1);
+      }
+
+      const sortedDays = Array.from(completionDayKeys).sort();
+      let bestStreak = 0;
+      let running = 0;
+      let previousDate: Date | null = null;
+
+      sortedDays.forEach((dayKey) => {
+        const date = parseLocalDayKey(dayKey);
+
+        if (previousDate) {
+          const dayDiff = Math.round((date.getTime() - previousDate.getTime()) / (24 * 60 * 60 * 1000));
+          running = dayDiff === 1 ? running + 1 : 1;
+        } else {
+          running = 1;
+        }
+
+        bestStreak = Math.max(bestStreak, running);
+        previousDate = date;
+      });
+
+      const recentDayKeys = (days: number) => {
+        const start = new Date();
+        start.setHours(0, 0, 0, 0);
+        start.setDate(start.getDate() - (days - 1));
+        return Array.from(completionDayKeys).filter((dayKey) => parseLocalDayKey(dayKey) >= start).length;
+      };
+      const completionPercent = {
+        weekly: Math.round((recentDayKeys(7) / 7) * 100),
+        monthly: Math.round((recentDayKeys(30) / 30) * 100),
+        yearly: Math.round((recentDayKeys(365) / 365) * 100),
+      };
+
+      return (
+        <WidgetShell eyebrow="Quests" title="Quest Completion Calendar">
+          <QuestActivityCalendar weeks={weeks} currentStreak={currentStreak} bestStreak={bestStreak} completionPercent={completionPercent} />
+        </WidgetShell>
+      );
+    },
+  },
+  {
+    id: "reflection-average-mood",
+    title: "Reflection Mood",
+    description: "Average mood reported after completing quests.",
+    category: "Quests",
+    icon: "RM",
+    defaultSize: "sm",
+    allowedSizes: allSizes,
+    supportedPages: dashboardOnly,
+    readOnly: true,
+    searchKeywords: ["reflection", "mood", "average"],
+    component: statGridWidget({
+      eyebrow: "Reflections",
+      title: "Reflection Mood",
+      columns: 2,
+      stats: [
+        {
+          label: "Average Mood",
+          previewValue: "4.2 / 5",
+          getLiveValue: (ctx) => (getAverageMoodScore(ctx.questReflections) !== null ? `${getAverageMoodScore(ctx.questReflections)!.toFixed(1)} / 5` : "No data yet"),
+        },
+        { label: "Reflections Logged", previewValue: 18, getLiveValue: (ctx) => ctx.questReflections.length },
+      ],
+    }),
+  },
+  {
+    id: "reflection-average-difficulty",
+    title: "Reflection Difficulty",
+    description: "What most often makes quests hard to complete.",
+    category: "Quests",
+    icon: "RD",
+    defaultSize: "md",
+    allowedSizes: allSizes,
+    supportedPages: dashboardOnly,
+    readOnly: true,
+    searchKeywords: ["reflection", "difficulty", "hardest"],
+    component: barsWidget({
+      eyebrow: "Reflections",
+      title: "Reflection Difficulty",
+      previewValues: [5, 8, 3, 6, 4, 2],
+      previewLabels: ["Start", "Discp", "Time", "Energy", "Focus", "Other"],
+      getLiveValues: (ctx) => {
+        const distribution = getHardestDistribution(ctx.questReflections);
+        return {
+          values: [distribution.starting, distribution.discipline, distribution.time, distribution.energy, distribution.focus, distribution.other],
+          labels: ["Start", "Discp", "Time", "Energy", "Focus", "Other"],
+        };
+      },
+    }),
+  },
+  {
+    id: "reflection-average-energy",
+    title: "Average Energy",
+    description: "How energized quests tend to leave you afterward.",
+    category: "Quests",
+    icon: "RE",
+    defaultSize: "sm",
+    allowedSizes: allSizes,
+    supportedPages: dashboardOnly,
+    readOnly: true,
+    searchKeywords: ["reflection", "energy", "feeling", "average"],
+    component: statGridWidget({
+      eyebrow: "Reflections",
+      title: "Average Energy",
+      columns: 2,
+      stats: [
+        {
+          label: "Average Feeling After",
+          previewValue: "3.1 / 4",
+          getLiveValue: (ctx) => (getAverageFeelingAfterScore(ctx.questReflections) !== null ? `${getAverageFeelingAfterScore(ctx.questReflections)!.toFixed(1)} / 4` : "No data yet"),
+        },
+        { label: "Reflections Logged", previewValue: 18, getLiveValue: (ctx) => ctx.questReflections.length },
+      ],
+    }),
   },
 ];
 

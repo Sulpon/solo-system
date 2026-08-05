@@ -149,6 +149,18 @@ export function calculateQuestStreak(quest: Quest, completions: ReadonlyArray<Qu
   return streak;
 }
 
+export const STREAK_XP_BONUS_PER_DAY = 0.02;
+export const STREAK_XP_BONUS_CAP_MULTIPLIER = 1;
+
+// streakDays counts the day being completed, so a fresh (day-1) streak earns no bonus yet.
+export function calculateStreakXpBonusMultiplier(streakDays: number) {
+  return Math.min(STREAK_XP_BONUS_CAP_MULTIPLIER, Math.max(0, streakDays - 1) * STREAK_XP_BONUS_PER_DAY);
+}
+
+export function calculateStreakXpBonus(baseXp: number, streakDays: number) {
+  return Math.round(Math.max(0, baseXp) * calculateStreakXpBonusMultiplier(streakDays));
+}
+
 export function calculateQuestConsistency(quest: Quest, completions: ReadonlyArray<QuestCompletion>, referenceDate = new Date(), windowDays = 30) {
   const completionDays = new Set(
     completions.filter((completion) => completion.questId === quest.id).map((completion) => getLocalDayKey(completion.completedAt)),

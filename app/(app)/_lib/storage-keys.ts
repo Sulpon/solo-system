@@ -3,6 +3,7 @@ export const STORAGE_KEYS = {
   dashboardGridLayout: "menace-dashboard-grid-layout",
   questList: "menace-quest-list",
   questCompletions: "menace-quest-completions",
+  questReflections: "menace-quest-reflections",
   goalTree: "menace-goal-tree",
   goalXpEvents: "menace-goal-xp-events",
   activityEvents: "menace-activity-events",
@@ -21,6 +22,22 @@ export const STORAGE_KEYS = {
   // Exercises the user has created, remembered across templates and ad-hoc
   // logging so they can be picked from a dropdown instead of retyped.
   exerciseLibrary: "menace-exercise-library",
+  careerVision: "menace-career-vision",
+  educationEntries: "menace-education-entries",
+  skillEntries: "menace-skill-entries",
+  experienceEntries: "menace-experience-entries",
+  companyEntries: "menace-company-entries",
+  vacancyEntries: "menace-vacancy-entries",
+  cvEntries: "menace-cv-entries",
+  coverLetterEntries: "menace-cover-letter-entries",
+  linkedInProfile: "menace-linkedin-profile",
+  portfolioProfile: "menace-portfolio-profile",
+  thesisDashboard: "menace-thesis-dashboard",
+  experimentEntries: "menace-experiment-entries",
+  researchNoteEntries: "menace-research-note-entries",
+  findingEntries: "menace-finding-entries",
+  resourceEntries: "menace-resource-entries",
+  manuscriptChapters: "menace-manuscript-chapters",
 } as const;
 
 export const MENACE_STORAGE_EVENT = "menace-local-storage-change";

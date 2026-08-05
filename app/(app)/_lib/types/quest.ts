@@ -52,5 +52,6 @@ export type QuestCompletion = Readonly<{
   questId: string;
   completedAt: string;
   xpAwarded: number;
+  streakBonusXp: number;
   attributeRewardsAwarded: ReadonlyArray<QuestAttributeReward>;
 }>;

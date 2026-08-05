@@ -7,6 +7,7 @@ import { useBodyweight } from "../hooks/useBodyweight";
 import { useFocusHistory } from "../hooks/useFocusHistory";
 import { useGoalTree } from "../hooks/useGoalTree";
 import { useProgression } from "../hooks/useProgression";
+import { useQuestReflections } from "../hooks/useQuestReflections";
 import { useWorkoutSessions } from "../hooks/useWorkoutSessions";
 import { useWorkoutTemplates } from "../hooks/useWorkoutTemplates";
 import { getLocalDayKey } from "../local-day";
@@ -22,8 +23,24 @@ export function useWidgetLiveContext() {
   const { templates: workoutTemplates } = useWorkoutTemplates();
   const { sessions: workoutSessions } = useWorkoutSessions();
   const { entries: bodyweightEntries } = useBodyweight();
+  const { reflections: questReflections } = useQuestReflections();
 
-  return { goalTree, questDefinitions, questCompletions, activityEvents, dailySnapshots, progressionSummary, goalXpEvents, attributes, focusHistory, workoutTemplates, workoutSessions, bodyweightEntries, isReady };
+  return {
+    goalTree,
+    questDefinitions,
+    questCompletions,
+    activityEvents,
+    dailySnapshots,
+    progressionSummary,
+    goalXpEvents,
+    attributes,
+    focusHistory,
+    workoutTemplates,
+    workoutSessions,
+    bodyweightEntries,
+    questReflections,
+    isReady,
+  };
 }
 
 export type WidgetLiveContext = ReturnType<typeof useWidgetLiveContext>;

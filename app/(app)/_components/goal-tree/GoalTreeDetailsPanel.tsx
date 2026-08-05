@@ -343,15 +343,7 @@ export default function GoalTreeDetailsPanel({
                     <p className="text-lg font-bold text-white">▶ {currentStep.title}</p>
                     {currentStep.description ? <p className="mt-1 text-sm text-slate-400">{currentStep.description}</p> : null}
                   </div>
-                  {latestCompletedStep ? (
-                    <button
-                      type="button"
-                      onClick={() => onUndoSequentialStep(node.id)}
-                      className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:border-purple-400/60 hover:text-white"
-                    >
-                      Undo Latest Step
-                    </button>
-                  ) : (
+                  <div className="flex shrink-0 flex-wrap gap-2">
                     <button
                       type="button"
                       onClick={() => onAdvanceSequentialStep(node.id)}
@@ -359,7 +351,16 @@ export default function GoalTreeDetailsPanel({
                     >
                       Complete Step
                     </button>
-                  )}
+                    {latestCompletedStep ? (
+                      <button
+                        type="button"
+                        onClick={() => onUndoSequentialStep(node.id)}
+                        className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:border-purple-400/60 hover:text-white"
+                      >
+                        Undo Latest Step
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
               ) : (
                 <EmptyBlock title="No current step" text="Add steps in the editor to build the sequence." />

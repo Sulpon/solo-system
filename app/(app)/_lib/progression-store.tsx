@@ -6,7 +6,7 @@ import { useGoalTree } from "./hooks/useGoalTree";
 import { useLocalStorageState } from "./hooks/use-local-storage-state";
 import { STORAGE_KEYS } from "./storage-keys";
 import { addActivityEvents, createQuestActivityEvents, removeActivityEventsByCompletionId } from "./activity-events";
-import { isQuestScheduledForDate } from "./daily-system";
+import { isQuestScheduledForDate, calculateQuestStreak } from "./daily-system";
 import { getProgressionSummary } from "./engines/progression-engine";
 import { getLocalDayKey } from "./local-day";
 import { createQuestCompletion, hasCompletedToday, removeQuestCompletionsForDay } from "./quest-storage";
@@ -87,7 +87,8 @@ export function ProgressionProvider({ children }: Readonly<{ children: React.Rea
           return false;
         }
 
-        const completion = createQuestCompletion(quest, completedAt, attributeRewardsAwarded);
+        const previousStreak = calculateQuestStreak(quest, currentCompletions, referenceDate);
+        const completion = createQuestCompletion(quest, completedAt, attributeRewardsAwarded, previousStreak + 1);
         const nextCompletions = [...currentCompletions, completion];
         questCompletionsRef.current = nextCompletions;
         setQuestCompletions(nextCompletions);

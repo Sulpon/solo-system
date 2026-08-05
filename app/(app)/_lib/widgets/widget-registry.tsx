@@ -23,6 +23,7 @@ import DailyQuestsCard from "../../_components/DailyQuestsCard";
 import Progress from "../../_components/Progress";
 import SectionTitle from "../../_components/SectionTitle";
 import QuestCompletionModal from "../../_components/quests/QuestCompletionModal";
+import QuestReflectionModal from "../../_components/quests/QuestReflectionModal";
 import { useQuestCompletionFlow } from "../../_components/quests/useQuestCompletionFlow";
 import { achievements } from "../mock/achievements";
 import { characterProfile } from "../mock/character";
@@ -586,7 +587,19 @@ function renderCommandCenterHeaderWidget({ onEnterEditMode }: WidgetRendererProp
 
 function renderMinimumSuccessfulDayWidget() {
   const { coreQuests, completedQuestIds, dailySuccessPercent } = useDailySuccessPercent();
-  const { pendingQuest, pendingGoal, progressValue, setProgressValue, beginQuestCompletion, confirmQuestCompletion, cancelQuestCompletion, removeQuestCompletion } = useQuestCompletionFlow();
+  const {
+    pendingQuest,
+    pendingGoal,
+    progressValue,
+    setProgressValue,
+    beginQuestCompletion,
+    confirmQuestCompletion,
+    cancelQuestCompletion,
+    removeQuestCompletion,
+    pendingReflectionQuest,
+    submitReflection,
+    skipReflection,
+  } = useQuestCompletionFlow();
 
   function handleToggleQuest(quest: Quest, completed: boolean) {
     if (completed) {
@@ -610,6 +623,10 @@ function renderMinimumSuccessfulDayWidget() {
           onConfirm={confirmQuestCompletion}
         />
       ) : null}
+
+      {pendingReflectionQuest ? (
+        <QuestReflectionModal questTitle={pendingReflectionQuest.title} onSkip={skipReflection} onSubmit={submitReflection} />
+      ) : null}
     </>
   );
 }
@@ -619,7 +636,19 @@ function renderBonusMissionsWidget() {
   const { coreQuests, completedQuestIds, dailySuccessPercent } = useDailySuccessPercent();
   const bonusQuests = useMemo(() => getBonusQuests(getTodayQuests(questDefinitions)), [questDefinitions]);
   const bonusUnlocked = coreQuests.length > 0 && dailySuccessPercent === 100;
-  const { pendingQuest, pendingGoal, progressValue, setProgressValue, beginQuestCompletion, confirmQuestCompletion, cancelQuestCompletion, removeQuestCompletion } = useQuestCompletionFlow();
+  const {
+    pendingQuest,
+    pendingGoal,
+    progressValue,
+    setProgressValue,
+    beginQuestCompletion,
+    confirmQuestCompletion,
+    cancelQuestCompletion,
+    removeQuestCompletion,
+    pendingReflectionQuest,
+    submitReflection,
+    skipReflection,
+  } = useQuestCompletionFlow();
 
   function handleToggleQuest(quest: Quest, completed: boolean) {
     if (completed) {
@@ -642,6 +671,10 @@ function renderBonusMissionsWidget() {
           onCancel={cancelQuestCompletion}
           onConfirm={confirmQuestCompletion}
         />
+      ) : null}
+
+      {pendingReflectionQuest ? (
+        <QuestReflectionModal questTitle={pendingReflectionQuest.title} onSkip={skipReflection} onSubmit={submitReflection} />
       ) : null}
     </>
   );

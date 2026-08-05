@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAttributes } from "../../_lib/hooks/useAttributes";
-import { isQuestScheduledForDate, calculateQuestStreak, calculateQuestConsistency } from "../../_lib/daily-system";
+import { isQuestScheduledForDate, calculateQuestStreak, calculateQuestConsistency, calculateStreakXpBonus } from "../../_lib/daily-system";
 import type { Quest, QuestCompletion } from "../../_lib/types/quest";
 
 type QuestListProps = Readonly<{
@@ -118,6 +118,8 @@ export default function QuestList({
         const isCompleted = completedTodayIds?.has(quest.id) ?? false;
         const isScheduled = isQuestScheduledForDate(quest, referenceDate);
         const streak = calculateQuestStreak(quest, questCompletions, referenceDate);
+        const projectedStreakDays = isCompleted ? streak : streak + 1;
+        const streakBonusXp = calculateStreakXpBonus(quest.xp, projectedStreakDays);
         const consistency = calculateQuestConsistency(quest, questCompletions, referenceDate);
         const isCore = (quest.importance ?? "core") === "core";
         const menuOpen = openMenuId === quest.id;
@@ -208,7 +210,10 @@ export default function QuestList({
               </div>
 
               <div className="flex w-10 flex-col items-center gap-0.5">
-                <span className="text-sm font-bold text-purple-200">{quest.xp}</span>
+                <span className="text-sm font-bold text-purple-200">
+                  {quest.xp}
+                  {streakBonusXp > 0 ? <span className="ml-0.5 text-[11px] font-semibold text-emerald-300">+{streakBonusXp}</span> : null}
+                </span>
                 <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-500">XP</span>
               </div>
 
