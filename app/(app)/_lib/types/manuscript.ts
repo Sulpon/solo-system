@@ -34,7 +34,19 @@ export type ManuscriptChapter = Readonly<{
   status: ManuscriptChapterStatus;
   notes: string;
   reviewerComments: string;
+  // Optional - entries written before this field existed simply omit it.
+  targetPages?: number;
 }>;
+
+// Status is the only signal we have for chapter completion (there's no
+// per-chapter page-output tracking, only the thesis-wide daily writing log),
+// so this heuristic maps status to a rough progress percentage.
+export const MANUSCRIPT_CHAPTER_STATUS_PROGRESS: Record<ManuscriptChapterStatus, number> = {
+  "Not Started": 0,
+  Drafting: 40,
+  "In Review": 75,
+  Final: 100,
+};
 
 export type ManuscriptData = Readonly<Record<ManuscriptChapterKey, ManuscriptChapter>>;
 

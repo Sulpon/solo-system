@@ -20,6 +20,7 @@ import { useGoalTree } from "../../_lib/hooks/useGoalTree";
 import { useCategoryProgression } from "../../_lib/hooks/use-category-progression";
 import { useProgression } from "../../_lib/hooks/useProgression";
 import { useWorkoutSessions } from "../../_lib/hooks/useWorkoutSessions";
+import { useWorkout } from "../../_lib/workout-store";
 import { getDaysSinceLastWorkout, getLifetimeTrainingSeconds, getPersonalRecords, getTrainingFrequency, getWorkoutStreak } from "../../_lib/engines/workout-engine";
 import { formatFocusMinutesLabel } from "../focus/focus-format";
 import type { EditablePageSection } from "../page-edit/types";
@@ -33,7 +34,17 @@ export default function SelfDevelopmentPage() {
   const { goalTree } = useGoalTree();
   const { questDefinitions, activityEvents } = useProgression();
   const { sessions } = useWorkoutSessions();
+  const { startSession, activeSession, expand } = useWorkout();
   const [selectedSession, setSelectedSession] = useState<WorkoutSession | null>(null);
+
+  function handleStartWorkout() {
+    if (activeSession) {
+      expand();
+      return;
+    }
+
+    startSession();
+  }
 
   const attribute = attributes.find((item) => item.id === SELF_DEVELOPMENT_ATTRIBUTE_ID);
   const displayName = attribute?.name ?? progression?.name ?? "Self Development";
@@ -70,7 +81,16 @@ export default function SelfDevelopmentPage() {
               maxXp={isReady ? categoryProgress?.xpNeededForNextLevel ?? 1 : 1}
               accentClass="text-amber-300"
             />
-            <p className="rounded-xl border border-slate-800 bg-slate-950/50 px-4 py-3 text-sm text-slate-400">{summary}</p>
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/50 px-4 py-3">
+              <p className="text-sm text-slate-400">{summary}</p>
+              <button
+                type="button"
+                onClick={handleStartWorkout}
+                className="shrink-0 rounded-xl border border-emerald-500/50 bg-emerald-500/15 px-4 py-2 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-500/25"
+              >
+                {activeSession ? "Resume Workout" : "Start Workout"}
+              </button>
+            </div>
           </div>
         ),
       },
@@ -244,6 +264,7 @@ export default function SelfDevelopmentPage() {
       },
     ],
     [
+      activeSession,
       activityEvents,
       categoryProgress?.level,
       categoryProgress?.xp,

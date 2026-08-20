@@ -55,16 +55,30 @@ export default function ManuscriptChapterDetailPageClient({ chapterKey }: Manusc
             <p className={sectionLabelClass}>Chapter</p>
             <h1 className="mt-2 text-3xl font-black text-white">{MANUSCRIPT_CHAPTER_TITLES[key]}</h1>
           </div>
-          <label className="space-y-2">
-            <span className={labelClass}>Status</span>
-            <select value={chapter.status} onChange={(event) => update({ status: event.target.value as ManuscriptChapterStatus })} className={inputClass}>
-              {MANUSCRIPT_CHAPTER_STATUSES.map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="flex gap-3">
+            <label className="space-y-2">
+              <span className={labelClass}>Status</span>
+              <select value={chapter.status} onChange={(event) => update({ status: event.target.value as ManuscriptChapterStatus })} className={inputClass}>
+                {MANUSCRIPT_CHAPTER_STATUSES.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-2">
+              <span className={labelClass}>Target Pages</span>
+              <input
+                type="number"
+                min={0}
+                step="1"
+                value={chapter.targetPages ?? ""}
+                onChange={(event) => update({ targetPages: event.target.value.trim() === "" ? undefined : Number(event.target.value) })}
+                className={inputClass + " w-28"}
+                placeholder="Optional"
+              />
+            </label>
+          </div>
         </div>
       </div>
 

@@ -1,7 +1,11 @@
 "use client";
 
+import { useMemo } from "react";
 import Card from "../Card";
+import StatCard from "../StatCard";
 import CareerHubNavCard from "./CareerHubNavCard";
+import ApplicationPipelinePanel from "../applications/ApplicationPipelinePanel";
+import ApplicationsCalendar from "../applications/ApplicationsCalendar";
 import { useCareerVision } from "../../_lib/hooks/useCareerVision";
 import { useEducationEntries } from "../../_lib/hooks/useEducationEntries";
 import { useSkillEntries } from "../../_lib/hooks/useSkillEntries";
@@ -10,6 +14,7 @@ import { useCompanyEntries } from "../../_lib/hooks/useCompanyEntries";
 import { useVacancyEntries } from "../../_lib/hooks/useVacancyEntries";
 import { useCvEntries } from "../../_lib/hooks/useCvEntries";
 import { useCoverLetterEntries } from "../../_lib/hooks/useCoverLetterEntries";
+import { getApplicationsThisMonth, getApplicationsThisWeek, getTotalApplications } from "../../_lib/engines/career-hub-engine";
 
 function ChipList({ items, emptyLabel }: Readonly<{ items: ReadonlyArray<string>; emptyLabel: string }>) {
   if (items.length === 0) {
@@ -41,9 +46,18 @@ export default function CareerHubPageClient() {
   const { entries: cvEntries, hasLoaded: cvLoaded } = useCvEntries();
   const { entries: coverLetterEntries, hasLoaded: coverLettersLoaded } = useCoverLetterEntries();
 
+  const companyNames = useMemo(() => new Map(companyEntries.map((company) => [company.id, company.name] as const)), [companyEntries]);
+
   if (!careerVisionLoaded || !educationLoaded || !skillsLoaded || !experienceLoaded || !companiesLoaded || !vacanciesLoaded || !cvLoaded || !coverLettersLoaded) {
     return null;
   }
+
+  const totalApplications = getTotalApplications(vacancyEntries);
+  const applicationsThisWeek = getApplicationsThisWeek(vacancyEntries);
+  const applicationsThisMonth = getApplicationsThisMonth(vacancyEntries);
+  const savedVacancies = vacancyEntries.filter((vacancy) => vacancy.status === "Interested").length;
+  const interviews = vacancyEntries.filter((vacancy) => vacancy.status === "Interview").length;
+  const offers = vacancyEntries.filter((vacancy) => vacancy.status === "Offer").length;
 
   return (
     <div className="space-y-5">
@@ -84,6 +98,27 @@ export default function CareerHubPageClient() {
               <ChipList items={careerVision.targetCountries} emptyLabel="No target countries yet." />
             </div>
           </div>
+        </div>
+      </Card>
+
+      <Card className="p-5">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-300">Job-Search Overview</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <StatCard label="Target Roles" value={careerVision.targetRoles.length} accentClass="text-purple-300" />
+          <StatCard label="Applications" value={totalApplications} detail={`${applicationsThisWeek} this week · ${applicationsThisMonth} this month`} accentClass="text-purple-300" />
+          <StatCard label="Saved Vacancies" value={savedVacancies} accentClass="text-purple-300" />
+          <StatCard label="Interviews" value={interviews} accentClass="text-purple-300" />
+          <StatCard label="Offers" value={offers} accentClass="text-purple-300" />
+        </div>
+      </Card>
+
+      <ApplicationPipelinePanel vacancies={vacancyEntries} companyNames={companyNames} />
+
+      <Card className="p-5">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-300">Applications Calendar</p>
+        <h2 className="mt-2 text-xl font-black text-white">Submission activity</h2>
+        <div className="mt-5">
+          <ApplicationsCalendar vacancies={vacancyEntries} companyNames={companyNames} />
         </div>
       </Card>
 

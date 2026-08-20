@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { MANUSCRIPT_CHAPTER_TITLES } from "../../_lib/types/manuscript";
+import Progress from "../Progress";
+import { MANUSCRIPT_CHAPTER_STATUS_PROGRESS, MANUSCRIPT_CHAPTER_TITLES } from "../../_lib/types/manuscript";
 import type { ManuscriptChapter, ManuscriptChapterKey, ManuscriptChapterStatus } from "../../_lib/types/manuscript";
 
 type ManuscriptChapterCardProps = Readonly<{
@@ -17,13 +18,19 @@ const statusAccent: Record<ManuscriptChapterStatus, string> = {
 };
 
 export default function ManuscriptChapterCard({ chapterKey, chapter }: ManuscriptChapterCardProps) {
+  const progress = MANUSCRIPT_CHAPTER_STATUS_PROGRESS[chapter.status];
+
   return (
     <Link href={`/thesis-hub/manuscript/${chapterKey}`} className="block rounded-xl border border-slate-800 bg-slate-950/60 p-4 transition hover:border-purple-400/50 hover:bg-slate-900/40">
       <div className="flex items-start justify-between gap-2">
         <p className="font-semibold text-white">{MANUSCRIPT_CHAPTER_TITLES[chapterKey]}</p>
         <span className={"shrink-0 rounded-lg border px-2 py-0.5 text-xs font-semibold " + statusAccent[chapter.status]}>{chapter.status}</span>
       </div>
-      <p className="mt-2 line-clamp-2 text-xs text-slate-500">{chapter.draft ? `${chapter.draft.trim().split(/\s+/).length} words drafted` : "No draft yet."}</p>
+      <Progress value={progress} max={100} className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-900" fillClassName="h-full bg-gradient-to-r from-purple-500 to-cyan-400" />
+      <p className="mt-2 line-clamp-2 text-xs text-slate-500">
+        {chapter.draft ? `${chapter.draft.trim().split(/\s+/).length} words drafted` : "No draft yet."}
+        {chapter.targetPages ? ` · Target: ${chapter.targetPages} pages` : ""}
+      </p>
     </Link>
   );
 }
