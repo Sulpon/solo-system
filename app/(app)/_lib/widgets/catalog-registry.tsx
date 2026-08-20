@@ -77,7 +77,11 @@ import type { PersonalRecordEvent } from "../types/workout";
 
 const dashboardAndGoalPages: CatalogSupportedPage[] = ["dashboard", "goal-tree", "attributes", "quests"];
 const dashboardOnly: CatalogSupportedPage[] = ["dashboard", "quests"];
-const dashboardAndWorkoutsPages: CatalogSupportedPage[] = ["dashboard", "workouts"];
+// "self-development" is included so the Workout Calendar/Frequency/Exercise
+// Progress/PR widgets built for the Workouts page are also available from the
+// Widget Catalog on the Self-Development hub (see SelfDevelopmentPage.tsx),
+// which reads the same workout history without duplicating any data.
+const dashboardAndWorkoutsPages: CatalogSupportedPage[] = ["dashboard", "workouts", "self-development"];
 const allSizes: CatalogWidgetSize[] = ["sm", "md", "lg", "xl"];
 
 // A handful of generic widgets duplicate a Dashboard-native widget under the

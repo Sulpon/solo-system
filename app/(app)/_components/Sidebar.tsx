@@ -10,7 +10,6 @@ const leadingNavItems = [
   { name: "Dashboard", href: "/" },
   { name: "Quests", href: "/quests" },
   { name: "Goal Tree", href: "/goals" },
-  { name: "Workouts", href: "/workouts" },
   { name: "Career Hub", href: "/career-hub" },
   { name: "Thesis Hub", href: "/thesis-hub" },
 ];

@@ -1,6 +1,6 @@
 import { getLocalDayKey } from "../local-day";
 import type { BodyweightEntry } from "../types/bodyweight";
-import type { ExerciseLog, PersonalRecordEvent, PersonalRecordType, SetLog, WorkoutActiveSession, WorkoutSession } from "../types/workout";
+import type { ExerciseLog, ExerciseUnit, PersonalRecordEvent, PersonalRecordType, SetLog, WorkoutActiveSession, WorkoutSession } from "../types/workout";
 
 // ---------------------------------------------------------------------------
 // Live timer math
@@ -470,4 +470,126 @@ export function getWeightTrend(entries: ReadonlyArray<BodyweightEntry>, count = 
     .sort((first, second) => new Date(first.date).getTime() - new Date(second.date).getTime())
     .slice(-count)
     .map((entry) => toKilograms(entry.weight, entry.unit));
+}
+
+// ---------------------------------------------------------------------------
+// Self-Development hub: calendar, workout type distribution, exercise
+// progress summaries, and lifetime PR/training aggregates. Reused by the
+// Self-Development page and, via the Widget Catalog, by any future widget.
+// ---------------------------------------------------------------------------
+
+export function getWorkoutCalendarData(sessions: ReadonlyArray<WorkoutSession>): Map<string, WorkoutSession[]> {
+  const byDay = new Map<string, WorkoutSession[]>();
+
+  sessions.forEach((session) => {
+    const key = getLocalDayKey(session.endedAt);
+    const existing = byDay.get(key);
+
+    if (existing) {
+      existing.push(session);
+    } else {
+      byDay.set(key, [session]);
+    }
+  });
+
+  return byDay;
+}
+
+export type WorkoutTypeDistributionEntry = Readonly<{ type: string; sessionCount: number; percent: number }>;
+
+export function getWorkoutTypeDistribution(sessions: ReadonlyArray<WorkoutSession>): WorkoutTypeDistributionEntry[] {
+  if (sessions.length === 0) {
+    return [];
+  }
+
+  const countByType = new Map<string, number>();
+
+  sessions.forEach((session) => {
+    const type = session.templateTitle?.trim() || "Freeform";
+    countByType.set(type, (countByType.get(type) ?? 0) + 1);
+  });
+
+  return Array.from(countByType.entries())
+    .map(([type, sessionCount]) => ({ type, sessionCount, percent: Math.round((sessionCount / sessions.length) * 100) }))
+    .sort((first, second) => second.sessionCount - first.sessionCount);
+}
+
+export type ExerciseProgressSummary = Readonly<{
+  exerciseName: string;
+  unit: ExerciseUnit | null;
+  history: ExerciseHistoryPoint[];
+  bestWeight: number;
+  bestVolume: number;
+  bestEstimated1RM: number;
+  bestReps: number;
+  sessionCount: number;
+  lastPerformedAt: string | null;
+  daysSinceLastPerformed: number | null;
+  averageVolumePerSession: number;
+}>;
+
+function findLatestExerciseUnit(sessions: ReadonlyArray<WorkoutSession>, exerciseName: string): ExerciseUnit | null {
+  const sorted = [...sessions].sort((first, second) => new Date(second.endedAt).getTime() - new Date(first.endedAt).getTime());
+
+  for (const session of sorted) {
+    const log = session.exerciseLogs.find((item) => item.name === exerciseName);
+
+    if (log) {
+      return log.unit;
+    }
+  }
+
+  return null;
+}
+
+export function getExerciseProgress(sessions: ReadonlyArray<WorkoutSession>, exerciseName: string, referenceDate = new Date()): ExerciseProgressSummary {
+  const history = getExerciseHistory(sessions, exerciseName);
+  const unit = findLatestExerciseUnit(sessions, exerciseName);
+
+  if (history.length === 0) {
+    return {
+      exerciseName,
+      unit,
+      history,
+      bestWeight: 0,
+      bestVolume: 0,
+      bestEstimated1RM: 0,
+      bestReps: 0,
+      sessionCount: 0,
+      lastPerformedAt: null,
+      daysSinceLastPerformed: null,
+      averageVolumePerSession: 0,
+    };
+  }
+
+  const lastPoint = history[history.length - 1];
+  const daysSinceLastPerformed = Math.max(0, Math.floor((referenceDate.getTime() - new Date(lastPoint.date).getTime()) / (1000 * 60 * 60 * 24)));
+
+  return {
+    exerciseName,
+    unit,
+    history,
+    bestWeight: Math.max(...history.map((point) => point.maxWeight)),
+    bestVolume: Math.max(...history.map((point) => point.volume)),
+    bestEstimated1RM: Math.max(...history.map((point) => point.estimated1RM)),
+    bestReps: Math.max(...history.map((point) => point.maxReps)),
+    sessionCount: history.length,
+    lastPerformedAt: lastPoint.date,
+    daysSinceLastPerformed,
+    averageVolumePerSession: Math.round(history.reduce((sum, point) => sum + point.volume, 0) / history.length),
+  };
+}
+
+export function getPersonalRecords(sessions: ReadonlyArray<WorkoutSession>): PersonalRecordEvent[] {
+  return sessions
+    .flatMap((session) => session.personalRecordsAchieved)
+    .sort((first, second) => new Date(second.achievedAt).getTime() - new Date(first.achievedAt).getTime());
+}
+
+export function getLifetimeTrainingSeconds(sessions: ReadonlyArray<WorkoutSession>): number {
+  return sessions.reduce((sum, session) => sum + session.durationSeconds, 0);
+}
+
+export function getLatestWorkout(sessions: ReadonlyArray<WorkoutSession>): WorkoutSession | null {
+  return sessions.reduce((latest: WorkoutSession | null, session) => (!latest || new Date(session.endedAt).getTime() > new Date(latest.endedAt).getTime() ? session : latest), null);
 }
