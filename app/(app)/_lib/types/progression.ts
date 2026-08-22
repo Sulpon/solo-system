@@ -11,6 +11,8 @@ export type MainQuest = Readonly<{
   objectives: MainQuestObjective[];
 }>;
 
+export type CharacterRecentEvent = Readonly<{ id: string; title: string; createdAt: string }>;
+
 export type CharacterProfile = Readonly<{
   name: string;
   title: string;
@@ -19,6 +21,9 @@ export type CharacterProfile = Readonly<{
   currentLevel: number;
   currentStreak: number;
   powerScore: number;
+  dailyXP?: number;
+  weeklyXP?: number;
+  recentEvents?: ReadonlyArray<CharacterRecentEvent>;
 }>;
 
 export type LevelProgress = Readonly<{
@@ -33,7 +38,7 @@ export type XpEventAttributeReward = Readonly<{
   amount: number;
 }>;
 
-export type XpEventSourceType = "quest" | "dream" | "goal" | "milestone" | "progress_goal" | "sequential_step" | "sequential_milestone";
+export type XpEventSourceType = "quest" | "dream" | "goal" | "milestone" | "progress_goal" | "sequential_step" | "sequential_milestone" | "achievement" | "streak_milestone";
 
 export type XpEvent = Readonly<{
   id: string;

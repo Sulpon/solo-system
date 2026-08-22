@@ -9,6 +9,7 @@ export function createQuestCompletion(
   streakDays = 1,
   metricValue?: number,
   goalContribution?: QuestGoalContribution | null,
+  challengeBonusXp = 0,
 ): QuestCompletion {
   const streakBonusXp = calculateStreakXpBonus(quest.xp, streakDays);
 
@@ -16,8 +17,9 @@ export function createQuestCompletion(
     id: `${quest.id}-${completedAt}`,
     questId: quest.id,
     completedAt,
-    xpAwarded: quest.xp + streakBonusXp,
+    xpAwarded: quest.xp + streakBonusXp + challengeBonusXp,
     streakBonusXp,
+    challengeBonusXp,
     attributeRewardsAwarded: attributeRewardsAwarded.map((reward) => ({
       attributeId: reward.attributeId,
       xp: Math.max(0, Math.floor(Number(reward.xp) || 0)),

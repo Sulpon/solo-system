@@ -62,6 +62,8 @@ function toDailyQuest(quest: Quest): DailyQuest {
     attributeXPOverride: quest.attributeXPOverride ?? [],
     completionMetric: quest.completionMetric,
     challenge: quest.challenge,
+    streakMilestones: quest.streakMilestones,
+    streakMilestoneInterval: quest.streakMilestoneInterval,
     createdAt: quest.createdAt,
   };
 }

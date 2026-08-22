@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useAttributes } from "../../_lib/hooks/useAttributes";
 import { isQuestScheduledForDate, calculateQuestStreak, calculateQuestConsistency, calculateStreakXpBonus } from "../../_lib/daily-system";
 import { deriveChallengeProgress } from "../../_lib/engines/challenge-engine";
+import { getQuestEvolutionTier } from "../../_lib/engines/quest-evolution-engine";
+import { getLocalDayKey } from "../../_lib/local-day";
 import ChallengeStreakDots from "./ChallengeStreakDots";
 import type { Quest, QuestCompletion } from "../../_lib/types/quest";
 
@@ -121,11 +123,19 @@ export default function QuestList({
         const isScheduled = isQuestScheduledForDate(quest, referenceDate);
         const streak = calculateQuestStreak(quest, questCompletions, referenceDate);
         const projectedStreakDays = isCompleted ? streak : streak + 1;
-        const streakBonusXp = calculateStreakXpBonus(quest.xp, projectedStreakDays);
+        // Once completed, show the real recorded bonuses (including any
+        // Challenge level-up bonus, which can't be projected in advance)
+        // instead of the forward-looking streak-only estimate.
+        const todaysCompletion = isCompleted
+          ? questCompletions.find((completion) => completion.questId === quest.id && getLocalDayKey(completion.completedAt) === getLocalDayKey(referenceDate))
+          : undefined;
+        const streakBonusXp = todaysCompletion ? todaysCompletion.streakBonusXp : calculateStreakXpBonus(quest.xp, projectedStreakDays);
+        const challengeBonusXp = todaysCompletion?.challengeBonusXp ?? 0;
         const consistency = calculateQuestConsistency(quest, questCompletions, referenceDate);
         const isCore = (quest.importance ?? "core") === "core";
         const menuOpen = openMenuId === quest.id;
         const challengeProgress = quest.challenge?.enabled ? deriveChallengeProgress(quest, questCompletions, referenceDate) : null;
+        const evolutionTier = getQuestEvolutionTier(streak);
 
         function toggleComplete() {
           if (isCompleted) {
@@ -145,7 +155,7 @@ export default function QuestList({
               "flex items-center gap-3 rounded-lg border bg-slate-900/50 px-3 py-2 transition duration-150 " +
               (isCompleted
                 ? "border-emerald-500/50 shadow-[0_0_14px_rgba(16,185,129,0.14)]"
-                : "border-slate-800 hover:border-slate-700")
+                : `${evolutionTier.borderClass || "border-slate-800"} hover:border-slate-700 ${evolutionTier.glowClass}`)
             }
           >
             <button
@@ -187,6 +197,9 @@ export default function QuestList({
                 <span className="rounded-full border border-slate-700 bg-slate-950/50 px-1.5 py-0.5 text-slate-400">{formatSchedule(quest)}</span>
                 {quest.linkedProgressGoalId ? <span className="rounded-full border border-cyan-400/20 bg-cyan-400/5 px-1.5 py-0.5 text-cyan-200">Linked Goal</span> : null}
                 {quest.linkedWorkoutTemplateId ? <span className="rounded-full border border-emerald-400/20 bg-emerald-400/5 px-1.5 py-0.5 text-emerald-200">Linked Workout</span> : null}
+                {evolutionTier.tier > 0 ? (
+                  <span className={`rounded-full border px-1.5 py-0.5 font-semibold ${evolutionTier.borderClass} ${evolutionTier.badgeTextClass}`}>{evolutionTier.label}</span>
+                ) : null}
                 {streak > 0 ? (
                   <span className="text-slate-500">
                     <span className="font-semibold text-orange-300">{streak}</span> day streak
@@ -242,6 +255,7 @@ export default function QuestList({
                 <span className="text-sm font-bold text-purple-200">
                   {quest.xp}
                   {streakBonusXp > 0 ? <span className="ml-0.5 text-[11px] font-semibold text-emerald-300">+{streakBonusXp}</span> : null}
+                  {challengeBonusXp > 0 ? <span className="ml-0.5 text-[11px] font-semibold text-amber-300">+{challengeBonusXp}</span> : null}
                 </span>
                 <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-500">XP</span>
               </div>

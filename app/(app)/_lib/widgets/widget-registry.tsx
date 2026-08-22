@@ -34,6 +34,7 @@ import { useNightReviewFlow } from "../hooks/useNightReviewFlow";
 import { useProgression } from "../hooks/useProgression";
 import { calculateDailySuccess, getAttributeXpForDay, getBonusQuests, getCompletedQuestIdsForDay, getConsistencyScore, getCoreQuests, getTodayQuests } from "../daily-system";
 import { getTodayEvents } from "../activity-events";
+import { getRankLabel } from "../engines/level-engine";
 import { getLocalDayKey } from "../local-day";
 import type { CategoryProgression } from "../engines/progression-engine";
 import type {
@@ -82,26 +83,6 @@ const defaultDashboardWidgetIds: DashboardWidgetType[] = [
   "night-review",
 ];
 
-function getRankLabel(level: number) {
-  if (level >= 30) {
-    return "S";
-  }
-
-  if (level >= 24) {
-    return "A";
-  }
-
-  if (level >= 18) {
-    return "B";
-  }
-
-  if (level >= 12) {
-    return "C";
-  }
-
-  return "D";
-}
-
 function toDailyQuest(quest: Quest): DailyQuest {
   return {
     id: quest.id,
@@ -117,6 +98,8 @@ function toDailyQuest(quest: Quest): DailyQuest {
     attributeXPOverride: quest.attributeXPOverride ?? [],
     completionMetric: quest.completionMetric,
     challenge: quest.challenge,
+    streakMilestones: quest.streakMilestones,
+    streakMilestoneInterval: quest.streakMilestoneInterval,
     createdAt: quest.createdAt,
   };
 }
@@ -212,8 +195,19 @@ export function createDefaultDashboardGridLayout(): DashboardGridLayout {
   };
 }
 
+const CHARACTER_RECENT_EVENT_TYPES = new Set(["level_up", "attribute_level_up", "challenge_level_up", "streak_milestone", "achievement_unlocked"]);
+
 function renderCharacterWidget() {
-  const { progressionSummary } = useProgression();
+  const { progressionSummary, activityEvents } = useProgression();
+
+  const recentEvents = useMemo(
+    () =>
+      activityEvents
+        .filter((event) => CHARACTER_RECENT_EVENT_TYPES.has(event.type))
+        .slice(0, 5)
+        .map((event) => ({ id: event.id, title: event.title, createdAt: event.createdAt })),
+    [activityEvents],
+  );
 
   return (
       <CharacterCard
@@ -225,6 +219,9 @@ function renderCharacterWidget() {
         rank: getRankLabel(progressionSummary.currentLevel),
         currentStreak: progressionSummary.currentStreak,
         powerScore: progressionSummary.powerScore,
+        dailyXP: progressionSummary.dailyXP,
+        weeklyXP: progressionSummary.weeklyXP,
+        recentEvents,
       }}
     />
   );

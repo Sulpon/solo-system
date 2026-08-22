@@ -123,7 +123,10 @@ export function createDailySnapshot({
   };
 }
 
-export function calculateQuestStreak(quest: Quest, completions: ReadonlyArray<QuestCompletion>, referenceDate = new Date()) {
+// Structural rather than the full Quest type - only id/scheduledDays are
+// used, so DailyQuest (which lacks cadence/status/categoryId) satisfies this
+// directly too. Mirrors the same trick used for ChallengeSource.
+export function calculateQuestStreak(quest: Pick<Quest, "id" | "scheduledDays">, completions: ReadonlyArray<QuestCompletion>, referenceDate = new Date()) {
   const completionDays = new Set(
     completions.filter((completion) => completion.questId === quest.id).map((completion) => getLocalDayKey(completion.completedAt)),
   );

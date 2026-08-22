@@ -13,9 +13,15 @@ export type ActivityEventType =
   | "daily_snapshot_saved"
   | "workout_completed"
   | "personal_record_achieved"
-  | "bodyweight_logged";
+  | "bodyweight_logged"
+  | "level_up"
+  | "attribute_level_up"
+  | "challenge_level_up"
+  | "streak_milestone"
+  | "achievement_unlocked"
+  | "mystery_reward_opened";
 
-export type ActivityEventSourceType = "quest" | "attribute" | "progress_goal" | "milestone" | "goal" | "dream" | "daily_snapshot" | "workout" | "bodyweight";
+export type ActivityEventSourceType = "quest" | "attribute" | "progress_goal" | "milestone" | "goal" | "dream" | "daily_snapshot" | "workout" | "bodyweight" | "character" | "achievement";
 
 export type ActivityEventMetadataValue = string | number | boolean | null | ActivityEventMetadata | ActivityEventMetadataValue[];
 

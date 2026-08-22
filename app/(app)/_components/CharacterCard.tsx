@@ -47,6 +47,34 @@ export default function CharacterCard({ character }: CharacterCardProps) {
               fillClassName="h-full bg-gradient-to-r from-purple-500 to-cyan-400"
             />
           </div>
+
+          {character.dailyXP !== undefined || character.weeklyXP !== undefined ? (
+            <div className="mt-4 flex flex-wrap gap-4 text-sm">
+              {character.dailyXP !== undefined ? (
+                <p className="text-slate-400">
+                  <span className="font-bold text-emerald-300">+{character.dailyXP.toLocaleString()}</span> XP today
+                </p>
+              ) : null}
+              {character.weeklyXP !== undefined ? (
+                <p className="text-slate-400">
+                  <span className="font-bold text-emerald-300">+{character.weeklyXP.toLocaleString()}</span> XP this week
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {character.recentEvents && character.recentEvents.length > 0 ? (
+            <div className="mt-6">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Recent</p>
+              <ul className="mt-2 space-y-1.5">
+                {character.recentEvents.map((event) => (
+                  <li key={event.id} className="truncate text-sm text-slate-300">
+                    {event.title}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
 
         <div className="hidden min-h-72 items-center justify-center rounded-2xl border border-purple-500/20 bg-slate-950/35 md:flex">

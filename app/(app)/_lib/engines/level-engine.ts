@@ -26,6 +26,28 @@ export function xpForLevelState(level: number, xpInCurrentLevel: number) {
   return cumulativeXPForLevel(level) + xpInCurrentLevel;
 }
 
+// Single source of truth for the D/C/B/A/S rank letter grade - was
+// previously duplicated in Sidebar.tsx and widget-registry.tsx.
+export function getRankLabel(level: number) {
+  if (level >= 30) {
+    return "S";
+  }
+
+  if (level >= 24) {
+    return "A";
+  }
+
+  if (level >= 18) {
+    return "B";
+  }
+
+  if (level >= 12) {
+    return "C";
+  }
+
+  return "D";
+}
+
 export function calculateLevel(totalXP: number): LevelProgress {
   let currentLevel = 1;
   let remainingXP = Math.max(0, totalXP);

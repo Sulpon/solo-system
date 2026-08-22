@@ -39,6 +39,9 @@ export const STORAGE_KEYS = {
   resourceEntries: "menace-resource-entries",
   manuscriptChapters: "menace-manuscript-chapters",
   writingLogEntries: "menace-writing-log-entries",
+  rewardCollection: "menace-reward-collection",
+  realLifeRewards: "menace-real-life-rewards",
+  bonusXpEvents: "menace-bonus-xp-events",
 } as const;
 
 export const MENACE_STORAGE_EVENT = "menace-local-storage-change";

@@ -1,7 +1,8 @@
-import type { Quest, QuestChallengeConfig, QuestCompletionMetricConfig } from "../../_lib/types/quest";
+import type { Quest, QuestChallengeConfig, QuestCompletionMetricConfig, QuestStreakMilestone } from "../../_lib/types/quest";
 import { CHALLENGE_LEVEL_COUNT, type QuestFormModel } from "./QuestForm";
 
 const DEFAULT_CHALLENGE_LEVELS = [5, 7, 10, 15, 20];
+const DEFAULT_CHALLENGE_LEVEL_XP = [35, 45, 55, 70, 90];
 
 export const emptyQuestForm: QuestFormModel = {
   title: "",
@@ -23,7 +24,10 @@ export const emptyQuestForm: QuestFormModel = {
   completionMetricAutoSource: false,
   challengeEnabled: false,
   challengeLevels: [...DEFAULT_CHALLENGE_LEVELS],
+  challengeLevelXp: [...DEFAULT_CHALLENGE_LEVEL_XP],
   challengeRequiredStreak: 3,
+  streakMilestoneInterval: 10,
+  streakMilestones: [],
 };
 
 export function createQuestFormModel(overrides: Partial<QuestFormModel> = {}): QuestFormModel {
@@ -45,6 +49,16 @@ function normalizeChallengeLevels(levels: ReadonlyArray<number> | undefined): nu
   }
 
   return targets.slice(0, CHALLENGE_LEVEL_COUNT);
+}
+
+function normalizeChallengeLevelXp(levelXp: ReadonlyArray<number> | undefined): number[] {
+  const values = (levelXp ?? []).map((xp) => Math.max(0, Math.floor(Number(xp) || 0)));
+
+  while (values.length < CHALLENGE_LEVEL_COUNT) {
+    values.push(DEFAULT_CHALLENGE_LEVEL_XP[values.length] ?? 0);
+  }
+
+  return values.slice(0, CHALLENGE_LEVEL_COUNT);
 }
 
 export function toQuestForm(quest: Quest): QuestFormModel {
@@ -78,7 +92,10 @@ export function toQuestForm(quest: Quest): QuestFormModel {
     completionMetricAutoSource: quest.completionMetric?.autoSource === "workout-sessions",
     challengeEnabled: quest.challenge?.enabled ?? false,
     challengeLevels: normalizeChallengeLevels(quest.challenge?.levels?.map((level) => level.target)),
+    challengeLevelXp: normalizeChallengeLevelXp(quest.challenge?.levels?.map((level) => level.xp ?? 0)),
     challengeRequiredStreak: quest.challenge?.requiredStreak ?? 3,
+    streakMilestoneInterval: quest.streakMilestoneInterval ?? 10,
+    streakMilestones: quest.streakMilestones?.map((milestone) => ({ ...milestone })) ?? [],
   };
 }
 
@@ -95,11 +112,20 @@ function buildCompletionMetric(form: QuestFormModel): QuestCompletionMetricConfi
 }
 
 function buildChallenge(form: QuestFormModel): QuestChallengeConfig {
+  const targets = normalizeChallengeLevels(form.challengeLevels);
+  const levelXp = normalizeChallengeLevelXp(form.challengeLevelXp);
+
   return {
     enabled: form.challengeEnabled,
-    levels: normalizeChallengeLevels(form.challengeLevels).map((target) => ({ target })),
+    levels: targets.map((target, index) => ({ target, xp: levelXp[index] ?? 0 })),
     requiredStreak: Math.max(1, Math.floor(Number(form.challengeRequiredStreak) || 1)),
   };
+}
+
+function buildStreakMilestones(form: QuestFormModel): ReadonlyArray<QuestStreakMilestone> {
+  return form.streakMilestones
+    .filter((milestone) => milestone.title.trim().length > 0)
+    .map((milestone) => ({ streakCount: Math.max(1, Math.floor(Number(milestone.streakCount) || 1)), title: milestone.title.trim() }));
 }
 
 export function upsertQuestFromForm(quests: ReadonlyArray<Quest>, form: QuestFormModel, now = new Date().toISOString()): Quest[] {
@@ -109,6 +135,8 @@ export function upsertQuestFromForm(quests: ReadonlyArray<Quest>, form: QuestFor
   const scheduledDays = [...new Set(form.scheduledDays.filter((day) => Number.isInteger(day) && day >= 0 && day <= 6))].sort((first, second) => first - second);
   const completionMetric = buildCompletionMetric(form);
   const challenge = buildChallenge(form);
+  const streakMilestones = buildStreakMilestones(form);
+  const streakMilestoneInterval = Math.max(1, Math.floor(Number(form.streakMilestoneInterval) || 1));
 
   if (form.id) {
     return quests.map((quest) =>
@@ -128,6 +156,8 @@ export function upsertQuestFromForm(quests: ReadonlyArray<Quest>, form: QuestFor
             attributeXPOverride: form.useInheritedAttributeDistribution ? undefined : form.attributeXPOverride,
             completionMetric,
             challenge,
+            streakMilestones,
+            streakMilestoneInterval,
             updatedAt: now,
           }
         : quest,
@@ -153,6 +183,8 @@ export function upsertQuestFromForm(quests: ReadonlyArray<Quest>, form: QuestFor
       attributeXPOverride: form.useInheritedAttributeDistribution ? undefined : form.attributeXPOverride,
       completionMetric,
       challenge,
+      streakMilestones,
+      streakMilestoneInterval,
       createdAt: now,
       updatedAt: now,
     },

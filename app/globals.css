@@ -181,6 +181,65 @@ body {
   transition: background 700ms ease;
 }
 
+@keyframes celebration-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes celebration-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes celebration-modal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes celebration-legendary-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 40px 0 rgb(251 191 36 / 0.22);
+  }
+  50% {
+    box-shadow: 0 0 64px 8px rgb(251 191 36 / 0.34);
+  }
+}
+
+.celebration-toast-enter {
+  animation: celebration-toast-in 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.celebration-card-enter {
+  animation: celebration-card-in 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.celebration-modal-enter {
+  animation: celebration-modal-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.celebration-legendary-glow {
+  animation: celebration-legendary-glow 2.4s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .onboarding-step-enter,
   .onboarding-header-enter,
@@ -188,7 +247,11 @@ body {
   .onboarding-glow-pulse,
   .onboarding-success-pop,
   .onboarding-loading-line,
-  .dashboard-row-enter {
+  .dashboard-row-enter,
+  .celebration-toast-enter,
+  .celebration-card-enter,
+  .celebration-modal-enter,
+  .celebration-legendary-glow {
     animation: none;
   }
 

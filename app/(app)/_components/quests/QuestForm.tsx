@@ -34,7 +34,10 @@ type QuestFormModel = Readonly<{
   completionMetricAutoSource: boolean;
   challengeEnabled: boolean;
   challengeLevels: number[];
+  challengeLevelXp: number[];
   challengeRequiredStreak: number;
+  streakMilestoneInterval: number;
+  streakMilestones: ReadonlyArray<{ streakCount: number; title: string }>;
 }>;
 
 type QuestFormProps = Readonly<{
@@ -376,20 +379,37 @@ export default function QuestForm({ form, isEditing, onChange, onCancel, onSave 
               <p className="text-sm text-slate-400">Complete each level for {form.challengeRequiredStreak} consecutive successful days to unlock the next.</p>
               <div className="grid gap-3 sm:grid-cols-5">
                 {form.challengeLevels.map((target, index) => (
-                  <label key={index} className="space-y-2">
+                  <div key={index} className="space-y-2 rounded-xl border border-slate-800 bg-slate-950/40 p-2">
                     <span className={labelClass}>Level {index + 1}</span>
-                    <input
-                      type="number"
-                      min={1}
-                      value={target}
-                      onChange={(event) => {
-                        const nextLevels = [...form.challengeLevels];
-                        nextLevels[index] = Math.max(1, Math.floor(Number(event.target.value) || 1));
-                        onChange({ ...form, challengeLevels: nextLevels });
-                      }}
-                      className={inputClass}
-                    />
-                  </label>
+                    <label className="block space-y-1">
+                      <span className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Target</span>
+                      <input
+                        type="number"
+                        min={1}
+                        value={target}
+                        onChange={(event) => {
+                          const nextLevels = [...form.challengeLevels];
+                          nextLevels[index] = Math.max(1, Math.floor(Number(event.target.value) || 1));
+                          onChange({ ...form, challengeLevels: nextLevels });
+                        }}
+                        className={inputClass}
+                      />
+                    </label>
+                    <label className="block space-y-1">
+                      <span className="text-[10px] uppercase tracking-[0.14em] text-slate-500">XP Reward</span>
+                      <input
+                        type="number"
+                        min={0}
+                        value={form.challengeLevelXp[index] ?? 0}
+                        onChange={(event) => {
+                          const nextLevelXp = [...form.challengeLevelXp];
+                          nextLevelXp[index] = Math.max(0, Math.floor(Number(event.target.value) || 0));
+                          onChange({ ...form, challengeLevelXp: nextLevelXp });
+                        }}
+                        className={inputClass}
+                      />
+                    </label>
+                  </div>
                 ))}
               </div>
               <label className="block max-w-xs space-y-2">
@@ -405,6 +425,70 @@ export default function QuestForm({ form, isEditing, onChange, onCancel, onSave 
             </>
           ) : null}
         </div>
+
+        {form.cadence !== "one-time" ? (
+          <div className="space-y-3 rounded-2xl border border-orange-400/20 bg-orange-400/5 p-4 sm:col-span-2">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-200">Streak Milestones</p>
+              <p className="mt-1 text-sm text-slate-400">
+                Every {form.streakMilestoneInterval} consecutive successful days triggers a milestone celebration and Mystery Reward. Optionally name specific streak counts below.
+              </p>
+            </div>
+
+            <label className="block max-w-xs space-y-2">
+              <span className={labelClass}>Milestone Interval (days)</span>
+              <input
+                type="number"
+                min={1}
+                value={form.streakMilestoneInterval}
+                onChange={(event) => onChange({ ...form, streakMilestoneInterval: Math.max(1, Math.floor(Number(event.target.value) || 1)) })}
+                className={inputClass}
+              />
+            </label>
+
+            <div className="space-y-2">
+              {form.streakMilestones.map((milestone, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    value={milestone.streakCount}
+                    placeholder="Days"
+                    onChange={(event) => {
+                      const next = form.streakMilestones.map((item, i) => (i === index ? { ...item, streakCount: Math.max(1, Math.floor(Number(event.target.value) || 1)) } : item));
+                      onChange({ ...form, streakMilestones: next });
+                    }}
+                    className={inputClass + " w-24"}
+                  />
+                  <input
+                    type="text"
+                    value={milestone.title}
+                    placeholder="Badge title (e.g. Attention Keeper)"
+                    onChange={(event) => {
+                      const next = form.streakMilestones.map((item, i) => (i === index ? { ...item, title: event.target.value } : item));
+                      onChange({ ...form, streakMilestones: next });
+                    }}
+                    className={inputClass + " flex-1"}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => onChange({ ...form, streakMilestones: form.streakMilestones.filter((_, i) => i !== index) })}
+                    className="shrink-0 rounded-lg border border-rose-500/30 px-2.5 py-1.5 text-xs text-rose-300 transition hover:bg-rose-500/10"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => onChange({ ...form, streakMilestones: [...form.streakMilestones, { streakCount: 10, title: "" }] })}
+                className="rounded-xl border border-slate-700 px-3 py-1.5 text-sm text-slate-300 transition hover:border-orange-400/60 hover:text-white"
+              >
+                + Add Milestone
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         <div className="sm:col-span-2">
           <button

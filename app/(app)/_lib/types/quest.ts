@@ -36,7 +36,9 @@ export type QuestCompletionMetricConfig = Readonly<{
   autoSource?: QuestCompletionAutoSource;
 }>;
 
-export type QuestChallengeLevel = Readonly<{ target: number }>;
+// xp is optional and defaults to 0 (no bonus) so every Challenge quest saved
+// before this field existed keeps awarding exactly the XP it always has.
+export type QuestChallengeLevel = Readonly<{ target: number; xp?: number }>;
 
 // Pure configuration - no mutable progress here. Current level/streak are
 // always derived from QuestCompletion history (see engines/challenge-engine.ts),
@@ -46,6 +48,11 @@ export type QuestChallengeConfig = Readonly<{
   levels: ReadonlyArray<QuestChallengeLevel>;
   requiredStreak: number;
 }>;
+
+// Custom badge title at a specific streak count (e.g. 10 -> "Attention
+// Keeper"). Streak counts without an entry here still fire a generic
+// milestone celebration every streakMilestoneInterval days.
+export type QuestStreakMilestone = Readonly<{ streakCount: number; title: string }>;
 
 export type Quest = Readonly<{
   id: string;
@@ -62,6 +69,10 @@ export type Quest = Readonly<{
   attributeXPOverride?: ReadonlyArray<QuestAttributeReward>;
   completionMetric?: QuestCompletionMetricConfig;
   challenge?: QuestChallengeConfig;
+  // Absent interval defaults to 10 days. Both fields are optional and purely
+  // additive - existing quests keep behaving exactly as before until edited.
+  streakMilestones?: ReadonlyArray<QuestStreakMilestone>;
+  streakMilestoneInterval?: number;
   createdAt: string;
   updatedAt: string;
 }>;
@@ -80,6 +91,8 @@ export type DailyQuest = Readonly<{
   attributeXPOverride?: ReadonlyArray<QuestAttributeReward>;
   completionMetric?: QuestCompletionMetricConfig;
   challenge?: QuestChallengeConfig;
+  streakMilestones?: ReadonlyArray<QuestStreakMilestone>;
+  streakMilestoneInterval?: number;
   createdAt?: string;
 }>;
 
@@ -94,6 +107,11 @@ export type QuestCompletion = Readonly<{
   completedAt: string;
   xpAwarded: number;
   streakBonusXp: number;
+  // The portion of xpAwarded from clearing a Challenge level on this
+  // completion (mirrors streakBonusXp). Absent/0 on completions that didn't
+  // clear a level, and on every completion recorded before this field
+  // existed - undo removes it automatically since it's baked into xpAwarded.
+  challengeBonusXp?: number;
   attributeRewardsAwarded: ReadonlyArray<QuestAttributeReward>;
   // What this completion actually recorded (trades, days=1 for a boolean
   // quest, ...). Absent on completions created before this field existed.

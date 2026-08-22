@@ -2607,6 +2607,78 @@ const staticWidgets: CatalogWidgetDefinition[] = [
     },
   },
 
+  // XP Ledger. Reads the exact same records that already power totalXP
+  // (QuestCompletion.xpAwarded, goalXpEvents, bonusXpEvents) - purely
+  // presentational, no XP recalculation of any kind.
+  // -------------------------------------------------------------------------
+  {
+    id: "xp-ledger",
+    title: "XP Ledger",
+    description: "Today's XP, broken down by source.",
+    category: "Progress",
+    icon: "XL",
+    defaultSize: "md",
+    allowedSizes: allSizes,
+    supportedPages: dashboardOnly,
+    readOnly: true,
+    searchKeywords: ["xp", "ledger", "history", "log", "today"],
+    component: function XpLedgerWidget({ mode }: CatalogWidgetComponentProps) {
+      const ctx = useWidgetLiveContext();
+
+      if (mode === "preview") {
+        return (
+          <WidgetShell eyebrow="Progress" title="XP Ledger">
+            <StatValue label="Today" value="+180 XP" />
+          </WidgetShell>
+        );
+      }
+
+      const todayKey = getLocalDayKey();
+      const questById = new Map(ctx.questDefinitions.map((quest) => [quest.id, quest]));
+
+      const questEntries = ctx.questCompletions
+        .filter((completion) => getLocalDayKey(completion.completedAt) === todayKey)
+        .map((completion) => ({
+          id: completion.id,
+          title: questById.get(completion.questId)?.title ?? "Quest",
+          amount: completion.xpAwarded,
+          timestamp: completion.completedAt,
+        }));
+
+      const eventEntries = [...ctx.goalXpEvents, ...ctx.bonusXpEvents]
+        .filter((event) => getLocalDayKey(event.createdAt) === todayKey)
+        .map((event) => ({ id: event.id, title: event.sourceTitle, amount: event.amount, timestamp: event.createdAt }));
+
+      const entries = [...questEntries, ...eventEntries].sort((first, second) => new Date(second.timestamp).getTime() - new Date(first.timestamp).getTime());
+      const total = entries.reduce((sum, entry) => sum + entry.amount, 0);
+
+      if (entries.length === 0) {
+        return (
+          <WidgetShell eyebrow="Progress" title="XP Ledger">
+            <EmptyWidgetState text="No XP earned yet today." />
+          </WidgetShell>
+        );
+      }
+
+      return (
+        <WidgetShell eyebrow="Progress" title="XP Ledger">
+          <div className="space-y-2">
+            {entries.slice(0, 8).map((entry) => (
+              <div key={entry.id} className="flex items-center justify-between gap-3 text-sm">
+                <span className="truncate text-slate-300">{entry.title}</span>
+                <span className="shrink-0 font-bold text-emerald-300">+{entry.amount.toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 flex items-center justify-between border-t border-slate-800 pt-3 text-sm">
+            <span className="font-semibold text-slate-400">Total</span>
+            <span className="font-black text-white">+{total.toLocaleString()} XP</span>
+          </div>
+        </WidgetShell>
+      );
+    },
+  },
+
   // Quest Calendar + Reflection widgets. Read-only views over questCompletions
   // and questReflections - never write, never auto-placed on any dashboard.
   // -------------------------------------------------------------------------

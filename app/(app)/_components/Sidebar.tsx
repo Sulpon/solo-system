@@ -5,34 +5,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAttributes } from "../_lib/hooks/useAttributes";
 import { useProgression } from "../_lib/hooks/useProgression";
+import { getRankLabel } from "../_lib/engines/level-engine";
 
 const leadingNavItems = [
   { name: "Dashboard", href: "/" },
   { name: "Quests", href: "/quests" },
   { name: "Goal Tree", href: "/goals" },
+  { name: "Rewards", href: "/rewards" },
 ];
 
 const trailingNavItems = [{ name: "Settings", href: "/settings" }];
-
-function getRankLabel(level: number) {
-  if (level >= 30) {
-    return "S";
-  }
-
-  if (level >= 24) {
-    return "A";
-  }
-
-  if (level >= 18) {
-    return "B";
-  }
-
-  if (level >= 12) {
-    return "C";
-  }
-
-  return "D";
-}
 
 type SidebarProps = Readonly<{
   isOpen?: boolean;
@@ -47,6 +29,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const currentRank = getRankLabel(currentLevel);
   const currentProgress = isReady ? progressionSummary.progress : 0;
   const currentXP = isReady ? progressionSummary.totalXP : 0;
+  const dailyXP = isReady ? progressionSummary.dailyXP : 0;
 
   const navItems = useMemo(() => {
     const attributeNavItems = attributes.map((attribute) => ({
@@ -129,6 +112,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
             <span>XP {currentXP.toLocaleString()}</span>
             <span>{currentProgress}%</span>
           </div>
+          {dailyXP > 0 ? <p className="mt-1 text-right text-xs font-semibold text-emerald-300">+{dailyXP.toLocaleString()} today</p> : null}
         </div>
       </aside>
     </>

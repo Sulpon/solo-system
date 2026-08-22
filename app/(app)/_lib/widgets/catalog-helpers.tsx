@@ -17,7 +17,7 @@ import type { XpEvent } from "../types/progression";
 
 export function useWidgetLiveContext() {
   const { goalTree } = useGoalTree();
-  const { questDefinitions, questCompletions, activityEvents, dailySnapshots, progressionSummary, goalXpEvents, isReady } = useProgression();
+  const { questDefinitions, questCompletions, activityEvents, dailySnapshots, progressionSummary, goalXpEvents, bonusXpEvents, isReady } = useProgression();
   const { attributes } = useAttributes();
   const { history: focusHistory } = useFocusHistory();
   const { templates: workoutTemplates } = useWorkoutTemplates();
@@ -33,6 +33,7 @@ export function useWidgetLiveContext() {
     dailySnapshots,
     progressionSummary,
     goalXpEvents,
+    bonusXpEvents,
     attributes,
     focusHistory,
     workoutTemplates,

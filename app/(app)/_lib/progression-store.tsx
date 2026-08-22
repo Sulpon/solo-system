@@ -7,6 +7,7 @@ import { useLocalStorageState } from "./hooks/use-local-storage-state";
 import { STORAGE_KEYS } from "./storage-keys";
 import { addActivityEvents, createQuestActivityEvents, removeActivityEventsByCompletionId } from "./activity-events";
 import { isQuestScheduledForDate, calculateQuestStreak } from "./daily-system";
+import { deriveChallengeProgress } from "./engines/challenge-engine";
 import { getProgressionSummary } from "./engines/progression-engine";
 import { getLocalDayKey } from "./local-day";
 import { createQuestCompletion, hasCompletedToday, removeQuestCompletionsForDay } from "./quest-storage";
@@ -16,11 +17,53 @@ import type { XpEvent } from "./types/progression";
 import type { DailySnapshot } from "./types/daily-system";
 import type { ActivityEvent } from "./types/activity-event";
 
+// Compares Challenge progress just before vs. just after a trial completion
+// (challengeBonusXp = 0) to see whether this completion clears a level. The
+// level that was just cleared is `before.currentLevelIndex` - its configured
+// xp is the bonus, baked into the real completion so it's undo-symmetric
+// (removing the completion removes the bonus, same as streakBonusXp).
+function computeChallengeBonusXp(
+  quest: Quest,
+  currentCompletions: ReadonlyArray<QuestCompletion>,
+  completedAt: string,
+  attributeRewardsAwarded: ReadonlyArray<QuestAttributeReward>,
+  previousStreak: number,
+  metricValue: number | undefined,
+  goalContribution: QuestGoalContribution | null | undefined,
+  referenceDate: Date,
+): number {
+  if (!quest.challenge?.enabled) {
+    return 0;
+  }
+
+  const trial = createQuestCompletion(quest, completedAt, attributeRewardsAwarded, previousStreak + 1, metricValue, goalContribution, 0);
+  const before = deriveChallengeProgress(quest, currentCompletions, referenceDate);
+  const after = deriveChallengeProgress(quest, [...currentCompletions, trial], referenceDate);
+
+  if (!before || !after || after.currentLevelIndex <= before.currentLevelIndex) {
+    return 0;
+  }
+
+  return Math.max(0, Math.floor(Number(quest.challenge.levels[before.currentLevelIndex]?.xp) || 0));
+}
+
+// Dedup-append by id, mirrors addActivityEvents.
+function addXpEvents(current: ReadonlyArray<XpEvent>, next: ReadonlyArray<XpEvent>): XpEvent[] {
+  const byId = new Map<string, XpEvent>();
+
+  for (const event of [...current, ...next]) {
+    byId.set(event.id, event);
+  }
+
+  return Array.from(byId.values());
+}
+
 export type ProgressionStoreValue = Readonly<{
   isReady: boolean;
   questDefinitions: Quest[];
   questCompletions: QuestCompletion[];
   goalXpEvents: ReadonlyArray<XpEvent>;
+  bonusXpEvents: ReadonlyArray<XpEvent>;
   activityEvents: ActivityEvent[];
   dailySnapshots: DailySnapshot[];
   progressionSummary: ProgressionSummary;
@@ -28,6 +71,7 @@ export type ProgressionStoreValue = Readonly<{
   setQuestCompletions: (next: QuestCompletion[] | ((current: QuestCompletion[]) => QuestCompletion[])) => void;
   setActivityEvents: (next: ActivityEvent[] | ((current: ActivityEvent[]) => ActivityEvent[])) => void;
   addActivityEvents: (events: ReadonlyArray<ActivityEvent>) => void;
+  addBonusXpEvents: (events: ReadonlyArray<XpEvent>) => void;
   setDailySnapshots: (next: DailySnapshot[] | ((current: DailySnapshot[]) => DailySnapshot[])) => void;
   completeQuest: (questId: string, completedAt?: string, attributeRewardsAwarded?: ReadonlyArray<QuestAttributeReward>) => boolean;
   setQuestCompletionForToday: (
@@ -51,6 +95,7 @@ export function ProgressionProvider({ children }: Readonly<{ children: React.Rea
   const [questCompletions, setQuestCompletions, hasQuestCompletionsLoaded] = useLocalStorageState<QuestCompletion[]>(STORAGE_KEYS.questCompletions, []);
   const [activityEvents, setActivityEvents, hasActivityEventsLoaded] = useLocalStorageState<ActivityEvent[]>(STORAGE_KEYS.activityEvents, []);
   const [dailySnapshots, setDailySnapshots, hasDailySnapshotsLoaded] = useLocalStorageState<DailySnapshot[]>(STORAGE_KEYS.dailySnapshots, []);
+  const [bonusXpEvents, setBonusXpEvents, hasBonusXpEventsLoaded] = useLocalStorageState<XpEvent[]>(STORAGE_KEYS.bonusXpEvents, []);
   const questDefinitionsRef = useRef(questDefinitions);
   const questCompletionsRef = useRef(questCompletions);
 
@@ -62,9 +107,11 @@ export function ProgressionProvider({ children }: Readonly<{ children: React.Rea
     questCompletionsRef.current = questCompletions;
   }, [questCompletions]);
 
+  const combinedXpEvents = useMemo(() => [...goalXpEvents, ...bonusXpEvents], [goalXpEvents, bonusXpEvents]);
+
   const progressionSummary = useMemo(
-    () => getProgressionSummary(categories, questDefinitions, questCompletions, goalXpEvents),
-    [categories, goalXpEvents, questDefinitions, questCompletions],
+    () => getProgressionSummary(categories, questDefinitions, questCompletions, combinedXpEvents),
+    [categories, combinedXpEvents, questDefinitions, questCompletions],
   );
 
   const appendActivityEvents = useCallback(
@@ -72,6 +119,17 @@ export function ProgressionProvider({ children }: Readonly<{ children: React.Rea
       setActivityEvents((current) => addActivityEvents(current, events));
     },
     [setActivityEvents],
+  );
+
+  const addBonusXpEvents = useCallback(
+    (events: ReadonlyArray<XpEvent>) => {
+      if (events.length === 0) {
+        return;
+      }
+
+      setBonusXpEvents((current) => addXpEvents(current, events));
+    },
+    [setBonusXpEvents],
   );
 
   const setQuestCompletionForToday = useCallback(
@@ -102,7 +160,17 @@ export function ProgressionProvider({ children }: Readonly<{ children: React.Rea
         }
 
         const previousStreak = calculateQuestStreak(quest, currentCompletions, referenceDate);
-        const completion = createQuestCompletion(quest, completedAt, attributeRewardsAwarded, previousStreak + 1, metricValue, goalContribution);
+        const challengeBonusXp = computeChallengeBonusXp(
+          quest,
+          currentCompletions,
+          completedAt,
+          attributeRewardsAwarded,
+          previousStreak,
+          metricValue,
+          goalContribution,
+          referenceDate,
+        );
+        const completion = createQuestCompletion(quest, completedAt, attributeRewardsAwarded, previousStreak + 1, metricValue, goalContribution, challengeBonusXp);
         const nextCompletions = [...currentCompletions, completion];
         questCompletionsRef.current = nextCompletions;
         setQuestCompletions(nextCompletions);
@@ -150,10 +218,11 @@ export function ProgressionProvider({ children }: Readonly<{ children: React.Rea
 
   const value = useMemo(
     (): ProgressionStoreValue => ({
-      isReady: hasQuestDefinitionsLoaded && hasQuestCompletionsLoaded && hasDailySnapshotsLoaded && hasActivityEventsLoaded,
+      isReady: hasQuestDefinitionsLoaded && hasQuestCompletionsLoaded && hasDailySnapshotsLoaded && hasActivityEventsLoaded && hasBonusXpEventsLoaded,
       questDefinitions,
       questCompletions,
       goalXpEvents,
+      bonusXpEvents,
       activityEvents,
       dailySnapshots,
       progressionSummary,
@@ -161,6 +230,7 @@ export function ProgressionProvider({ children }: Readonly<{ children: React.Rea
       setQuestCompletions,
       setActivityEvents,
       addActivityEvents: appendActivityEvents,
+      addBonusXpEvents,
       setDailySnapshots,
       completeQuest,
       setQuestCompletionForToday,
@@ -171,8 +241,10 @@ export function ProgressionProvider({ children }: Readonly<{ children: React.Rea
       completeQuest,
       clearQuestCompletionsForDay,
       hasActivityEventsLoaded,
+      hasBonusXpEventsLoaded,
       dailySnapshots,
       activityEvents,
+      bonusXpEvents,
       hasQuestCompletionsLoaded,
       hasDailySnapshotsLoaded,
       hasQuestDefinitionsLoaded,
@@ -182,6 +254,7 @@ export function ProgressionProvider({ children }: Readonly<{ children: React.Rea
       questCompletions,
       questDefinitions,
       appendActivityEvents,
+      addBonusXpEvents,
       setQuestCompletionForToday,
       setQuestCompletions,
       setActivityEvents,
