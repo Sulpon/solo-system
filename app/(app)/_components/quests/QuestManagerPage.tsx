@@ -14,6 +14,7 @@ import type { Quest, QuestStatus } from "../../_lib/types/quest";
 import QuestForm, { type QuestFormModel } from "./QuestForm";
 import QuestCompletionModal from "./QuestCompletionModal";
 import QuestReflectionModal from "./QuestReflectionModal";
+import UndoCompletionModal from "./UndoCompletionModal";
 import QuestList from "./QuestList";
 import { useQuestCompletionFlow } from "./useQuestCompletionFlow";
 import { createQuestFormModel, toQuestForm, upsertQuestFromForm } from "./quest-form.utils";
@@ -37,10 +38,13 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
     beginQuestCompletion,
     confirmQuestCompletion,
     cancelQuestCompletion,
-    removeQuestCompletion,
     pendingReflectionQuest,
     submitReflection,
     skipReflection,
+    pendingUndo,
+    beginUndoCompletion,
+    confirmUndoCompletion,
+    cancelUndoCompletion,
   } = useQuestCompletionFlow();
 
   const todayDayKey = useMemo(() => getLocalDayKey(), []);
@@ -207,7 +211,7 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
           onToggleStatus={(quest) => setQuestStatus(quest, quest.status === "active" ? "archived" : "active")}
           onDelete={deleteQuest}
           onComplete={(quest) => beginQuestCompletion(quest, completionTimestampForLogDay())}
-          onUndoComplete={(quest) => removeQuestCompletion(quest.id, logDate.toISOString())}
+          onUndoComplete={(quest) => beginUndoCompletion(quest.id, logDate.toISOString())}
           onStartWorkout={(quest) => startWorkoutSession({ templateId: quest.linkedWorkoutTemplateId, linkedQuestId: quest.id })}
         />
       )}
@@ -218,6 +222,8 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
         <QuestCompletionModal
           questTitle={pendingQuest.title}
           goal={pendingGoal}
+          hasLinkedGoal={Boolean(pendingQuest.linkedProgressGoalId)}
+          unit={pendingQuest.completionMetric?.unit}
           progressValue={progressValue}
           logDateLabel={isLoggingPastDay ? logDayKey : undefined}
           onChange={setProgressValue}
@@ -228,6 +234,20 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
 
       {pendingReflectionQuest ? (
         <QuestReflectionModal questTitle={pendingReflectionQuest.title} onSkip={skipReflection} onSubmit={submitReflection} />
+      ) : null}
+
+      {pendingUndo ? (
+        <UndoCompletionModal
+          questTitle={pendingUndo.questTitle}
+          metricValue={pendingUndo.metricValue}
+          unit={pendingUndo.unit}
+          goalTitle={pendingUndo.goalTitle}
+          goalBefore={pendingUndo.goalBefore}
+          goalAfter={pendingUndo.goalAfter}
+          hasChallenge={pendingUndo.hasChallenge}
+          onCancel={cancelUndoCompletion}
+          onConfirm={confirmUndoCompletion}
+        />
       ) : null}
       </Card>
     </div>

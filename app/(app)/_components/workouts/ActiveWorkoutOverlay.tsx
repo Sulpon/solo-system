@@ -192,6 +192,8 @@ export default function ActiveWorkoutOverlay() {
         <QuestCompletionModal
           questTitle={pendingQuest.title}
           goal={pendingGoal}
+          hasLinkedGoal={Boolean(pendingQuest.linkedProgressGoalId)}
+          unit={pendingQuest.completionMetric?.unit}
           progressValue={progressValue}
           onChange={setProgressValue}
           onCancel={cancelQuestCompletion}

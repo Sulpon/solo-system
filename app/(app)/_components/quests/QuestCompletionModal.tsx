@@ -6,6 +6,8 @@ import type { GoalNode } from "../../_lib/types/goal-tree";
 type QuestCompletionModalProps = Readonly<{
   questTitle: string;
   goal: GoalNode | null;
+  hasLinkedGoal: boolean;
+  unit?: string;
   progressValue: string;
   logDateLabel?: string;
   onChange: (nextValue: string) => void;
@@ -16,8 +18,8 @@ type QuestCompletionModalProps = Readonly<{
 const inputClass = "w-full rounded-xl border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none transition focus:border-purple-400";
 const labelClass = "text-xs font-semibold uppercase tracking-[0.18em] text-slate-500";
 
-export default function QuestCompletionModal({ questTitle, goal, progressValue, logDateLabel, onChange, onCancel, onConfirm }: QuestCompletionModalProps) {
-  const unitLabel = goal?.unit?.trim() || "value";
+export default function QuestCompletionModal({ questTitle, goal, hasLinkedGoal, unit, progressValue, logDateLabel, onChange, onCancel, onConfirm }: QuestCompletionModalProps) {
+  const unitLabel = goal?.unit?.trim() || unit?.trim() || "value";
   const currentValue = Math.max(0, Number(goal?.currentValue ?? 0));
   const targetValue = Math.max(1, Number(goal?.targetValue ?? 1));
 
@@ -32,19 +34,21 @@ export default function QuestCompletionModal({ questTitle, goal, progressValue, 
           <p className="mt-1 text-lg font-bold text-white">{questTitle}</p>
         </div>
 
-        <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100">Linked Progress Goal</p>
-          {goal ? (
-            <>
-              <h3 className="mt-2 text-lg font-bold text-white">{goal.title}</h3>
-              <p className="mt-1 text-sm text-slate-400">
-                {currentValue.toLocaleString()} / {targetValue.toLocaleString()} {unitLabel}
-              </p>
-            </>
-          ) : (
-            <p className="mt-2 text-sm text-slate-400">The linked goal was removed. You can still complete the quest.</p>
-          )}
-        </div>
+        {hasLinkedGoal ? (
+          <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100">Linked Progress Goal</p>
+            {goal ? (
+              <>
+                <h3 className="mt-2 text-lg font-bold text-white">{goal.title}</h3>
+                <p className="mt-1 text-sm text-slate-400">
+                  {currentValue.toLocaleString()} / {targetValue.toLocaleString()} {unitLabel}
+                </p>
+              </>
+            ) : (
+              <p className="mt-2 text-sm text-slate-400">The linked goal was removed. You can still complete the quest.</p>
+            )}
+          </div>
+        ) : null}
 
         <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
           <label className="space-y-2">

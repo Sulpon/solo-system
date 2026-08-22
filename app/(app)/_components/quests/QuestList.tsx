@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useAttributes } from "../../_lib/hooks/useAttributes";
 import { isQuestScheduledForDate, calculateQuestStreak, calculateQuestConsistency, calculateStreakXpBonus } from "../../_lib/daily-system";
+import { deriveChallengeProgress } from "../../_lib/engines/challenge-engine";
+import ChallengeStreakDots from "./ChallengeStreakDots";
 import type { Quest, QuestCompletion } from "../../_lib/types/quest";
 
 type QuestListProps = Readonly<{
@@ -123,6 +125,7 @@ export default function QuestList({
         const consistency = calculateQuestConsistency(quest, questCompletions, referenceDate);
         const isCore = (quest.importance ?? "core") === "core";
         const menuOpen = openMenuId === quest.id;
+        const challengeProgress = quest.challenge?.enabled ? deriveChallengeProgress(quest, questCompletions, referenceDate) : null;
 
         function toggleComplete() {
           if (isCompleted) {
@@ -190,6 +193,32 @@ export default function QuestList({
                   </span>
                 ) : null}
               </div>
+
+              {challengeProgress && quest.challenge ? (
+                <div
+                  className={
+                    "mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border px-2 py-1 text-[11px] leading-none " +
+                    (challengeProgress.todaySettled ? (challengeProgress.todayPassed ? "border-emerald-400/20 bg-emerald-400/5" : "border-rose-400/20 bg-rose-400/5") : "border-amber-400/15 bg-amber-400/5")
+                  }
+                >
+                  {challengeProgress.todaySettled ? (
+                    <span className={"font-semibold " + (challengeProgress.todayPassed ? "text-emerald-300" : "text-rose-300")}>{challengeProgress.todayPassed ? "✓ Challenge succeeded" : "✗ Challenge failed"}</span>
+                  ) : (
+                    <span className="text-slate-400">
+                      Today&rsquo;s target: <span className="font-semibold text-white">{challengeProgress.todayTarget}{quest.completionMetric?.unit ? ` ${quest.completionMetric.unit}` : ""}</span>
+                    </span>
+                  )}
+                  <span className="text-slate-400">
+                    Progress: <span className="font-semibold text-white">{challengeProgress.todayValue} / {challengeProgress.todayTarget}</span>
+                  </span>
+                  <span className="flex items-center gap-1.5 text-slate-400">
+                    Streak: <ChallengeStreakDots current={challengeProgress.currentStreak} required={quest.challenge.requiredStreak} />
+                  </span>
+                  <span className="text-slate-400">
+                    Level: <span className="font-semibold text-white">{challengeProgress.currentLevelIndex + 1} / {quest.challenge.levels.length}</span>
+                  </span>
+                </div>
+              ) : null}
             </div>
 
             <div className="flex shrink-0 items-center gap-4">

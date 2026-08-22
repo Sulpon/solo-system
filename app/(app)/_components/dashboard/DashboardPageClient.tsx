@@ -58,7 +58,11 @@ function toDailyQuest(quest: Quest): DailyQuest {
     scheduledDays: quest.scheduledDays ?? [],
     completed: false,
     linkedProgressGoalId: quest.linkedProgressGoalId ?? null,
+    linkedWorkoutTemplateId: quest.linkedWorkoutTemplateId ?? null,
     attributeXPOverride: quest.attributeXPOverride ?? [],
+    completionMetric: quest.completionMetric,
+    challenge: quest.challenge,
+    createdAt: quest.createdAt,
   };
 }
 

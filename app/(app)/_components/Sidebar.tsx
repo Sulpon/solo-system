@@ -9,7 +9,6 @@ import { useProgression } from "../_lib/hooks/useProgression";
 const leadingNavItems = [
   { name: "Dashboard", href: "/" },
   { name: "Quests", href: "/quests" },
-  { name: "Challenges", href: "/challenges" },
   { name: "Goal Tree", href: "/goals" },
 ];
 

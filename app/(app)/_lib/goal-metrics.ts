@@ -1,24 +1,24 @@
 // A Goal Metric is a named, computable quantity backed by real activity
-// records elsewhere in the app (workout history, thesis writing log, job
-// applications, ...). A progress_goal node can link to one via
-// `GoalNode.metricSource`; when linked, its `currentValue` is kept in sync
-// with `compute()` instead of being hand-typed, so the goal and any
-// calendar/chart built on the same records can never drift apart.
+// records elsewhere in the app (thesis writing log, job applications, ...).
+// A progress_goal node can link to one via `GoalNode.metricSource`; when
+// linked, its `currentValue` is kept in sync with `compute()` instead of
+// being hand-typed, so the goal and any calendar/chart built on the same
+// records can never drift apart.
 //
-// Adding a future metric (workouts completed, focus hours, backtests
-// logged, ...) means adding one entry here - no new tracking system.
+// This covers metrics backed by a continuous, freely-editable log (Thesis
+// pages, Career applications). Quest-driven goal progress (e.g. a Backtest
+// Quest contributing trades to a goal) is a different, event-based pattern
+// - see QuestCompletion.goalContribution in types/quest.ts and
+// useQuestCompletionFlow.ts - and does not go through this registry.
 
 import { getTotalPagesWritten } from "./engines/thesis-engine";
 import { getTotalApplications } from "./engines/career-hub-engine";
-import { getTotalTradesLogged, getTradesLoggedForDay } from "./engines/trading-engine";
 import type { WritingLogEntry } from "./types/writing-log";
 import type { VacancyEntry } from "./types/vacancy";
-import type { TradeLogEntry } from "./types/trade-log";
 
 export type GoalMetricContext = Readonly<{
   writingLogEntries: ReadonlyArray<WritingLogEntry>;
   vacancyEntries: ReadonlyArray<VacancyEntry>;
-  tradeLogEntries: ReadonlyArray<TradeLogEntry>;
 }>;
 
 export type GoalMetricDefinition = Readonly<{
@@ -26,9 +26,6 @@ export type GoalMetricDefinition = Readonly<{
   label: string;
   unit: string;
   compute: (context: GoalMetricContext) => number;
-  // Optional: a per-day value, for metrics that back a Challenge's daily
-  // target (see challenge-engine.ts) rather than only a cumulative goal.
-  computeForDay?: (context: GoalMetricContext, dayKey: string) => number;
 }>;
 
 export const GOAL_METRICS: ReadonlyArray<GoalMetricDefinition> = [
@@ -43,13 +40,6 @@ export const GOAL_METRICS: ReadonlyArray<GoalMetricDefinition> = [
     label: "Applications Submitted",
     unit: "applications",
     compute: (context) => getTotalApplications(context.vacancyEntries),
-  },
-  {
-    id: "backtest-trades-logged",
-    label: "Backtest Trades Logged",
-    unit: "trades",
-    compute: (context) => getTotalTradesLogged(context.tradeLogEntries),
-    computeForDay: (context, dayKey) => getTradesLoggedForDay(context.tradeLogEntries, dayKey),
   },
 ];
 

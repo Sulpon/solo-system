@@ -10,8 +10,6 @@ import { useProgression } from "../hooks/useProgression";
 import { useQuestReflections } from "../hooks/useQuestReflections";
 import { useWorkoutSessions } from "../hooks/useWorkoutSessions";
 import { useWorkoutTemplates } from "../hooks/useWorkoutTemplates";
-import { useChallenges } from "../hooks/useChallenges";
-import { useTradeLogEntries } from "../hooks/useTradeLogEntries";
 import { getLocalDayKey } from "../local-day";
 import type { ActivityEvent } from "../types/activity-event";
 import type { QuestCompletion } from "../types/quest";
@@ -26,8 +24,6 @@ export function useWidgetLiveContext() {
   const { sessions: workoutSessions } = useWorkoutSessions();
   const { entries: bodyweightEntries } = useBodyweight();
   const { reflections: questReflections } = useQuestReflections();
-  const { challenges } = useChallenges();
-  const { entries: tradeLogEntries } = useTradeLogEntries();
 
   return {
     goalTree,
@@ -43,8 +39,6 @@ export function useWidgetLiveContext() {
     workoutSessions,
     bodyweightEntries,
     questReflections,
-    challenges,
-    tradeLogEntries,
     isReady,
   };
 }

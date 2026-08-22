@@ -1,12 +1,14 @@
 import { getLocalDayKey } from "./local-day";
 import { calculateStreakXpBonus } from "./daily-system";
-import type { Quest, QuestCompletion, QuestAttributeReward } from "./types/quest";
+import type { Quest, QuestCompletion, QuestAttributeReward, QuestGoalContribution } from "./types/quest";
 
 export function createQuestCompletion(
   quest: Quest,
   completedAt = new Date().toISOString(),
   attributeRewardsAwarded: ReadonlyArray<QuestAttributeReward> = quest.attributeXPOverride ?? [],
   streakDays = 1,
+  metricValue?: number,
+  goalContribution?: QuestGoalContribution | null,
 ): QuestCompletion {
   const streakBonusXp = calculateStreakXpBonus(quest.xp, streakDays);
 
@@ -20,6 +22,8 @@ export function createQuestCompletion(
       attributeId: reward.attributeId,
       xp: Math.max(0, Math.floor(Number(reward.xp) || 0)),
     })) ?? [],
+    metricValue,
+    goalContribution: goalContribution ?? null,
   };
 }
 

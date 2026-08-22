@@ -24,6 +24,7 @@ import Progress from "../../_components/Progress";
 import SectionTitle from "../../_components/SectionTitle";
 import QuestCompletionModal from "../../_components/quests/QuestCompletionModal";
 import QuestReflectionModal from "../../_components/quests/QuestReflectionModal";
+import UndoCompletionModal from "../../_components/quests/UndoCompletionModal";
 import { useQuestCompletionFlow } from "../../_components/quests/useQuestCompletionFlow";
 import { achievements } from "../mock/achievements";
 import { characterProfile } from "../mock/character";
@@ -112,7 +113,11 @@ function toDailyQuest(quest: Quest): DailyQuest {
     scheduledDays: quest.scheduledDays ?? [],
     completed: false,
     linkedProgressGoalId: quest.linkedProgressGoalId ?? null,
+    linkedWorkoutTemplateId: quest.linkedWorkoutTemplateId ?? null,
     attributeXPOverride: quest.attributeXPOverride ?? [],
+    completionMetric: quest.completionMetric,
+    challenge: quest.challenge,
+    createdAt: quest.createdAt,
   };
 }
 
@@ -595,15 +600,18 @@ function renderMinimumSuccessfulDayWidget() {
     beginQuestCompletion,
     confirmQuestCompletion,
     cancelQuestCompletion,
-    removeQuestCompletion,
     pendingReflectionQuest,
     submitReflection,
     skipReflection,
+    pendingUndo,
+    beginUndoCompletion,
+    confirmUndoCompletion,
+    cancelUndoCompletion,
   } = useQuestCompletionFlow();
 
   function handleToggleQuest(quest: Quest, completed: boolean) {
     if (completed) {
-      removeQuestCompletion(quest.id);
+      beginUndoCompletion(quest.id);
       return;
     }
 
@@ -617,6 +625,8 @@ function renderMinimumSuccessfulDayWidget() {
         <QuestCompletionModal
           questTitle={pendingQuest.title}
           goal={pendingGoal}
+          hasLinkedGoal={Boolean(pendingQuest.linkedProgressGoalId)}
+          unit={pendingQuest.completionMetric?.unit}
           progressValue={progressValue}
           onChange={setProgressValue}
           onCancel={cancelQuestCompletion}
@@ -626,6 +636,20 @@ function renderMinimumSuccessfulDayWidget() {
 
       {pendingReflectionQuest ? (
         <QuestReflectionModal questTitle={pendingReflectionQuest.title} onSkip={skipReflection} onSubmit={submitReflection} />
+      ) : null}
+
+      {pendingUndo ? (
+        <UndoCompletionModal
+          questTitle={pendingUndo.questTitle}
+          metricValue={pendingUndo.metricValue}
+          unit={pendingUndo.unit}
+          goalTitle={pendingUndo.goalTitle}
+          goalBefore={pendingUndo.goalBefore}
+          goalAfter={pendingUndo.goalAfter}
+          hasChallenge={pendingUndo.hasChallenge}
+          onCancel={cancelUndoCompletion}
+          onConfirm={confirmUndoCompletion}
+        />
       ) : null}
     </>
   );
@@ -644,15 +668,18 @@ function renderBonusMissionsWidget() {
     beginQuestCompletion,
     confirmQuestCompletion,
     cancelQuestCompletion,
-    removeQuestCompletion,
     pendingReflectionQuest,
     submitReflection,
     skipReflection,
+    pendingUndo,
+    beginUndoCompletion,
+    confirmUndoCompletion,
+    cancelUndoCompletion,
   } = useQuestCompletionFlow();
 
   function handleToggleQuest(quest: Quest, completed: boolean) {
     if (completed) {
-      removeQuestCompletion(quest.id);
+      beginUndoCompletion(quest.id);
       return;
     }
 
@@ -666,6 +693,8 @@ function renderBonusMissionsWidget() {
         <QuestCompletionModal
           questTitle={pendingQuest.title}
           goal={pendingGoal}
+          hasLinkedGoal={Boolean(pendingQuest.linkedProgressGoalId)}
+          unit={pendingQuest.completionMetric?.unit}
           progressValue={progressValue}
           onChange={setProgressValue}
           onCancel={cancelQuestCompletion}
@@ -675,6 +704,20 @@ function renderBonusMissionsWidget() {
 
       {pendingReflectionQuest ? (
         <QuestReflectionModal questTitle={pendingReflectionQuest.title} onSkip={skipReflection} onSubmit={submitReflection} />
+      ) : null}
+
+      {pendingUndo ? (
+        <UndoCompletionModal
+          questTitle={pendingUndo.questTitle}
+          metricValue={pendingUndo.metricValue}
+          unit={pendingUndo.unit}
+          goalTitle={pendingUndo.goalTitle}
+          goalBefore={pendingUndo.goalBefore}
+          goalAfter={pendingUndo.goalAfter}
+          hasChallenge={pendingUndo.hasChallenge}
+          onCancel={cancelUndoCompletion}
+          onConfirm={confirmUndoCompletion}
+        />
       ) : null}
     </>
   );

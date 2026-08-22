@@ -1,5 +1,7 @@
-import type { Quest } from "../../_lib/types/quest";
-import type { QuestFormModel } from "./QuestForm";
+import type { Quest, QuestChallengeConfig, QuestCompletionMetricConfig } from "../../_lib/types/quest";
+import { CHALLENGE_LEVEL_COUNT, type QuestFormModel } from "./QuestForm";
+
+const DEFAULT_CHALLENGE_LEVELS = [5, 7, 10, 15, 20];
 
 export const emptyQuestForm: QuestFormModel = {
   title: "",
@@ -16,6 +18,12 @@ export const emptyQuestForm: QuestFormModel = {
   attributeXPOverride: [],
   inheritedAttributeIds: [],
   inheritedAttributeWeights: [],
+  completionMetricType: "boolean",
+  completionMetricUnit: "",
+  completionMetricAutoSource: false,
+  challengeEnabled: false,
+  challengeLevels: [...DEFAULT_CHALLENGE_LEVELS],
+  challengeRequiredStreak: 3,
 };
 
 export function createQuestFormModel(overrides: Partial<QuestFormModel> = {}): QuestFormModel {
@@ -29,7 +37,23 @@ export function slugifyQuestTitle(value: string) {
   return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "quest";
 }
 
+function normalizeChallengeLevels(levels: ReadonlyArray<number> | undefined): number[] {
+  const targets = (levels ?? []).map((target) => Math.max(1, Math.floor(Number(target) || 1)));
+
+  while (targets.length < CHALLENGE_LEVEL_COUNT) {
+    targets.push(DEFAULT_CHALLENGE_LEVELS[targets.length] ?? (targets[targets.length - 1] ?? 1) + 1);
+  }
+
+  return targets.slice(0, CHALLENGE_LEVEL_COUNT);
+}
+
 export function toQuestForm(quest: Quest): QuestFormModel {
+  // A quest without explicit completionMetric config is displayed exactly
+  // as it currently behaves - see resolveMetricType in
+  // useQuestCompletionFlow.ts. Saving the form always persists an explicit
+  // choice from here on.
+  const inferredMetricType = quest.completionMetric?.type ?? (quest.linkedProgressGoalId ? "numeric" : "boolean");
+
   return {
     id: quest.id,
     title: quest.title,
@@ -49,6 +73,32 @@ export function toQuestForm(quest: Quest): QuestFormModel {
     })) ?? [],
     inheritedAttributeIds: quest.attributeXPOverride?.map((reward) => reward.attributeId) ?? [],
     inheritedAttributeWeights: [],
+    completionMetricType: inferredMetricType,
+    completionMetricUnit: quest.completionMetric?.unit ?? "",
+    completionMetricAutoSource: quest.completionMetric?.autoSource === "workout-sessions",
+    challengeEnabled: quest.challenge?.enabled ?? false,
+    challengeLevels: normalizeChallengeLevels(quest.challenge?.levels?.map((level) => level.target)),
+    challengeRequiredStreak: quest.challenge?.requiredStreak ?? 3,
+  };
+}
+
+function buildCompletionMetric(form: QuestFormModel): QuestCompletionMetricConfig {
+  if (form.completionMetricType === "boolean") {
+    return { type: "boolean" };
+  }
+
+  return {
+    type: "numeric",
+    unit: form.completionMetricUnit.trim() || undefined,
+    autoSource: form.completionMetricAutoSource && form.linkedWorkoutTemplateId ? "workout-sessions" : undefined,
+  };
+}
+
+function buildChallenge(form: QuestFormModel): QuestChallengeConfig {
+  return {
+    enabled: form.challengeEnabled,
+    levels: normalizeChallengeLevels(form.challengeLevels).map((target) => ({ target })),
+    requiredStreak: Math.max(1, Math.floor(Number(form.challengeRequiredStreak) || 1)),
   };
 }
 
@@ -57,6 +107,8 @@ export function upsertQuestFromForm(quests: ReadonlyArray<Quest>, form: QuestFor
   const resolvedAttributeIds = form.inheritedAttributeIds.length > 0 ? form.inheritedAttributeIds : form.attributeXPOverride.map((reward) => reward.attributeId);
   const categoryId = resolvedAttributeIds[0] ?? form.categoryId;
   const scheduledDays = [...new Set(form.scheduledDays.filter((day) => Number.isInteger(day) && day >= 0 && day <= 6))].sort((first, second) => first - second);
+  const completionMetric = buildCompletionMetric(form);
+  const challenge = buildChallenge(form);
 
   if (form.id) {
     return quests.map((quest) =>
@@ -74,6 +126,8 @@ export function upsertQuestFromForm(quests: ReadonlyArray<Quest>, form: QuestFor
             linkedProgressGoalId: form.linkedProgressGoalId || undefined,
             linkedWorkoutTemplateId: form.linkedWorkoutTemplateId || undefined,
             attributeXPOverride: form.useInheritedAttributeDistribution ? undefined : form.attributeXPOverride,
+            completionMetric,
+            challenge,
             updatedAt: now,
           }
         : quest,
@@ -97,6 +151,8 @@ export function upsertQuestFromForm(quests: ReadonlyArray<Quest>, form: QuestFor
       linkedProgressGoalId: form.linkedProgressGoalId || undefined,
       linkedWorkoutTemplateId: form.linkedWorkoutTemplateId || undefined,
       attributeXPOverride: form.useInheritedAttributeDistribution ? undefined : form.attributeXPOverride,
+      completionMetric,
+      challenge,
       createdAt: now,
       updatedAt: now,
     },

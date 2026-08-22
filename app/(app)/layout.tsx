@@ -4,7 +4,6 @@ import CloudSyncUploadPrompt from "./_components/CloudSyncUploadPrompt";
 import FocusOverlay from "./_components/focus/FocusOverlay";
 import ActiveWorkoutOverlay from "./_components/workouts/ActiveWorkoutOverlay";
 import GoalMetricSyncEffect from "./_components/goal-tree/GoalMetricSyncEffect";
-import ChallengeSettlementEffect from "./_components/challenges/ChallengeSettlementEffect";
 import OnboardingGate from "./_components/onboarding/OnboardingGate";
 import { CloudSyncProvider } from "./_lib/cloud-sync-store";
 import { FocusProvider } from "./_lib/focus-store";
@@ -28,7 +27,6 @@ export default function MenaceLayout({
                 <FocusOverlay />
                 <ActiveWorkoutOverlay />
                 <GoalMetricSyncEffect />
-                <ChallengeSettlementEffect />
               </OnboardingGate>
             </WorkoutProvider>
           </FocusProvider>

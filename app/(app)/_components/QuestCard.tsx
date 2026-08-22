@@ -1,13 +1,18 @@
-import type { DailyQuest } from "../_lib/types";
+import type { DailyQuest, QuestCompletion } from "../_lib/types";
+import { deriveChallengeProgress } from "../_lib/engines/challenge-engine";
 import FocusButton from "./focus/FocusButton";
+import ChallengeStreakDots from "./quests/ChallengeStreakDots";
 
 type QuestCardProps = Readonly<{
   quest: DailyQuest;
   completed: boolean;
   onToggle: (id: string) => void;
+  questCompletions?: ReadonlyArray<QuestCompletion>;
 }>;
 
-export default function QuestCard({ quest, completed, onToggle }: QuestCardProps) {
+export default function QuestCard({ quest, completed, onToggle, questCompletions = [] }: QuestCardProps) {
+  const challengeProgress = quest.challenge?.enabled && quest.createdAt ? deriveChallengeProgress(quest, questCompletions) : null;
+
   return (
     <label
       className={
@@ -29,6 +34,19 @@ export default function QuestCard({ quest, completed, onToggle }: QuestCardProps
           </span>
         ) : null}
       </span>
+
+      {challengeProgress && quest.challenge ? (
+        <span className="mt-2 flex items-center gap-2 text-[10px] leading-none text-slate-400">
+          <span className="font-semibold text-white">
+            {challengeProgress.todayValue} / {challengeProgress.todayTarget}
+          </span>
+          <ChallengeStreakDots current={challengeProgress.currentStreak} required={quest.challenge.requiredStreak} />
+          <span>
+            Lv {challengeProgress.currentLevelIndex + 1}/{quest.challenge.levels.length}
+          </span>
+        </span>
+      ) : null}
+
       <span className="mt-5 flex items-center justify-between text-sm">
         <input type="checkbox" checked={completed} onChange={() => onToggle(quest.id)} className="accent-purple-500" />
         <span className={completed ? "text-emerald-300" : "text-purple-300"}>+{quest.xp} XP</span>

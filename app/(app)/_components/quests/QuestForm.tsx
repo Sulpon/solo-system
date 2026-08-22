@@ -9,7 +9,9 @@ import { useGoalTree } from "../../_lib/hooks/useGoalTree";
 import { useWorkoutTemplates } from "../../_lib/hooks/useWorkoutTemplates";
 import type { CategoryId } from "../../_lib/types/category";
 import type { AttributeWeight } from "../../_lib/types/goal-tree";
-import type { QuestAttributeReward, QuestCadence, QuestImportance } from "../../_lib/types/quest";
+import type { QuestAttributeReward, QuestCadence, QuestCompletionMetricType, QuestImportance } from "../../_lib/types/quest";
+
+export const CHALLENGE_LEVEL_COUNT = 5;
 
 type QuestFormModel = Readonly<{
   id?: string;
@@ -27,6 +29,12 @@ type QuestFormModel = Readonly<{
   attributeXPOverride: QuestAttributeReward[];
   inheritedAttributeIds: CategoryId[];
   inheritedAttributeWeights: AttributeWeight[];
+  completionMetricType: QuestCompletionMetricType;
+  completionMetricUnit: string;
+  completionMetricAutoSource: boolean;
+  challengeEnabled: boolean;
+  challengeLevels: number[];
+  challengeRequiredStreak: number;
 }>;
 
 type QuestFormProps = Readonly<{
@@ -39,6 +47,14 @@ type QuestFormProps = Readonly<{
 
 const inputClass = "w-full rounded-xl border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none transition focus:border-purple-400";
 const labelClass = "text-xs font-semibold uppercase tracking-[0.18em] text-slate-500";
+const metricUnitPresets: ReadonlyArray<{ label: string; unit: string }> = [
+  { label: "Count", unit: "count" },
+  { label: "Duration", unit: "minutes" },
+  { label: "Distance", unit: "km" },
+  { label: "Pages", unit: "pages" },
+  { label: "Words", unit: "words" },
+  { label: "Custom", unit: "" },
+];
 const weekdays = [
   { label: "Sun", value: 0 },
   { label: "Mon", value: 1 },
@@ -276,6 +292,119 @@ export default function QuestForm({ form, isEditing, onChange, onCancel, onSave 
           </select>
           <p className="text-xs text-slate-500">When linked, this quest starts the workout session instead of a plain complete button. Finishing the workout completes the quest.</p>
         </label>
+
+        <div className="space-y-3 rounded-2xl border border-slate-800 bg-slate-950/45 p-4 sm:col-span-2">
+          <div>
+            <p className={labelClass}>Completion Tracking</p>
+            <p className="mt-1 text-sm text-slate-400">What does marking this quest done actually record?</p>
+          </div>
+          <select
+            value={form.completionMetricType}
+            onChange={(event) => {
+              const type = event.target.value as QuestCompletionMetricType;
+              onChange({ ...form, completionMetricType: type, completionMetricUnit: type === "boolean" ? "" : form.completionMetricUnit || "count" });
+            }}
+            className={inputClass}
+          >
+            <option value="boolean">Boolean - just &ldquo;did you do it?&rdquo;, no prompt</option>
+            <option value="numeric">Numeric - Count / Duration / Distance / Pages / Words / Custom</option>
+          </select>
+
+          {form.completionMetricType === "numeric" ? (
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                {metricUnitPresets.map((preset) => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    onClick={() => onChange({ ...form, completionMetricUnit: preset.unit })}
+                    className={
+                      "rounded-lg border px-3 py-1.5 text-xs font-semibold transition " +
+                      (form.completionMetricUnit === preset.unit
+                        ? "border-purple-400/60 bg-purple-500/15 text-purple-100"
+                        : "border-slate-700 bg-slate-950/60 text-slate-400 hover:border-purple-400/40 hover:text-white")
+                    }
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+              <label className="block space-y-2">
+                <span className={labelClass}>Unit Label</span>
+                <input
+                  value={form.completionMetricUnit}
+                  onChange={(event) => onChange({ ...form, completionMetricUnit: event.target.value })}
+                  className={inputClass}
+                  placeholder="trades"
+                />
+              </label>
+              {form.linkedWorkoutTemplateId ? (
+                <label className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-950/45 px-3 py-2 text-sm text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={form.completionMetricAutoSource}
+                    onChange={(event) => onChange({ ...form, completionMetricAutoSource: event.target.checked })}
+                    className="accent-purple-500"
+                  />
+                  Use real Workout data instead of asking - skips the manual prompt
+                </label>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="space-y-3 rounded-2xl border border-amber-400/20 bg-amber-400/5 p-4 sm:col-span-2">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-200">Challenge</p>
+              <p className="mt-1 text-sm text-slate-400">An optional, streak-gated 5-level target ladder on top of this quest.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onChange({ ...form, challengeEnabled: !form.challengeEnabled })}
+              className={
+                "rounded-xl border px-4 py-2 text-sm font-semibold transition " +
+                (form.challengeEnabled ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-100" : "border-slate-700 bg-slate-950/60 text-slate-400 hover:text-white")
+              }
+            >
+              {form.challengeEnabled ? "ON" : "OFF"}
+            </button>
+          </div>
+
+          {form.challengeEnabled ? (
+            <>
+              <p className="text-sm text-slate-400">Complete each level for {form.challengeRequiredStreak} consecutive successful days to unlock the next.</p>
+              <div className="grid gap-3 sm:grid-cols-5">
+                {form.challengeLevels.map((target, index) => (
+                  <label key={index} className="space-y-2">
+                    <span className={labelClass}>Level {index + 1}</span>
+                    <input
+                      type="number"
+                      min={1}
+                      value={target}
+                      onChange={(event) => {
+                        const nextLevels = [...form.challengeLevels];
+                        nextLevels[index] = Math.max(1, Math.floor(Number(event.target.value) || 1));
+                        onChange({ ...form, challengeLevels: nextLevels });
+                      }}
+                      className={inputClass}
+                    />
+                  </label>
+                ))}
+              </div>
+              <label className="block max-w-xs space-y-2">
+                <span className={labelClass}>Required Streak (consecutive days)</span>
+                <input
+                  type="number"
+                  min={1}
+                  value={form.challengeRequiredStreak}
+                  onChange={(event) => onChange({ ...form, challengeRequiredStreak: Math.max(1, Math.floor(Number(event.target.value) || 1)) })}
+                  className={inputClass}
+                />
+              </label>
+            </>
+          ) : null}
+        </div>
 
         <div className="sm:col-span-2">
           <button

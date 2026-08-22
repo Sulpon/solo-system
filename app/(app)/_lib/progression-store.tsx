@@ -11,7 +11,7 @@ import { getProgressionSummary } from "./engines/progression-engine";
 import { getLocalDayKey } from "./local-day";
 import { createQuestCompletion, hasCompletedToday, removeQuestCompletionsForDay } from "./quest-storage";
 import type { ProgressionSummary } from "./engines/progression-engine";
-import type { Quest, QuestCompletion, QuestAttributeReward } from "./types/quest";
+import type { Quest, QuestCompletion, QuestAttributeReward, QuestGoalContribution } from "./types/quest";
 import type { XpEvent } from "./types/progression";
 import type { DailySnapshot } from "./types/daily-system";
 import type { ActivityEvent } from "./types/activity-event";
@@ -30,7 +30,14 @@ export type ProgressionStoreValue = Readonly<{
   addActivityEvents: (events: ReadonlyArray<ActivityEvent>) => void;
   setDailySnapshots: (next: DailySnapshot[] | ((current: DailySnapshot[]) => DailySnapshot[])) => void;
   completeQuest: (questId: string, completedAt?: string, attributeRewardsAwarded?: ReadonlyArray<QuestAttributeReward>) => boolean;
-  setQuestCompletionForToday: (questId: string, completed: boolean, completedAt?: string, attributeRewardsAwarded?: ReadonlyArray<QuestAttributeReward>) => boolean;
+  setQuestCompletionForToday: (
+    questId: string,
+    completed: boolean,
+    completedAt?: string,
+    attributeRewardsAwarded?: ReadonlyArray<QuestAttributeReward>,
+    metricValue?: number,
+    goalContribution?: QuestGoalContribution | null,
+  ) => boolean;
   clearQuestCompletionsForDay: (referenceDate?: Date) => void;
   hasQuestCompletedToday: (questId: string, referenceDate?: Date) => boolean;
 }>;
@@ -68,7 +75,14 @@ export function ProgressionProvider({ children }: Readonly<{ children: React.Rea
   );
 
   const setQuestCompletionForToday = useCallback(
-    (questId: string, completed: boolean, completedAt = new Date().toISOString(), attributeRewardsAwarded: ReadonlyArray<QuestAttributeReward> = []) => {
+    (
+      questId: string,
+      completed: boolean,
+      completedAt = new Date().toISOString(),
+      attributeRewardsAwarded: ReadonlyArray<QuestAttributeReward> = [],
+      metricValue?: number,
+      goalContribution?: QuestGoalContribution | null,
+    ) => {
       const quest = questDefinitionsRef.current.find((item) => item.id === questId);
 
       if (!quest) {
@@ -88,7 +102,7 @@ export function ProgressionProvider({ children }: Readonly<{ children: React.Rea
         }
 
         const previousStreak = calculateQuestStreak(quest, currentCompletions, referenceDate);
-        const completion = createQuestCompletion(quest, completedAt, attributeRewardsAwarded, previousStreak + 1);
+        const completion = createQuestCompletion(quest, completedAt, attributeRewardsAwarded, previousStreak + 1, metricValue, goalContribution);
         const nextCompletions = [...currentCompletions, completion];
         questCompletionsRef.current = nextCompletions;
         setQuestCompletions(nextCompletions);

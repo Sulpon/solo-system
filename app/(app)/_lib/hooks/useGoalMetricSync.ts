@@ -4,7 +4,6 @@ import { useEffect } from "react";
 import { useGoalTree } from "./useGoalTree";
 import { useWritingLogEntries } from "./useWritingLogEntries";
 import { useVacancyEntries } from "./useVacancyEntries";
-import { useTradeLogEntries } from "./useTradeLogEntries";
 import { collectProgressGoalNodes } from "../goal-tree-storage";
 import { getGoalMetric } from "../goal-metrics";
 import type { GoalMetricContext } from "../goal-metrics";
@@ -21,14 +20,13 @@ export function useGoalMetricSync() {
   const { goalTree, hasLoaded: goalTreeLoaded, updateProgressGoal } = useGoalTree();
   const { entries: writingLogEntries, hasLoaded: writingLogLoaded } = useWritingLogEntries();
   const { entries: vacancyEntries, hasLoaded: vacanciesLoaded } = useVacancyEntries();
-  const { entries: tradeLogEntries, hasLoaded: tradeLogLoaded } = useTradeLogEntries();
 
   useEffect(() => {
-    if (!goalTreeLoaded || !writingLogLoaded || !vacanciesLoaded || !tradeLogLoaded) {
+    if (!goalTreeLoaded || !writingLogLoaded || !vacanciesLoaded) {
       return;
     }
 
-    const context: GoalMetricContext = { writingLogEntries, vacancyEntries, tradeLogEntries };
+    const context: GoalMetricContext = { writingLogEntries, vacancyEntries };
     const linkedGoals = collectProgressGoalNodes(goalTree).filter((node) => node.metricSource);
 
     for (const node of linkedGoals) {
@@ -49,5 +47,5 @@ export function useGoalMetricSync() {
     // once a linked goal is in sync, re-running this effect is a no-op, so
     // it's safe to depend on goalTree even though updateProgressGoal writes
     // back into it.
-  }, [goalTree, goalTreeLoaded, writingLogLoaded, vacanciesLoaded, tradeLogLoaded, writingLogEntries, vacancyEntries, tradeLogEntries, updateProgressGoal]);
+  }, [goalTree, goalTreeLoaded, writingLogLoaded, vacanciesLoaded, writingLogEntries, vacancyEntries, updateProgressGoal]);
 }

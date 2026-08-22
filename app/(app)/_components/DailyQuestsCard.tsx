@@ -10,6 +10,7 @@ import Card from "./Card";
 import Progress from "./Progress";
 import QuestCard from "./QuestCard";
 import QuestCompletionModal from "./quests/QuestCompletionModal";
+import UndoCompletionModal from "./quests/UndoCompletionModal";
 import { useQuestCompletionFlow } from "./quests/useQuestCompletionFlow";
 
 type DailyQuestsCardProps = Readonly<{
@@ -26,7 +27,10 @@ export default function DailyQuestsCard({ quests }: DailyQuestsCardProps) {
     beginQuestCompletion,
     confirmQuestCompletion,
     cancelQuestCompletion,
-    removeQuestCompletion,
+    pendingUndo,
+    beginUndoCompletion,
+    confirmUndoCompletion,
+    cancelUndoCompletion,
   } = useQuestCompletionFlow();
 
   const todayKey = useMemo(() => getLocalDayKey(), []);
@@ -56,7 +60,7 @@ export default function DailyQuestsCard({ quests }: DailyQuestsCardProps) {
 
   function toggleQuest(id: string) {
     if (todayCompletedIds.has(id)) {
-      removeQuestCompletion(id);
+      beginUndoCompletion(id);
       return;
     }
 
@@ -153,6 +157,7 @@ export default function DailyQuestsCard({ quests }: DailyQuestsCardProps) {
             quest={quest}
             completed={quest.completed}
             onToggle={toggleQuest}
+            questCompletions={questCompletions}
           />
         ))}
       </div>
@@ -171,10 +176,26 @@ export default function DailyQuestsCard({ quests }: DailyQuestsCardProps) {
         <QuestCompletionModal
           questTitle={pendingQuest.title}
           goal={pendingGoal}
+          hasLinkedGoal={Boolean(pendingQuest.linkedProgressGoalId)}
+          unit={pendingQuest.completionMetric?.unit}
           progressValue={progressValue}
           onChange={setProgressValue}
           onCancel={cancelQuestCompletion}
           onConfirm={confirmQuestCompletion}
+        />
+      ) : null}
+
+      {pendingUndo ? (
+        <UndoCompletionModal
+          questTitle={pendingUndo.questTitle}
+          metricValue={pendingUndo.metricValue}
+          unit={pendingUndo.unit}
+          goalTitle={pendingUndo.goalTitle}
+          goalBefore={pendingUndo.goalBefore}
+          goalAfter={pendingUndo.goalAfter}
+          hasChallenge={pendingUndo.hasChallenge}
+          onCancel={cancelUndoCompletion}
+          onConfirm={confirmUndoCompletion}
         />
       ) : null}
     </Card>
