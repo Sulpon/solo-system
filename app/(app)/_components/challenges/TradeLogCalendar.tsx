@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { getLocalDayKey } from "../../_lib/local-day";
-import { getWritingCalendarData, getWritingLogEntriesByDay } from "../../_lib/engines/thesis-engine";
-import type { WritingLogEntry } from "../../_lib/types/writing-log";
+import { getTradesCalendarData, getTradesLoggedForDay } from "../../_lib/engines/trading-engine";
+import type { TradeLogEntry } from "../../_lib/types/trade-log";
 
 const WEEKDAY_LABELS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
 
@@ -33,15 +33,32 @@ function buildMonthGrid(monthCursor: Date): CalendarDay[][] {
   return weeks;
 }
 
-type WritingCalendarProps = Readonly<{
-  entries: ReadonlyArray<WritingLogEntry>;
-  onUpdateEntry: (id: string, pages: number) => void;
+function groupByDay(entries: ReadonlyArray<TradeLogEntry>): Map<string, TradeLogEntry[]> {
+  const byDay = new Map<string, TradeLogEntry[]>();
+
+  entries.forEach((entry) => {
+    const existing = byDay.get(entry.date);
+
+    if (existing) {
+      existing.push(entry);
+    } else {
+      byDay.set(entry.date, [entry]);
+    }
+  });
+
+  return byDay;
+}
+
+type TradeLogCalendarProps = Readonly<{
+  entries: ReadonlyArray<TradeLogEntry>;
+  target?: number;
+  onUpdateEntry: (id: string, count: number) => void;
   onDeleteEntry: (id: string) => void;
 }>;
 
-export default function WritingCalendar({ entries, onUpdateEntry, onDeleteEntry }: WritingCalendarProps) {
-  const calendarData = useMemo(() => getWritingCalendarData(entries), [entries]);
-  const entriesByDay = useMemo(() => getWritingLogEntriesByDay(entries), [entries]);
+export default function TradeLogCalendar({ entries, target, onUpdateEntry, onDeleteEntry }: TradeLogCalendarProps) {
+  const calendarData = useMemo(() => getTradesCalendarData(entries), [entries]);
+  const entriesByDay = useMemo(() => groupByDay(entries), [entries]);
   const [monthCursor, setMonthCursor] = useState(() => {
     const date = new Date();
     date.setDate(1);
@@ -51,10 +68,9 @@ export default function WritingCalendar({ entries, onUpdateEntry, onDeleteEntry 
   const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
 
   const weeks = useMemo(() => buildMonthGrid(monthCursor), [monthCursor]);
-  const maxPages = Math.max(...Array.from(calendarData.values()), 1);
   const todayKey = getLocalDayKey();
   const monthLabel = monthCursor.toLocaleDateString(undefined, { month: "long", year: "numeric" });
-  const selectedPages = selectedDayKey ? calendarData.get(selectedDayKey) ?? 0 : 0;
+  const selectedCount = selectedDayKey ? getTradesLoggedForDay(entries, selectedDayKey) : 0;
   const selectedDayEntries = selectedDayKey ? entriesByDay.get(selectedDayKey) ?? [] : [];
 
   function goToMonth(offset: number) {
@@ -69,11 +85,11 @@ export default function WritingCalendar({ entries, onUpdateEntry, onDeleteEntry 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <button type="button" onClick={() => goToMonth(-1)} aria-label="Previous month" className="rounded-lg border border-slate-700 px-3 py-1.5 text-sm text-slate-300 transition hover:border-cyan-400/60 hover:text-white">
+        <button type="button" onClick={() => goToMonth(-1)} aria-label="Previous month" className="rounded-lg border border-slate-700 px-3 py-1.5 text-sm text-slate-300 transition hover:border-emerald-400/60 hover:text-white">
           ←
         </button>
         <p className="text-sm font-bold uppercase tracking-[0.16em] text-white">{monthLabel}</p>
-        <button type="button" onClick={() => goToMonth(1)} aria-label="Next month" className="rounded-lg border border-slate-700 px-3 py-1.5 text-sm text-slate-300 transition hover:border-cyan-400/60 hover:text-white">
+        <button type="button" onClick={() => goToMonth(1)} aria-label="Next month" className="rounded-lg border border-slate-700 px-3 py-1.5 text-sm text-slate-300 transition hover:border-emerald-400/60 hover:text-white">
           →
         </button>
       </div>
@@ -86,32 +102,33 @@ export default function WritingCalendar({ entries, onUpdateEntry, onDeleteEntry 
 
       <div className="grid grid-cols-7 gap-1.5">
         {weeks.flat().map((day) => {
-          const pages = calendarData.get(day.dayKey) ?? 0;
-          const hasPages = pages > 0;
+          const count = calendarData.get(day.dayKey) ?? 0;
+          const hasEntries = count > 0;
+          const metTarget = target !== undefined && count >= target;
           const isToday = day.dayKey === todayKey;
           const isSelected = day.dayKey === selectedDayKey;
-          const intensity = hasPages ? Math.min(1, pages / maxPages) : 0;
 
           return (
             <button
               key={day.dayKey}
               type="button"
-              onClick={() => setSelectedDayKey(hasPages ? (isSelected ? null : day.dayKey) : null)}
-              disabled={!hasPages}
-              style={hasPages ? { backgroundColor: `rgba(34, 211, 238, ${0.12 + intensity * 0.5})` } : undefined}
+              onClick={() => setSelectedDayKey(hasEntries ? (isSelected ? null : day.dayKey) : null)}
+              disabled={!hasEntries}
               className={
                 "flex aspect-square flex-col items-center justify-center gap-0.5 rounded-lg border text-xs transition " +
                 (isSelected
-                  ? "border-cyan-300/80 text-white"
-                  : hasPages
-                    ? "border-slate-700 text-white hover:border-cyan-400/50"
+                  ? "border-emerald-300/80 bg-emerald-400/15 text-white"
+                  : hasEntries
+                    ? metTarget
+                      ? "border-emerald-500/50 bg-emerald-500/10 text-white hover:border-emerald-400/70"
+                      : "border-amber-500/40 bg-amber-500/10 text-white hover:border-amber-400/60"
                     : "border-transparent bg-slate-950/40 text-slate-600") +
                 (day.inCurrentMonth ? "" : " opacity-35") +
                 (isToday ? " ring-1 ring-purple-400/60" : "")
               }
             >
               <span>{day.date.getDate()}</span>
-              {hasPages ? <span className="text-[10px] font-bold">{pages}</span> : null}
+              {hasEntries ? <span className="text-[10px] font-bold">{count}</span> : null}
             </button>
           );
         })}
@@ -121,7 +138,7 @@ export default function WritingCalendar({ entries, onUpdateEntry, onDeleteEntry 
         <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
           <p className="text-sm font-semibold text-slate-400">{new Date(`${selectedDayKey}T00:00:00`).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}</p>
           <p className="mt-1 text-2xl font-black text-white">
-            {selectedPages} page{selectedPages === 1 ? "" : "s"} written
+            {selectedCount} trade{selectedCount === 1 ? "" : "s"} logged
           </p>
           <div className="mt-4 space-y-2">
             {selectedDayEntries.map((entry) => (
@@ -130,16 +147,16 @@ export default function WritingCalendar({ entries, onUpdateEntry, onDeleteEntry 
                   type="number"
                   min={0}
                   step="1"
-                  value={entry.pages}
+                  value={entry.count}
                   onChange={(event) => {
                     const parsed = Number(event.target.value);
                     if (!Number.isNaN(parsed) && parsed >= 0) {
                       onUpdateEntry(entry.id, parsed);
                     }
                   }}
-                  className="w-20 rounded-lg border border-slate-700 bg-slate-950/70 px-2 py-1.5 text-sm text-white outline-none transition focus:border-cyan-400"
+                  className="w-20 rounded-lg border border-slate-700 bg-slate-950/70 px-2 py-1.5 text-sm text-white outline-none transition focus:border-emerald-400"
                 />
-                <span className="text-xs text-slate-500">pages</span>
+                <span className="text-xs text-slate-500">trades</span>
                 <button
                   type="button"
                   onClick={() => onDeleteEntry(entry.id)}

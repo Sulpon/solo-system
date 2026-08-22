@@ -6,6 +6,7 @@ import StatCard from "../StatCard";
 import CareerHubNavCard from "./CareerHubNavCard";
 import ApplicationPipelinePanel from "../applications/ApplicationPipelinePanel";
 import ApplicationsCalendar from "../applications/ApplicationsCalendar";
+import LinkedMetricGoalCard from "../goal-tree/LinkedMetricGoalCard";
 import { useCareerVision } from "../../_lib/hooks/useCareerVision";
 import { useEducationEntries } from "../../_lib/hooks/useEducationEntries";
 import { useSkillEntries } from "../../_lib/hooks/useSkillEntries";
@@ -14,7 +15,7 @@ import { useCompanyEntries } from "../../_lib/hooks/useCompanyEntries";
 import { useVacancyEntries } from "../../_lib/hooks/useVacancyEntries";
 import { useCvEntries } from "../../_lib/hooks/useCvEntries";
 import { useCoverLetterEntries } from "../../_lib/hooks/useCoverLetterEntries";
-import { getApplicationsThisMonth, getApplicationsThisWeek, getTotalApplications } from "../../_lib/engines/career-hub-engine";
+import { getApplicationsThisMonth, getApplicationsThisWeek, getApplicationsToday, getTotalApplications } from "../../_lib/engines/career-hub-engine";
 
 function ChipList({ items, emptyLabel }: Readonly<{ items: ReadonlyArray<string>; emptyLabel: string }>) {
   if (items.length === 0) {
@@ -54,6 +55,7 @@ export default function CareerHubPageClient() {
 
   const totalApplications = getTotalApplications(vacancyEntries);
   const applicationsThisWeek = getApplicationsThisWeek(vacancyEntries);
+  const applicationsToday = getApplicationsToday(vacancyEntries);
   const applicationsThisMonth = getApplicationsThisMonth(vacancyEntries);
   const savedVacancies = vacancyEntries.filter((vacancy) => vacancy.status === "Interested").length;
   const interviews = vacancyEntries.filter((vacancy) => vacancy.status === "Interview").length;
@@ -113,6 +115,15 @@ export default function CareerHubPageClient() {
       </Card>
 
       <ApplicationPipelinePanel vacancies={vacancyEntries} companyNames={companyNames} />
+
+      <LinkedMetricGoalCard
+        metricId="career-applications-submitted"
+        thisWeekValue={applicationsThisWeek}
+        todayValue={applicationsToday}
+        accentClass="text-purple-300"
+        defaultTitle="Land the next role"
+        defaultTargetValue={50}
+      />
 
       <Card className="p-5">
         <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-300">Applications Calendar</p>

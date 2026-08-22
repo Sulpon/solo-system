@@ -71,9 +71,14 @@ import {
   type RadarItem,
   type WidgetLiveContext,
 } from "./catalog-helpers";
+import { getCurrentLevel, getNextLevel } from "../engines/challenge-engine";
+import { getTradesLoggedThisWeek, getTradesLoggedToday, getTotalTradesLogged } from "../engines/trading-engine";
+import { getGoalMetric } from "../goal-metrics";
+import type { GoalMetricContext } from "../goal-metrics";
 import type { CatalogSupportedPage, CatalogWidgetComponentProps, CatalogWidgetDefinition, CatalogWidgetSize } from "./catalog-types";
 import type { ActivityEvent, ActivityEventType } from "../types/activity-event";
 import type { PersonalRecordEvent } from "../types/workout";
+import type { Challenge } from "../types/challenge";
 
 const dashboardAndGoalPages: CatalogSupportedPage[] = ["dashboard", "goal-tree", "attributes", "quests"];
 const dashboardOnly: CatalogSupportedPage[] = ["dashboard", "quests"];
@@ -82,6 +87,7 @@ const dashboardOnly: CatalogSupportedPage[] = ["dashboard", "quests"];
 // Widget Catalog on the Self-Development hub (see SelfDevelopmentPage.tsx),
 // which reads the same workout history without duplicating any data.
 const dashboardAndWorkoutsPages: CatalogSupportedPage[] = ["dashboard", "workouts", "self-development"];
+const dashboardAndChallengesPages: CatalogSupportedPage[] = ["dashboard", "challenges"];
 const allSizes: CatalogWidgetSize[] = ["sm", "md", "lg", "xl"];
 
 // A handful of generic widgets duplicate a Dashboard-native widget under the
@@ -124,6 +130,8 @@ function ctxDeps(ctx: WidgetLiveContext) {
     ctx.workoutSessions,
     ctx.bodyweightEntries,
     ctx.questReflections,
+    ctx.challenges,
+    ctx.tradeLogEntries,
     ctx.isReady,
   ];
 }
@@ -2317,6 +2325,308 @@ const staticWidgets: CatalogWidgetDefinition[] = [
       return (
         <WidgetShell eyebrow="Workouts" title="Most Improved Exercise">
           {mostImproved && mostImproved.delta > 0 ? <StatValue label={mostImproved.exerciseName} value={`+${mostImproved.delta.toLocaleString()}`} /> : <EmptyWidgetState text="Not enough history yet to detect improvement." />}
+        </WidgetShell>
+      );
+    },
+  },
+
+  // -------------------------------------------------------------------------
+  // Challenges. Read-only views over challenges + the same activity records
+  // (trade log, etc.) the Challenge Detail page itself reads via
+  // goal-metrics.ts - never a separate/duplicated data source.
+  // -------------------------------------------------------------------------
+  {
+    id: "challenges-today",
+    title: "Today's Challenges",
+    description: "One compact card per active challenge, with today's live progress.",
+    category: "Challenges",
+    icon: "TC",
+    defaultSize: "lg",
+    allowedSizes: allSizes,
+    supportedPages: dashboardAndChallengesPages,
+    readOnly: true,
+    searchKeywords: ["challenge", "today", "daily", "objective"],
+    component: function TodayChallengesWidget({ mode }: CatalogWidgetComponentProps) {
+      const ctx = useWidgetLiveContext();
+
+      if (mode === "preview") {
+        return (
+          <WidgetShell eyebrow="Challenges" title="Today's Challenges">
+            <MiniProgressList
+              items={[
+                { id: "p-ch-1", title: "Backtest Challenge", subtitle: "3 / 5 trades", progress: 60 },
+                { id: "p-ch-2", title: "Push-up Challenge", subtitle: "15 / 20 reps", progress: 75 },
+              ]}
+            />
+          </WidgetShell>
+        );
+      }
+
+      const metricContext: GoalMetricContext = { writingLogEntries: [], vacancyEntries: [], tradeLogEntries: ctx.tradeLogEntries };
+      const todayKey = getLocalDayKey();
+      const items = ctx.challenges
+        .filter((challenge) => challenge.status === "active")
+        .map((challenge) => {
+          const metric = getGoalMetric(challenge.metricSource);
+          const target = getCurrentLevel(challenge)?.target ?? 0;
+          const todayValue = metric?.computeForDay ? metric.computeForDay(metricContext, todayKey) : 0;
+          return { id: challenge.id, title: challenge.title, subtitle: `${todayValue} / ${target} ${challenge.unit}`, progress: target > 0 ? Math.min(100, Math.round((todayValue / target) * 100)) : 0 };
+        });
+
+      return (
+        <WidgetShell eyebrow="Challenges" title="Today's Challenges">
+          <MiniProgressList items={items} emptyText="Create a challenge from the Challenges page to see it here." />
+        </WidgetShell>
+      );
+    },
+  },
+  {
+    id: "challenges-progress",
+    title: "Challenge Progress",
+    description: "Today's progress toward one challenge's target. Configure which challenge per instance.",
+    category: "Challenges",
+    icon: "CP",
+    defaultSize: "md",
+    allowedSizes: allSizes,
+    supportedPages: dashboardAndChallengesPages,
+    readOnly: true,
+    searchKeywords: ["challenge", "progress", "target"],
+    configFields: [{ key: "challengeId", label: "Challenge", options: (ctx) => ctx.challenges.map((challenge: Challenge) => ({ value: challenge.id, label: challenge.title })) }],
+    component: function ChallengeProgressWidget({ mode, config }: CatalogWidgetComponentProps) {
+      const ctx = useWidgetLiveContext();
+
+      if (mode === "preview") {
+        return (
+          <WidgetShell eyebrow="Challenges" title="Challenge Progress">
+            <StatValue label="Backtest Challenge" value="3 / 5 trades" />
+          </WidgetShell>
+        );
+      }
+
+      const challenge = ctx.challenges.find((item) => item.id === config?.challengeId);
+
+      if (!challenge) {
+        return (
+          <WidgetShell eyebrow="Challenges" title="Challenge Progress">
+            <EmptyWidgetState text="Open section settings and choose a challenge to track." />
+          </WidgetShell>
+        );
+      }
+
+      const metric = getGoalMetric(challenge.metricSource);
+      const metricContext: GoalMetricContext = { writingLogEntries: [], vacancyEntries: [], tradeLogEntries: ctx.tradeLogEntries };
+      const target = getCurrentLevel(challenge)?.target ?? 0;
+      const todayValue = metric?.computeForDay ? metric.computeForDay(metricContext, getLocalDayKey()) : 0;
+
+      return (
+        <WidgetShell eyebrow="Challenges" title={challenge.title}>
+          <StatValue label={`Today (${challenge.unit})`} value={`${todayValue} / ${target}`} />
+        </WidgetShell>
+      );
+    },
+  },
+  {
+    id: "challenges-streak",
+    title: "Challenge Streak",
+    description: "Current consecutive-success streak toward the next level. Configure which challenge per instance.",
+    category: "Challenges",
+    icon: "CS2",
+    defaultSize: "sm",
+    allowedSizes: allSizes,
+    supportedPages: dashboardAndChallengesPages,
+    readOnly: true,
+    searchKeywords: ["challenge", "streak"],
+    configFields: [{ key: "challengeId", label: "Challenge", options: (ctx) => ctx.challenges.map((challenge: Challenge) => ({ value: challenge.id, label: challenge.title })) }],
+    component: function ChallengeStreakWidget({ mode, config }: CatalogWidgetComponentProps) {
+      const ctx = useWidgetLiveContext();
+
+      if (mode === "preview") {
+        return (
+          <WidgetShell eyebrow="Challenges" title="Challenge Streak">
+            <StatValue label="Streak" value="2 / 3 days" />
+          </WidgetShell>
+        );
+      }
+
+      const challenge = ctx.challenges.find((item) => item.id === config?.challengeId);
+
+      return (
+        <WidgetShell eyebrow="Challenges" title={challenge?.title ?? "Challenge Streak"}>
+          {challenge ? <StatValue label="Streak" value={`${challenge.currentStreak} / ${challenge.requiredStreak} days`} /> : <EmptyWidgetState text="Open section settings and choose a challenge to track." />}
+        </WidgetShell>
+      );
+    },
+  },
+  {
+    id: "challenges-levels",
+    title: "Challenge Levels",
+    description: "Current and next level for every active challenge.",
+    category: "Challenges",
+    icon: "CL",
+    defaultSize: "lg",
+    allowedSizes: allSizes,
+    supportedPages: dashboardAndChallengesPages,
+    readOnly: true,
+    searchKeywords: ["challenge", "level", "progression"],
+    component: function ChallengeLevelsWidget({ mode }: CatalogWidgetComponentProps) {
+      const ctx = useWidgetLiveContext();
+
+      if (mode === "preview") {
+        return (
+          <WidgetShell eyebrow="Challenges" title="Challenge Levels">
+            <StatValue label="Backtest Challenge" value="5 → 7 trades/day" />
+          </WidgetShell>
+        );
+      }
+
+      const items = ctx.challenges.filter((challenge) => challenge.status === "active");
+
+      if (items.length === 0) {
+        return (
+          <WidgetShell eyebrow="Challenges" title="Challenge Levels">
+            <EmptyWidgetState text="No active challenges yet." />
+          </WidgetShell>
+        );
+      }
+
+      return (
+        <WidgetShell eyebrow="Challenges" title="Challenge Levels">
+          <div className="grid gap-3 sm:grid-cols-2">
+            {items.map((challenge) => {
+              const current = getCurrentLevel(challenge);
+              const next = getNextLevel(challenge);
+              return <StatValue key={challenge.id} label={challenge.title} value={next ? `${current?.target} → ${next.target} ${challenge.unit}` : `${current?.target} ${challenge.unit} (max)`} />;
+            })}
+          </div>
+        </WidgetShell>
+      );
+    },
+  },
+  {
+    id: "challenges-history",
+    title: "Challenge History",
+    description: "Recent settled days for one challenge - pass/fail against that day's target. Configure which challenge per instance.",
+    category: "Challenges",
+    icon: "CH",
+    defaultSize: "lg",
+    allowedSizes: allSizes,
+    supportedPages: dashboardAndChallengesPages,
+    readOnly: true,
+    searchKeywords: ["challenge", "history", "results"],
+    configFields: [{ key: "challengeId", label: "Challenge", options: (ctx) => ctx.challenges.map((challenge: Challenge) => ({ value: challenge.id, label: challenge.title })) }],
+    component: function ChallengeHistoryWidget({ mode, config }: CatalogWidgetComponentProps) {
+      const ctx = useWidgetLiveContext();
+
+      if (mode === "preview") {
+        return (
+          <WidgetShell eyebrow="Challenges" title="Challenge History">
+            <MiniProgressList items={[{ id: "p-1", title: "Aug 20", subtitle: "5 / 5 trades", progress: 100 }]} />
+          </WidgetShell>
+        );
+      }
+
+      const challenge = ctx.challenges.find((item) => item.id === config?.challengeId);
+      const items = (challenge ? [...challenge.history].reverse().slice(0, 8) : []).map((entry) => ({
+        id: entry.date,
+        title: new Date(`${entry.date}T00:00:00`).toLocaleDateString(),
+        subtitle: `${entry.actualValue} / ${entry.target} ${challenge?.unit ?? ""}${entry.leveledUp ? " · Leveled up" : ""}`,
+        progress: entry.passed ? 100 : 0,
+      }));
+
+      return (
+        <WidgetShell eyebrow="Challenges" title={challenge?.title ?? "Challenge History"}>
+          <MiniProgressList items={items} emptyText={challenge ? "No settled days yet." : "Open section settings and choose a challenge to track."} />
+        </WidgetShell>
+      );
+    },
+  },
+  {
+    id: "challenges-backtest",
+    title: "Backtest Challenge",
+    description: "Today's qualifying-trade progress against the Backtest Challenge target.",
+    category: "Challenges",
+    icon: "BT",
+    defaultSize: "md",
+    allowedSizes: allSizes,
+    supportedPages: dashboardAndChallengesPages,
+    readOnly: true,
+    searchKeywords: ["backtest", "trades", "challenge", "trading"],
+    component: function BacktestChallengeWidget({ mode }: CatalogWidgetComponentProps) {
+      const ctx = useWidgetLiveContext();
+
+      if (mode === "preview") {
+        return (
+          <WidgetShell eyebrow="Challenges" title="Backtest Challenge">
+            <StatValue label="Today" value="3 / 5 trades" />
+          </WidgetShell>
+        );
+      }
+
+      const challenge = ctx.challenges.find((item) => item.metricSource === "backtest-trades-logged" && item.status === "active");
+
+      if (!challenge) {
+        return (
+          <WidgetShell eyebrow="Challenges" title="Backtest Challenge">
+            <EmptyWidgetState text="Create the Backtest Challenge from the Challenges page to see it here." />
+          </WidgetShell>
+        );
+      }
+
+      const target = getCurrentLevel(challenge)?.target ?? 0;
+      const todayValue = getTradesLoggedToday(ctx.tradeLogEntries);
+
+      return (
+        <WidgetShell eyebrow="Challenges" title="Backtest Challenge">
+          <StatValue label="Today" value={`${todayValue} / ${target} trades`} />
+          <div className="mt-3">
+            <StatValue label="This Week" value={`${getTradesLoggedThisWeek(ctx.tradeLogEntries)} trades`} />
+          </div>
+        </WidgetShell>
+      );
+    },
+  },
+  {
+    id: "challenges-milestone-progress",
+    title: "Milestone Progress",
+    description: "Long-term cumulative progress backing a challenge (e.g. total trades logged) - independent of the challenge's daily level.",
+    category: "Challenges",
+    icon: "MP2",
+    defaultSize: "sm",
+    allowedSizes: allSizes,
+    supportedPages: dashboardAndChallengesPages,
+    readOnly: true,
+    searchKeywords: ["milestone", "challenge", "long term", "total"],
+    configFields: [{ key: "challengeId", label: "Challenge", options: (ctx) => ctx.challenges.map((challenge: Challenge) => ({ value: challenge.id, label: challenge.title })) }],
+    component: function ChallengeMilestoneWidget({ mode, config }: CatalogWidgetComponentProps) {
+      const ctx = useWidgetLiveContext();
+
+      if (mode === "preview") {
+        return (
+          <WidgetShell eyebrow="Challenges" title="Milestone Progress">
+            <StatValue label="Total Trades" value="330" />
+          </WidgetShell>
+        );
+      }
+
+      const challenge = ctx.challenges.find((item) => item.id === config?.challengeId);
+
+      if (!challenge) {
+        return (
+          <WidgetShell eyebrow="Challenges" title="Milestone Progress">
+            <EmptyWidgetState text="Open section settings and choose a challenge to track." />
+          </WidgetShell>
+        );
+      }
+
+      const linkedGoal = ctx.goalTree ? flattenGoalNodes(calculateGoalTree(ctx.goalTree)).find((node) => node.type === "progress_goal" && node.metricSource === challenge.metricSource) : null;
+
+      return (
+        <WidgetShell eyebrow="Challenges" title="Milestone Progress">
+          {linkedGoal ? (
+            <StatValue label={linkedGoal.title} value={`${Math.max(0, Number(linkedGoal.currentValue ?? 0)).toLocaleString()} / ${Math.max(1, Number(linkedGoal.targetValue ?? 1)).toLocaleString()}`} />
+          ) : (
+            <EmptyWidgetState text="No long-term goal linked to this challenge's metric yet." />
+          )}
         </WidgetShell>
       );
     },

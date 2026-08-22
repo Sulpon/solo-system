@@ -6,12 +6,13 @@ import ThesisHubNavCard from "./ThesisHubNavCard";
 import ManuscriptChapterCard from "./ManuscriptChapterCard";
 import WritingCalendar from "./WritingCalendar";
 import WritingLogForm from "./WritingLogForm";
+import LinkedMetricGoalCard from "../goal-tree/LinkedMetricGoalCard";
 import { useThesisDashboard } from "../../_lib/hooks/useThesisDashboard";
 import { useExperimentEntries } from "../../_lib/hooks/useExperimentEntries";
 import { useManuscript } from "../../_lib/hooks/useManuscript";
 import { useWritingLogEntries } from "../../_lib/hooks/useWritingLogEntries";
 import { MANUSCRIPT_CHAPTER_ORDER } from "../../_lib/types/manuscript";
-import { getAveragePagesPerDay, getBestWritingDay, getPagesWrittenThisMonth, getPagesWrittenThisWeek, getTotalPagesWritten } from "../../_lib/engines/thesis-engine";
+import { getAveragePagesPerDay, getBestWritingDay, getPagesWrittenThisMonth, getPagesWrittenThisWeek, getPagesWrittenToday, getTotalPagesWritten } from "../../_lib/engines/thesis-engine";
 import type { TimelineItem } from "../../_lib/types/thesis-dashboard";
 
 function nearestUpcomingDeadlineLabel(timeline: ReadonlyArray<TimelineItem>, fallback: string) {
@@ -41,6 +42,7 @@ export default function ThesisHubPageClient() {
   const chaptersStarted = MANUSCRIPT_CHAPTER_ORDER.filter((key) => manuscript[key].status !== "Not Started").length;
   const totalPagesWritten = getTotalPagesWritten(writingLog);
   const pagesThisWeek = getPagesWrittenThisWeek(writingLog);
+  const pagesToday = getPagesWrittenToday(writingLog);
   const pagesThisMonth = getPagesWrittenThisMonth(writingLog);
   const averagePagesPerDay = getAveragePagesPerDay(writingLog);
   const bestWritingDay = getBestWritingDay(writingLog);
@@ -89,11 +91,25 @@ export default function ThesisHubPageClient() {
         </div>
       </Card>
 
+      <LinkedMetricGoalCard
+        metricId="thesis-pages-written"
+        thisWeekValue={pagesThisWeek}
+        todayValue={pagesToday}
+        accentClass="text-cyan-300"
+        defaultTitle="Write the thesis"
+        defaultTargetValue={80}
+      />
+
       <Card className="p-5">
         <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">Writing Calendar</p>
         <h2 className="mt-2 text-xl font-black text-white">Daily output</h2>
+        <p className="mt-1 text-sm text-slate-400">The same records that drive the goal above - edit or delete a day&rsquo;s entries and the goal updates immediately.</p>
         <div className="mt-5">
-          <WritingCalendar entries={writingLog} />
+          <WritingCalendar
+            entries={writingLog}
+            onUpdateEntry={(id, pages) => setWritingLog((current) => current.map((entry) => (entry.id === id ? { ...entry, pages } : entry)))}
+            onDeleteEntry={(id) => setWritingLog((current) => current.filter((entry) => entry.id !== id))}
+          />
         </div>
       </Card>
 

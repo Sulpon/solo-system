@@ -3,6 +3,7 @@
 import Modal from "../Modal";
 import { redistributeAttributeWeights } from "../../_lib/goal-tree-attributes";
 import { useAttributes } from "../../_lib/hooks/useAttributes";
+import { GOAL_METRICS, getGoalMetric } from "../../_lib/goal-metrics";
 import type { CategoryId } from "../../_lib/types/category";
 import type { AttributeWeight, GoalNodeStatus, GoalNodeType, SequentialMilestoneStep } from "../../_lib/types/goal-tree";
 
@@ -18,6 +19,7 @@ export type GoalNodeFormState = Readonly<{
   currentValue: number;
   targetValue: number;
   unit: string;
+  metricSource: string;
   steps: SequentialMilestoneStep[];
   currentStepIndex: number;
   completed: boolean;
@@ -55,6 +57,7 @@ export default function GoalNodeEditor({ mode, form, parentTitle, onChange, onCl
   const isDream = form.type === "dream";
   const isProgressGoal = form.type === "progress_goal";
   const isSequential = form.type === "sequential_milestone";
+  const linkedMetric = isProgressGoal ? getGoalMetric(form.metricSource) : null;
 
   function rebuildWeights(attributeIds: ReadonlyArray<CategoryId>, focusId?: CategoryId, focusWeight?: number) {
     return redistributeAttributeWeights(attributeIds, focusId, focusWeight);
@@ -270,6 +273,29 @@ export default function GoalNodeEditor({ mode, form, parentTitle, onChange, onCl
         {isProgressGoal ? (
           <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100">Progress Goal</p>
+
+            <label className="mt-4 block space-y-2">
+              <span className={labelClass}>Linked Metric (optional)</span>
+              <select
+                value={form.metricSource}
+                onChange={(event) => {
+                  const metric = getGoalMetric(event.target.value);
+                  onChange({ ...form, metricSource: event.target.value, unit: metric ? metric.unit : form.unit });
+                }}
+                className={inputClass}
+              >
+                <option value="">None - enter Current Value manually</option>
+                {GOAL_METRICS.map((metric) => (
+                  <option key={metric.id} value={metric.id}>
+                    {metric.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-slate-500">
+                {linkedMetric ? `Current Value auto-syncs from ${linkedMetric.label} activity - it can't be typed in directly.` : "Link a real activity source so this goal tracks itself automatically."}
+              </p>
+            </label>
+
             <div className="mt-4 grid gap-4 sm:grid-cols-3">
               <label className="space-y-2">
                 <span className={labelClass}>Current Value</span>
@@ -277,8 +303,9 @@ export default function GoalNodeEditor({ mode, form, parentTitle, onChange, onCl
                   type="number"
                   min={0}
                   value={form.currentValue}
+                  disabled={Boolean(linkedMetric)}
                   onChange={(event) => onChange({ ...form, currentValue: Number(event.target.value) })}
-                  className={inputClass}
+                  className={inputClass + (linkedMetric ? " cursor-not-allowed opacity-60" : "")}
                   placeholder="0"
                 />
               </label>
@@ -297,8 +324,9 @@ export default function GoalNodeEditor({ mode, form, parentTitle, onChange, onCl
                 <span className={labelClass}>Unit</span>
                 <input
                   value={form.unit}
+                  disabled={Boolean(linkedMetric)}
                   onChange={(event) => onChange({ ...form, unit: event.target.value })}
-                  className={inputClass}
+                  className={inputClass + (linkedMetric ? " cursor-not-allowed opacity-60" : "")}
                   placeholder="trades, pages, workouts"
                 />
               </label>

@@ -36,6 +36,10 @@ export type GoalNode = Readonly<{
   currentValue?: number;
   targetValue?: number;
   unit?: string;
+  // When set (progress_goal only), currentValue is kept in sync with this
+  // metric's real activity data instead of being hand-typed - see
+  // goal-metrics.ts and useGoalMetricSync.ts.
+  metricSource?: string;
   steps?: SequentialMilestoneStep[];
   currentStepIndex?: number;
   completed?: boolean;

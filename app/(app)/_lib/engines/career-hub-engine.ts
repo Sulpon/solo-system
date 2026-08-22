@@ -8,8 +8,12 @@ import type { VacancyEntry } from "../types/vacancy";
 // once it has an applicationDate.
 // ---------------------------------------------------------------------------
 
+// "Submitted" means an application actually went out - not merely saved or
+// being prepared. If a vacancy is moved back to Interested/Preparing, it
+// drops out of this count (and therefore out of any goal/calendar built on
+// it) even if an applicationDate is still set on it.
 function submittedVacancies(vacancies: ReadonlyArray<VacancyEntry>) {
-  return vacancies.filter((vacancy) => vacancy.applicationDate.trim() !== "");
+  return vacancies.filter((vacancy) => vacancy.applicationDate.trim() !== "" && vacancy.status !== "Interested" && vacancy.status !== "Preparing");
 }
 
 export function getApplicationsCalendarData(vacancies: ReadonlyArray<VacancyEntry>): Map<string, VacancyEntry[]> {
@@ -44,6 +48,11 @@ function applicationsInRange(vacancies: ReadonlyArray<VacancyEntry>, start: Date
   const startKey = getLocalDayKey(start);
   const endKey = getLocalDayKey(end);
   return submittedVacancies(vacancies).filter((vacancy) => vacancy.applicationDate >= startKey && vacancy.applicationDate <= endKey).length;
+}
+
+export function getApplicationsToday(vacancies: ReadonlyArray<VacancyEntry>, referenceDate = new Date()): number {
+  const todayKey = getLocalDayKey(referenceDate);
+  return submittedVacancies(vacancies).filter((vacancy) => vacancy.applicationDate === todayKey).length;
 }
 
 export function getApplicationsThisWeek(vacancies: ReadonlyArray<VacancyEntry>, referenceDate = new Date()): number {

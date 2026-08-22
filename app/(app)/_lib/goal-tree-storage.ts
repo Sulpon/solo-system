@@ -20,6 +20,7 @@ export type GoalNodeDraft = Readonly<{
   currentValue?: number;
   targetValue?: number;
   unit?: string;
+  metricSource?: string;
   steps?: SequentialMilestoneStep[];
   currentStepIndex?: number;
   completed?: boolean;
@@ -62,6 +63,7 @@ export function createGoalNode(draft: GoalNodeDraft): GoalNode {
     currentValue,
     targetValue,
     unit: draft.type === "progress_goal" ? draft.unit?.trim() || undefined : undefined,
+    metricSource: draft.type === "progress_goal" ? draft.metricSource?.trim() || undefined : undefined,
     steps,
     currentStepIndex: draft.type === "sequential_milestone" ? normalizeCurrentStepIndex(steps ?? [], draft.currentStepIndex) : undefined,
     completed: draft.type === "sequential_milestone" ? Boolean(draft.completed) : undefined,

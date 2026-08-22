@@ -17,6 +17,24 @@ export function getWritingCalendarData(entries: ReadonlyArray<WritingLogEntry>):
   return byDay;
 }
 
+// Raw entries grouped by day (not just the summed total) so a calendar day's
+// detail view can edit or delete the individual records behind the number.
+export function getWritingLogEntriesByDay(entries: ReadonlyArray<WritingLogEntry>): Map<string, WritingLogEntry[]> {
+  const byDay = new Map<string, WritingLogEntry[]>();
+
+  entries.forEach((entry) => {
+    const existing = byDay.get(entry.date);
+
+    if (existing) {
+      existing.push(entry);
+    } else {
+      byDay.set(entry.date, [entry]);
+    }
+  });
+
+  return byDay;
+}
+
 export function getTotalPagesWritten(entries: ReadonlyArray<WritingLogEntry>): number {
   return entries.reduce((sum, entry) => sum + entry.pages, 0);
 }
@@ -32,6 +50,11 @@ function pagesInRange(entries: ReadonlyArray<WritingLogEntry>, start: Date, end:
   const startKey = getLocalDayKey(start);
   const endKey = getLocalDayKey(end);
   return entries.filter((entry) => entry.date >= startKey && entry.date <= endKey).reduce((sum, entry) => sum + entry.pages, 0);
+}
+
+export function getPagesWrittenToday(entries: ReadonlyArray<WritingLogEntry>, referenceDate = new Date()): number {
+  const todayKey = getLocalDayKey(referenceDate);
+  return entries.filter((entry) => entry.date === todayKey).reduce((sum, entry) => sum + entry.pages, 0);
 }
 
 export function getPagesWrittenThisWeek(entries: ReadonlyArray<WritingLogEntry>, referenceDate = new Date()): number {
