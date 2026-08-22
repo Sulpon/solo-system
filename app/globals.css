@@ -240,6 +240,36 @@ body {
   animation: celebration-legendary-glow 2.4s ease-in-out infinite;
 }
 
+@keyframes consistency-glow-pulse {
+  0%,
+  100% {
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes consistency-particles {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 0.7;
+    transform: translateY(-2px);
+  }
+}
+
+.consistency-glow-pulse {
+  animation: consistency-glow-pulse 2.6s ease-in-out infinite;
+}
+
+.consistency-particle {
+  animation: consistency-particles 2.2s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .onboarding-step-enter,
   .onboarding-header-enter,
@@ -251,7 +281,9 @@ body {
   .celebration-toast-enter,
   .celebration-card-enter,
   .celebration-modal-enter,
-  .celebration-legendary-glow {
+  .celebration-legendary-glow,
+  .consistency-glow-pulse,
+  .consistency-particle {
     animation: none;
   }
 

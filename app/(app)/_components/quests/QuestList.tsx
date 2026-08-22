@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 import { useAttributes } from "../../_lib/hooks/useAttributes";
 import { isQuestScheduledForDate, calculateQuestStreak, calculateQuestConsistency, calculateStreakXpBonus } from "../../_lib/daily-system";
 import { deriveChallengeProgress } from "../../_lib/engines/challenge-engine";
-import { getQuestEvolutionTier } from "../../_lib/engines/quest-evolution-engine";
+import { getConsistencyTier } from "../../_lib/engines/quest-visual-engine";
 import { getLocalDayKey } from "../../_lib/local-day";
 import ChallengeStreakDots from "./ChallengeStreakDots";
+import QuestIcon, { ConsistencyBadgeGlyph, getQuestIconKey } from "./QuestIcon";
 import type { Quest, QuestCompletion } from "../../_lib/types/quest";
 
 type QuestListProps = Readonly<{
@@ -33,9 +34,9 @@ function formatSchedule(quest: Quest) {
   return days.map((day) => weekdayLabels[day] ?? "").filter(Boolean).join(", ");
 }
 
-function CheckmarkIcon() {
+function CheckmarkIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4">
+    <svg viewBox="0 0 20 20" fill="none" className={className}>
       <path d="M4 10.5 8 14.5 16 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
@@ -59,7 +60,7 @@ function KebabIcon() {
   );
 }
 
-function ConsistencyRing({ percent }: { percent: number }) {
+function ConsistencyRing({ percent, colorHex }: { percent: number; colorHex: string }) {
   const radius = 13;
   const circumference = 2 * Math.PI * radius;
   const clamped = Math.min(100, Math.max(0, percent));
@@ -73,12 +74,12 @@ function ConsistencyRing({ percent }: { percent: number }) {
         cy="16"
         r={radius}
         fill="none"
-        stroke="currentColor"
+        stroke={colorHex}
         strokeWidth="3"
         strokeLinecap="round"
         strokeDasharray={circumference}
         strokeDashoffset={offset}
-        className="text-amber-300 transition-[stroke-dashoffset] duration-300"
+        className="transition-[stroke-dashoffset] duration-300"
       />
     </svg>
   );
@@ -132,10 +133,12 @@ export default function QuestList({
         const streakBonusXp = todaysCompletion ? todaysCompletion.streakBonusXp : calculateStreakXpBonus(quest.xp, projectedStreakDays);
         const challengeBonusXp = todaysCompletion?.challengeBonusXp ?? 0;
         const consistency = calculateQuestConsistency(quest, questCompletions, referenceDate);
+        const tier = getConsistencyTier(consistency);
         const isCore = (quest.importance ?? "core") === "core";
         const menuOpen = openMenuId === quest.id;
         const challengeProgress = quest.challenge?.enabled ? deriveChallengeProgress(quest, questCompletions, referenceDate) : null;
-        const evolutionTier = getQuestEvolutionTier(streak);
+        const iconKey = getQuestIconKey(quest.title);
+        const challengeUnit = quest.completionMetric?.unit ? ` ${quest.completionMetric.unit}` : "";
 
         function toggleComplete() {
           if (isCompleted) {
@@ -152,10 +155,10 @@ export default function QuestList({
           <div
             key={quest.id}
             className={
-              "flex items-center gap-3 rounded-lg border bg-slate-900/50 px-3 py-2 transition duration-150 " +
+              "flex items-center gap-3 rounded-xl border bg-slate-900/50 px-3 py-2.5 transition duration-150 " +
               (isCompleted
                 ? "border-emerald-500/50 shadow-[0_0_14px_rgba(16,185,129,0.14)]"
-                : `${evolutionTier.borderClass || "border-slate-800"} hover:border-slate-700 ${evolutionTier.glowClass}`)
+                : `${tier.borderClass} hover:border-slate-600 ${tier.glowClass}`)
             }
           >
             <button
@@ -164,15 +167,27 @@ export default function QuestList({
               disabled={!isCompleted && !isScheduled}
               aria-label={isCompleted ? "Undo completion" : "Mark complete"}
               className={
-                "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 transition " +
+                "relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 transition " +
                 (isCompleted
-                  ? "border-emerald-400 bg-emerald-500/20 text-emerald-300"
+                  ? "border-emerald-400 bg-emerald-500/15 text-emerald-200"
                   : isScheduled
-                    ? "border-slate-600 text-transparent hover:border-emerald-400/60 hover:text-emerald-400/60"
-                    : "cursor-not-allowed border-slate-800 text-transparent opacity-40")
+                    ? `${tier.borderClass} ${tier.bgClass} ${tier.textClass} hover:brightness-110`
+                    : "cursor-not-allowed border-slate-800 bg-slate-950/40 text-slate-600 opacity-50")
               }
             >
-              <CheckmarkIcon />
+              {tier.hasParticles && !isCompleted ? (
+                <>
+                  <span className="consistency-particle absolute -top-1 left-1 h-1 w-1 rounded-full bg-current" style={{ animationDelay: "0s" }} />
+                  <span className="consistency-particle absolute -right-1 top-2 h-1 w-1 rounded-full bg-current" style={{ animationDelay: "0.6s" }} />
+                  <span className="consistency-particle absolute -bottom-1 left-3 h-1 w-1 rounded-full bg-current" style={{ animationDelay: "1.1s" }} />
+                </>
+              ) : null}
+              <QuestIcon iconKey={iconKey} className="h-5 w-5" />
+              {isCompleted ? (
+                <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full border border-emerald-400 bg-emerald-500 text-slate-950">
+                  <CheckmarkIcon className="h-2.5 w-2.5" />
+                </span>
+              ) : null}
             </button>
 
             <div className="min-w-0 flex-1">
@@ -197,9 +212,6 @@ export default function QuestList({
                 <span className="rounded-full border border-slate-700 bg-slate-950/50 px-1.5 py-0.5 text-slate-400">{formatSchedule(quest)}</span>
                 {quest.linkedProgressGoalId ? <span className="rounded-full border border-cyan-400/20 bg-cyan-400/5 px-1.5 py-0.5 text-cyan-200">Linked Goal</span> : null}
                 {quest.linkedWorkoutTemplateId ? <span className="rounded-full border border-emerald-400/20 bg-emerald-400/5 px-1.5 py-0.5 text-emerald-200">Linked Workout</span> : null}
-                {evolutionTier.tier > 0 ? (
-                  <span className={`rounded-full border px-1.5 py-0.5 font-semibold ${evolutionTier.borderClass} ${evolutionTier.badgeTextClass}`}>{evolutionTier.label}</span>
-                ) : null}
                 {streak > 0 ? (
                   <span className="text-slate-500">
                     <span className="font-semibold text-orange-300">{streak}</span> day streak
@@ -210,26 +222,36 @@ export default function QuestList({
               {challengeProgress && quest.challenge ? (
                 <div
                   className={
-                    "mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border px-2 py-1 text-[11px] leading-none " +
+                    "mt-2 rounded-lg border px-2.5 py-1.5 text-[11px] leading-none " +
                     (challengeProgress.todaySettled ? (challengeProgress.todayPassed ? "border-emerald-400/20 bg-emerald-400/5" : "border-rose-400/20 bg-rose-400/5") : "border-amber-400/15 bg-amber-400/5")
                   }
                 >
-                  {challengeProgress.todaySettled ? (
-                    <span className={"font-semibold " + (challengeProgress.todayPassed ? "text-emerald-300" : "text-rose-300")}>{challengeProgress.todayPassed ? "✓ Challenge succeeded" : "✗ Challenge failed"}</span>
-                  ) : (
-                    <span className="text-slate-400">
-                      Today&rsquo;s target: <span className="font-semibold text-white">{challengeProgress.todayTarget}{quest.completionMetric?.unit ? ` ${quest.completionMetric.unit}` : ""}</span>
+                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                    {challengeProgress.todaySettled ? (
+                      <span className={"font-semibold " + (challengeProgress.todayPassed ? "text-emerald-300" : "text-rose-300")}>{challengeProgress.todayPassed ? "✓ Challenge succeeded" : "✗ Challenge failed"}</span>
+                    ) : (
+                      <span className="text-slate-400">
+                        Today&rsquo;s target: <span className="font-semibold text-white">{challengeProgress.todayTarget}{challengeUnit}</span>
+                      </span>
+                    )}
+                    <span className="flex items-center gap-1.5 text-slate-400">
+                      Streak: <ChallengeStreakDots current={challengeProgress.currentStreak} required={quest.challenge.requiredStreak} />
                     </span>
-                  )}
-                  <span className="text-slate-400">
-                    Progress: <span className="font-semibold text-white">{challengeProgress.todayValue} / {challengeProgress.todayTarget}</span>
-                  </span>
-                  <span className="flex items-center gap-1.5 text-slate-400">
-                    Streak: <ChallengeStreakDots current={challengeProgress.currentStreak} required={quest.challenge.requiredStreak} />
-                  </span>
-                  <span className="text-slate-400">
-                    Level: <span className="font-semibold text-white">{challengeProgress.currentLevelIndex + 1} / {quest.challenge.levels.length}</span>
-                  </span>
+                    <span className="rounded-full border border-purple-400/30 bg-purple-400/10 px-2 py-0.5 font-semibold text-purple-200">
+                      Level {challengeProgress.currentLevelIndex + 1}/{quest.challenge.levels.length}
+                    </span>
+                  </div>
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-900">
+                      <div
+                        className={"h-full rounded-full " + (challengeProgress.todayPassed ? "bg-emerald-400" : challengeProgress.todaySettled ? "bg-rose-400" : "bg-amber-400")}
+                        style={{ width: `${Math.min(100, Math.round((challengeProgress.todayValue / Math.max(1, challengeProgress.todayTarget)) * 100))}%` }}
+                      />
+                    </div>
+                    <span className="shrink-0 font-semibold text-white">
+                      {challengeProgress.todayValue} / {challengeProgress.todayTarget}
+                    </span>
+                  </div>
                 </div>
               ) : null}
             </div>
@@ -243,12 +265,15 @@ export default function QuestList({
                 <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-500">Streak</span>
               </div>
 
-              <div className="flex w-10 flex-col items-center gap-0.5">
-                <div className="relative flex h-8 w-8 items-center justify-center">
-                  <ConsistencyRing percent={consistency} />
+              <div className="flex w-14 flex-col items-center gap-0.5">
+                <div className={"relative flex h-8 w-8 items-center justify-center " + (tier.hasParticles ? "consistency-glow-pulse" : "")}>
+                  <ConsistencyRing percent={consistency} colorHex={tier.ringHex} />
                   <span className="absolute text-[9px] font-bold text-white">{consistency}</span>
                 </div>
-                <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-500">Consist.</span>
+                <span className={"flex items-center gap-1 text-[9px] font-semibold uppercase tracking-[0.1em] " + tier.textClass}>
+                  <ConsistencyBadgeGlyph icon={tier.badgeIcon} className="h-2.5 w-2.5" />
+                  {tier.label}
+                </span>
               </div>
 
               <div className="flex w-10 flex-col items-center gap-0.5">

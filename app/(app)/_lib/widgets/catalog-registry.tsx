@@ -8,6 +8,7 @@ import { getEventsByType } from "../activity-events";
 import { calculateQuestStreak, getConsistencyScore } from "../daily-system";
 import { calculateGoalTree, summarizeGoalTree, type GoalNodeView } from "../goal-tree-progress";
 import { getLocalDayKey, parseLocalDayKey } from "../local-day";
+import { getXpLedgerEntriesForDay, getXpLedgerTotal } from "../xp-ledger";
 import QuestActivityCalendar from "../../_components/quests/QuestActivityCalendar";
 import {
   buildQuestCalendarWeeks,
@@ -2633,24 +2634,8 @@ const staticWidgets: CatalogWidgetDefinition[] = [
         );
       }
 
-      const todayKey = getLocalDayKey();
-      const questById = new Map(ctx.questDefinitions.map((quest) => [quest.id, quest]));
-
-      const questEntries = ctx.questCompletions
-        .filter((completion) => getLocalDayKey(completion.completedAt) === todayKey)
-        .map((completion) => ({
-          id: completion.id,
-          title: questById.get(completion.questId)?.title ?? "Quest",
-          amount: completion.xpAwarded,
-          timestamp: completion.completedAt,
-        }));
-
-      const eventEntries = [...ctx.goalXpEvents, ...ctx.bonusXpEvents]
-        .filter((event) => getLocalDayKey(event.createdAt) === todayKey)
-        .map((event) => ({ id: event.id, title: event.sourceTitle, amount: event.amount, timestamp: event.createdAt }));
-
-      const entries = [...questEntries, ...eventEntries].sort((first, second) => new Date(second.timestamp).getTime() - new Date(first.timestamp).getTime());
-      const total = entries.reduce((sum, entry) => sum + entry.amount, 0);
+      const entries = getXpLedgerEntriesForDay(ctx.questDefinitions, ctx.questCompletions, ctx.goalXpEvents, ctx.bonusXpEvents);
+      const total = getXpLedgerTotal(entries);
 
       if (entries.length === 0) {
         return (

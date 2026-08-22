@@ -12,6 +12,8 @@ import { useProgression } from "../../_lib/hooks/useProgression";
 import { useWorkout } from "../../_lib/workout-store";
 import type { Quest, QuestStatus } from "../../_lib/types/quest";
 import QuestForm, { type QuestFormModel } from "./QuestForm";
+import QuestBottomBar from "./QuestBottomBar";
+import QuestCommandBar from "./QuestCommandBar";
 import QuestCompletionModal from "./QuestCompletionModal";
 import QuestReflectionModal from "./QuestReflectionModal";
 import UndoCompletionModal from "./UndoCompletionModal";
@@ -136,6 +138,8 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
 
   return (
     <div className="space-y-5">
+      <QuestCommandBar />
+
       <CustomizablePage pageId="quests" title="Quest Widgets" subtitle="Read-only quest statistics and progress panels." sections={statsSections} availableWidgets={availableWidgets} />
 
       <Card className="p-5">
@@ -250,6 +254,8 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
         />
       ) : null}
       </Card>
+
+      <QuestBottomBar />
     </div>
   );
 }

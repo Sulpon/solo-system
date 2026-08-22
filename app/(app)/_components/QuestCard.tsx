@@ -1,9 +1,10 @@
 import type { DailyQuest, QuestCompletion } from "../_lib/types";
-import { calculateQuestStreak } from "../_lib/daily-system";
+import { calculateQuestConsistency } from "../_lib/daily-system";
 import { deriveChallengeProgress } from "../_lib/engines/challenge-engine";
-import { getQuestEvolutionTier } from "../_lib/engines/quest-evolution-engine";
+import { getConsistencyTier } from "../_lib/engines/quest-visual-engine";
 import FocusButton from "./focus/FocusButton";
 import ChallengeStreakDots from "./quests/ChallengeStreakDots";
+import QuestIcon, { getQuestIconKey } from "./quests/QuestIcon";
 
 type QuestCardProps = Readonly<{
   quest: DailyQuest;
@@ -14,7 +15,8 @@ type QuestCardProps = Readonly<{
 
 export default function QuestCard({ quest, completed, onToggle, questCompletions = [] }: QuestCardProps) {
   const challengeProgress = quest.challenge?.enabled && quest.createdAt ? deriveChallengeProgress(quest, questCompletions) : null;
-  const evolutionTier = getQuestEvolutionTier(calculateQuestStreak(quest, questCompletions));
+  const tier = getConsistencyTier(calculateQuestConsistency(quest, questCompletions));
+  const iconKey = getQuestIconKey(quest.title);
 
   return (
     <label
@@ -22,16 +24,21 @@ export default function QuestCard({ quest, completed, onToggle, questCompletions
         "group flex min-h-32 cursor-pointer flex-col justify-between rounded-xl border p-4 transition duration-200 " +
         (completed
           ? "border-purple-400/60 bg-purple-500/15 shadow-[0_0_28px_rgba(168,85,247,0.2)]"
-          : `${evolutionTier.borderClass || "border-slate-700/80"} bg-slate-950/45 hover:border-purple-500/40 hover:bg-slate-900/80 ${evolutionTier.glowClass}`)
+          : `${tier.borderClass} bg-slate-950/45 hover:border-purple-500/40 hover:bg-slate-900/80 ${tier.glowClass}`)
       }
     >
       <span className="flex items-start justify-between gap-2">
-        <span className="min-w-0">
-          <span className="flex items-center gap-1.5">
-            <span className={"block text-sm font-semibold " + (completed ? "text-purple-100" : "text-white")}>{quest.title}</span>
-            {evolutionTier.tier > 0 ? <span className={`shrink-0 text-[10px] font-semibold uppercase tracking-[0.1em] ${evolutionTier.badgeTextClass}`}>{evolutionTier.label}</span> : null}
+        <span className="flex min-w-0 items-start gap-2">
+          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border ${tier.borderClass} ${tier.bgClass} ${tier.textClass}`}>
+            <QuestIcon iconKey={iconKey} className="h-4 w-4" />
           </span>
-          <span className="mt-1 block text-xs leading-5 text-slate-500 group-hover:text-slate-400">{quest.description}</span>
+          <span className="min-w-0">
+            <span className="flex items-center gap-1.5">
+              <span className={"block truncate text-sm font-semibold " + (completed ? "text-purple-100" : "text-white")}>{quest.title}</span>
+            </span>
+            <span className={`text-[10px] font-semibold uppercase tracking-[0.1em] ${tier.textClass}`}>{tier.label}</span>
+            <span className="mt-1 block truncate text-xs leading-5 text-slate-500 group-hover:text-slate-400">{quest.description}</span>
+          </span>
         </span>
         {!completed ? (
           // eslint-disable-next-line jsx-a11y/no-static-element-interactions

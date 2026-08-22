@@ -164,7 +164,17 @@ export function calculateStreakXpBonus(baseXp: number, streakDays: number) {
   return Math.round(Math.max(0, baseXp) * calculateStreakXpBonusMultiplier(streakDays));
 }
 
-export function calculateQuestConsistency(quest: Quest, completions: ReadonlyArray<QuestCompletion>, referenceDate = new Date(), windowDays = 30) {
+// Structural rather than the full Quest type - only id/scheduledDays/
+// createdAt are used, so DailyQuest (whose createdAt is optional) satisfies
+// this directly too. A missing createdAt is treated as "always existed" -
+// the full window applies, same as calculateQuestStreak's ChallengeSource-
+// style trick.
+export function calculateQuestConsistency(
+  quest: Pick<Quest, "id" | "scheduledDays"> & { createdAt?: string },
+  completions: ReadonlyArray<QuestCompletion>,
+  referenceDate = new Date(),
+  windowDays = 30,
+) {
   const completionDays = new Set(
     completions.filter((completion) => completion.questId === quest.id).map((completion) => getLocalDayKey(completion.completedAt)),
   );
@@ -172,7 +182,7 @@ export function calculateQuestConsistency(quest: Quest, completions: ReadonlyArr
   end.setHours(0, 0, 0, 0);
   const windowStart = new Date(end);
   windowStart.setDate(windowStart.getDate() - (windowDays - 1));
-  const createdAt = new Date(quest.createdAt);
+  const createdAt = quest.createdAt ? new Date(quest.createdAt) : windowStart;
   createdAt.setHours(0, 0, 0, 0);
   const start = createdAt > windowStart ? createdAt : windowStart;
 
