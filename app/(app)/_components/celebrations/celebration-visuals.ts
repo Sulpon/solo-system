@@ -29,6 +29,9 @@ export function getKindAccent(kind: CelebrationKind) {
     case "achievement":
     case "major_milestone":
       return { border: "border-purple-400/50", text: "text-purple-200" };
+    case "quest_mastery_level_up":
+    case "quest_mastery_identity_evolution":
+      return { border: "border-yellow-400/50", text: "text-yellow-200" };
     default:
       return { border: "border-slate-600/50", text: "text-slate-200" };
   }

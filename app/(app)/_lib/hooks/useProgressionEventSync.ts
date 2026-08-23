@@ -9,6 +9,7 @@ import { useWorkoutSessions } from "./useWorkoutSessions";
 import { calculateQuestStreak } from "../daily-system";
 import { deriveChallengeProgress } from "../engines/challenge-engine";
 import { getRankLabel } from "../engines/level-engine";
+import { calculateQuestMastery, getQuestMasteryLevel100Target, getQuestMasteryTitle, getQuestMasteryXP } from "../engines/quest-mastery-engine";
 import { rollMysteryReward } from "../engines/reward-engine";
 import { ACHIEVEMENT_DEFINITIONS } from "../achievements/achievement-definitions";
 import type { CelebrationDraft } from "../celebration-store";
@@ -53,6 +54,7 @@ export function useProgressionEventSync() {
   const previousLevelRef = useRef(1);
   const previousCategoryLevelsRef = useRef<Record<string, number>>({});
   const previousChallengeLevelsRef = useRef<Record<string, number>>({});
+  const previousQuestMasteryLevelsRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
     if (!isReady || !workoutSessionsLoaded || !rewardCollectionLoaded) {
@@ -179,6 +181,45 @@ export function useProgressionEventSync() {
       }
 
       previousChallengeLevelsRef.current[quest.id] = progress.currentLevelIndex;
+    }
+
+    // --- 3b. Quest Mastery level-up (pure derive, no XP awarded here - see
+    // quest-mastery-engine.ts; ref-based only, same reasoning as Challenge
+    // level-up above: nothing is permanently unlocked, so a durable dedup
+    // isn't needed, just "don't replay on reload") -----------------------------
+    for (const quest of questDefinitions) {
+      const masteryXP = getQuestMasteryXP(quest.id, questCompletions);
+      const level100Target = getQuestMasteryLevel100Target(quest.xp, quest.masteryMultiplier);
+      const level = calculateQuestMastery(masteryXP, level100Target).currentLevel;
+      const previous = previousQuestMasteryLevelsRef.current[quest.id] ?? level;
+
+      if (initializedRef.current && level > previous) {
+        const previousTitle = getQuestMasteryTitle(previous);
+        const nextTitle = getQuestMasteryTitle(level);
+        const isIdentityEvolution = nextTitle !== previousTitle;
+
+        newActivityEvents.push({
+          id: `quest_mastery_level_up:${quest.id}:${level}`,
+          type: "quest_mastery_level_up",
+          createdAt: now,
+          title: `${quest.title}: Mastery Level ${level}`,
+          description: isIdentityEvolution ? `${previousTitle} -> ${nextTitle}` : undefined,
+          sourceType: "quest",
+          sourceId: quest.id,
+          metadata: { questId: quest.id, questName: quest.title, level, title: nextTitle },
+        });
+
+        celebrations.push({
+          kind: isIdentityEvolution ? "quest_mastery_identity_evolution" : "quest_mastery_level_up",
+          intensity: isIdentityEvolution ? "major" : "small",
+          title: isIdentityEvolution ? "Identity Evolution" : quest.title,
+          description: isIdentityEvolution ? `${quest.title}: Mastery Level ${level}` : `Level ${level}`,
+          fromValue: isIdentityEvolution ? previousTitle.toUpperCase() : previous,
+          toValue: isIdentityEvolution ? nextTitle.toUpperCase() : level,
+        });
+      }
+
+      previousQuestMasteryLevelsRef.current[quest.id] = level;
     }
 
     // --- 4. Streak milestones --------------------------------------------------

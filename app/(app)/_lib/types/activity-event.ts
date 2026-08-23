@@ -19,7 +19,8 @@ export type ActivityEventType =
   | "challenge_level_up"
   | "streak_milestone"
   | "achievement_unlocked"
-  | "mystery_reward_opened";
+  | "mystery_reward_opened"
+  | "quest_mastery_level_up";
 
 export type ActivityEventSourceType = "quest" | "attribute" | "progress_goal" | "milestone" | "goal" | "dream" | "daily_snapshot" | "workout" | "bodyweight" | "character" | "achievement";
 

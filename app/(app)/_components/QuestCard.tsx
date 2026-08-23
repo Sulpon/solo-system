@@ -1,6 +1,7 @@
 import type { DailyQuest, QuestCompletion } from "../_lib/types";
 import { calculateQuestConsistency } from "../_lib/daily-system";
 import { deriveChallengeProgress } from "../_lib/engines/challenge-engine";
+import { calculateQuestMastery, getQuestMasteryLevel100Target, getQuestMasteryTitle, getQuestMasteryXP } from "../_lib/engines/quest-mastery-engine";
 import { getConsistencyTier } from "../_lib/engines/quest-visual-engine";
 import FocusButton from "./focus/FocusButton";
 import ChallengeStreakDots from "./quests/ChallengeStreakDots";
@@ -17,6 +18,8 @@ export default function QuestCard({ quest, completed, onToggle, questCompletions
   const challengeProgress = quest.challenge?.enabled && quest.createdAt ? deriveChallengeProgress(quest, questCompletions) : null;
   const tier = getConsistencyTier(calculateQuestConsistency(quest, questCompletions));
   const iconKey = getQuestIconKey(quest.title);
+  const masteryLevel = calculateQuestMastery(getQuestMasteryXP(quest.id, questCompletions), getQuestMasteryLevel100Target(quest.xp, quest.masteryMultiplier)).currentLevel;
+  const masteryTitle = getQuestMasteryTitle(masteryLevel);
 
   return (
     <label
@@ -36,7 +39,12 @@ export default function QuestCard({ quest, completed, onToggle, questCompletions
             <span className="flex items-center gap-1.5">
               <span className={"block truncate text-sm font-semibold " + (completed ? "text-purple-100" : "text-white")}>{quest.title}</span>
             </span>
-            <span className={`text-[10px] font-semibold uppercase tracking-[0.1em] ${tier.textClass}`}>{tier.label}</span>
+            <span className="flex items-center gap-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-yellow-200">
+                Lv {masteryLevel} · {masteryTitle}
+              </span>
+              <span className={`text-[10px] font-semibold uppercase tracking-[0.1em] ${tier.textClass}`}>{tier.label}</span>
+            </span>
             <span className="mt-1 block truncate text-xs leading-5 text-slate-500 group-hover:text-slate-400">{quest.description}</span>
           </span>
         </span>

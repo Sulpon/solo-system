@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useAttributes } from "../../_lib/hooks/useAttributes";
 import { isQuestScheduledForDate, calculateQuestStreak, calculateQuestConsistency, calculateStreakXpBonus } from "../../_lib/daily-system";
 import { deriveChallengeProgress } from "../../_lib/engines/challenge-engine";
+import { calculateQuestMastery, getNextIdentityMilestone, getQuestMasteryLevel100Target, getQuestMasteryTitle, getQuestMasteryXP } from "../../_lib/engines/quest-mastery-engine";
 import { getConsistencyTier } from "../../_lib/engines/quest-visual-engine";
 import { getLocalDayKey } from "../../_lib/local-day";
 import ChallengeStreakDots from "./ChallengeStreakDots";
@@ -139,6 +140,11 @@ export default function QuestList({
         const challengeProgress = quest.challenge?.enabled ? deriveChallengeProgress(quest, questCompletions, referenceDate) : null;
         const iconKey = getQuestIconKey(quest.title);
         const challengeUnit = quest.completionMetric?.unit ? ` ${quest.completionMetric.unit}` : "";
+        const masteryXP = getQuestMasteryXP(quest.id, questCompletions);
+        const level100Target = getQuestMasteryLevel100Target(quest.xp, quest.masteryMultiplier);
+        const mastery = calculateQuestMastery(masteryXP, level100Target);
+        const masteryTitle = getQuestMasteryTitle(mastery.currentLevel);
+        const nextIdentity = getNextIdentityMilestone(masteryXP, level100Target);
 
         function toggleComplete() {
           if (isCompleted) {
@@ -193,6 +199,9 @@ export default function QuestList({
             <div className="min-w-0 flex-1">
               <div className="flex items-baseline gap-2">
                 <h3 className="truncate text-sm font-bold text-white">{quest.title}</h3>
+                <span className="shrink-0 rounded-full border border-yellow-400/40 bg-yellow-400/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-yellow-200">
+                  Lv {mastery.currentLevel} · {masteryTitle}
+                </span>
                 <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{getCategoryName(quest.categoryId)}</span>
                 {quest.status === "archived" ? (
                   <span className="shrink-0 rounded-full border border-slate-700 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-400">Archived</span>
@@ -217,6 +226,21 @@ export default function QuestList({
                     <span className="font-semibold text-orange-300">{streak}</span> day streak
                   </span>
                 ) : null}
+              </div>
+
+              <div className="mt-1.5 flex items-center gap-2 text-[11px] leading-none">
+                <div className="h-1 flex-1 overflow-hidden rounded-full bg-slate-900">
+                  <div className="h-full rounded-full bg-gradient-to-r from-yellow-500 to-amber-300" style={{ width: `${mastery.progressTowardLevel100Percent}%` }} />
+                </div>
+                <span className="shrink-0 text-slate-500">
+                  <span className="font-semibold text-yellow-200">{mastery.masteryXP.toLocaleString()}</span> / {mastery.level100Target.toLocaleString()} Mastery XP
+                  {nextIdentity ? (
+                    <>
+                      {" "}
+                      · Next: <span className="font-semibold text-yellow-200">{nextIdentity.title}</span> in {nextIdentity.xpNeeded.toLocaleString()} XP
+                    </>
+                  ) : null}
+                </span>
               </div>
 
               {challengeProgress && quest.challenge ? (

@@ -15,7 +15,9 @@ export type CelebrationKind =
   | "mystery_reward"
   | "achievement"
   | "personal_best"
-  | "major_milestone";
+  | "major_milestone"
+  | "quest_mastery_level_up"
+  | "quest_mastery_identity_evolution";
 
 export type CelebrationPayload = Readonly<{
   id: string;

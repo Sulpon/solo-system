@@ -1,4 +1,5 @@
 import type { Quest, QuestChallengeConfig, QuestCompletionMetricConfig, QuestStreakMilestone } from "../../_lib/types/quest";
+import { DEFAULT_QUEST_MASTERY_MULTIPLIER } from "../../_lib/engines/quest-mastery-engine";
 import { CHALLENGE_LEVEL_COUNT, type QuestFormModel } from "./QuestForm";
 
 const DEFAULT_CHALLENGE_LEVELS = [5, 7, 10, 15, 20];
@@ -28,6 +29,7 @@ export const emptyQuestForm: QuestFormModel = {
   challengeRequiredStreak: 3,
   streakMilestoneInterval: 10,
   streakMilestones: [],
+  masteryMultiplier: DEFAULT_QUEST_MASTERY_MULTIPLIER,
 };
 
 export function createQuestFormModel(overrides: Partial<QuestFormModel> = {}): QuestFormModel {
@@ -96,6 +98,7 @@ export function toQuestForm(quest: Quest): QuestFormModel {
     challengeRequiredStreak: quest.challenge?.requiredStreak ?? 3,
     streakMilestoneInterval: quest.streakMilestoneInterval ?? 10,
     streakMilestones: quest.streakMilestones?.map((milestone) => ({ ...milestone })) ?? [],
+    masteryMultiplier: quest.masteryMultiplier ?? DEFAULT_QUEST_MASTERY_MULTIPLIER,
   };
 }
 
@@ -137,6 +140,7 @@ export function upsertQuestFromForm(quests: ReadonlyArray<Quest>, form: QuestFor
   const challenge = buildChallenge(form);
   const streakMilestones = buildStreakMilestones(form);
   const streakMilestoneInterval = Math.max(1, Math.floor(Number(form.streakMilestoneInterval) || 1));
+  const masteryMultiplier = Math.max(1, Math.floor(Number(form.masteryMultiplier) || DEFAULT_QUEST_MASTERY_MULTIPLIER));
 
   if (form.id) {
     return quests.map((quest) =>
@@ -158,6 +162,7 @@ export function upsertQuestFromForm(quests: ReadonlyArray<Quest>, form: QuestFor
             challenge,
             streakMilestones,
             streakMilestoneInterval,
+            masteryMultiplier,
             updatedAt: now,
           }
         : quest,
@@ -185,6 +190,7 @@ export function upsertQuestFromForm(quests: ReadonlyArray<Quest>, form: QuestFor
       challenge,
       streakMilestones,
       streakMilestoneInterval,
+      masteryMultiplier,
       createdAt: now,
       updatedAt: now,
     },

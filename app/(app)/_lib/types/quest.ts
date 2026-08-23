@@ -73,6 +73,9 @@ export type Quest = Readonly<{
   // additive - existing quests keep behaving exactly as before until edited.
   streakMilestones?: ReadonlyArray<QuestStreakMilestone>;
   streakMilestoneInterval?: number;
+  // Absent means DEFAULT_QUEST_MASTERY_MULTIPLIER (see quest-mastery-engine.ts).
+  // Level 100 Mastery = this quest's base xp * masteryMultiplier.
+  masteryMultiplier?: number;
   createdAt: string;
   updatedAt: string;
 }>;
@@ -93,6 +96,7 @@ export type DailyQuest = Readonly<{
   challenge?: QuestChallengeConfig;
   streakMilestones?: ReadonlyArray<QuestStreakMilestone>;
   streakMilestoneInterval?: number;
+  masteryMultiplier?: number;
   createdAt?: string;
 }>;
 

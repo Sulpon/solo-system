@@ -5,6 +5,7 @@ import Modal from "../Modal";
 import { calculateQuestAttributeXP, buildDefaultAttributeWeights } from "../../_lib/goal-tree-attributes";
 import { getInheritedAttributeWeights, getInheritedAttributes } from "../../_lib/goal-tree-storage";
 import { useAttributes } from "../../_lib/hooks/useAttributes";
+import { DEFAULT_QUEST_MASTERY_MULTIPLIER, getQuestMasteryLevel100Target } from "../../_lib/engines/quest-mastery-engine";
 import { useGoalTree } from "../../_lib/hooks/useGoalTree";
 import { useWorkoutTemplates } from "../../_lib/hooks/useWorkoutTemplates";
 import type { CategoryId } from "../../_lib/types/category";
@@ -38,6 +39,7 @@ type QuestFormModel = Readonly<{
   challengeRequiredStreak: number;
   streakMilestoneInterval: number;
   streakMilestones: ReadonlyArray<{ streakCount: number; title: string }>;
+  masteryMultiplier: number;
 }>;
 
 type QuestFormProps = Readonly<{
@@ -489,6 +491,28 @@ export default function QuestForm({ form, isEditing, onChange, onCancel, onSave 
             </div>
           </div>
         ) : null}
+
+        <div className="space-y-3 rounded-2xl border border-yellow-400/20 bg-yellow-400/5 p-4 sm:col-span-2">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-yellow-200">Mastery</p>
+            <p className="mt-1 text-sm text-slate-400">
+              Controls how much repeated effort is required to reach Mastery Level 100. Higher values create a longer mastery journey.
+            </p>
+          </div>
+          <label className="block max-w-xs space-y-2">
+            <span className={labelClass}>Mastery Multiplier</span>
+            <input
+              type="number"
+              min={1}
+              value={form.masteryMultiplier}
+              onChange={(event) => onChange({ ...form, masteryMultiplier: Math.max(1, Math.floor(Number(event.target.value) || DEFAULT_QUEST_MASTERY_MULTIPLIER)) })}
+              className={inputClass}
+            />
+          </label>
+          <p className="text-sm text-slate-400">
+            Level 100 Mastery threshold: <span className="font-semibold text-yellow-200">{form.xp.toLocaleString()} × {form.masteryMultiplier.toLocaleString()} = {getQuestMasteryLevel100Target(form.xp, form.masteryMultiplier).toLocaleString()} XP</span>
+          </p>
+        </div>
 
         <div className="sm:col-span-2">
           <button
