@@ -10,7 +10,7 @@ import { isQuestScheduledForDate, calculateQuestStreak } from "./daily-system";
 import { deriveChallengeProgress } from "./engines/challenge-engine";
 import { getProgressionSummary } from "./engines/progression-engine";
 import { getLocalDayKey } from "./local-day";
-import { createQuestCompletion, hasCompletedToday, removeQuestCompletionsForDay } from "./quest-storage";
+import { createQuestCompletion, hasCompletedToday, normalizeQuestList, removeQuestCompletionsForDay } from "./quest-storage";
 import type { ProgressionSummary } from "./engines/progression-engine";
 import type { Quest, QuestCompletion, QuestAttributeReward, QuestGoalContribution } from "./types/quest";
 import type { XpEvent } from "./types/progression";
@@ -95,17 +95,37 @@ export const ProgressionContext = createContext<ProgressionStoreValue | null>(nu
 export function ProgressionProvider({ children }: Readonly<{ children: React.ReactNode }>) {
   const { goalXpEvents } = useGoalTree();
   const { attributes: categories } = useAttributes();
-  const [questDefinitions, setQuestDefinitions, hasQuestDefinitionsLoaded] = useLocalStorageState<Quest[]>(STORAGE_KEYS.questList, []);
+  const [rawQuestDefinitions, setQuestDefinitions, hasQuestDefinitionsLoaded] = useLocalStorageState<Quest[]>(STORAGE_KEYS.questList, []);
   const [questCompletions, setQuestCompletions, hasQuestCompletionsLoaded] = useLocalStorageState<QuestCompletion[]>(STORAGE_KEYS.questCompletions, []);
   const [activityEvents, setActivityEvents, hasActivityEventsLoaded] = useLocalStorageState<ActivityEvent[]>(STORAGE_KEYS.activityEvents, []);
   const [dailySnapshots, setDailySnapshots, hasDailySnapshotsLoaded] = useLocalStorageState<DailySnapshot[]>(STORAGE_KEYS.dailySnapshots, []);
   const [bonusXpEvents, setBonusXpEvents, hasBonusXpEventsLoaded] = useLocalStorageState<XpEvent[]>(STORAGE_KEYS.bonusXpEvents, []);
+  // Every reader below (real XP awarded on completion, daily XP goal,
+  // Quest Mastery) goes through this normalized view, not the raw storage
+  // value - a legacy/corrupted quest.xp is fixed here once, for everyone,
+  // instead of every individual consumer needing its own defensive check.
+  // See quest-storage.ts::normalizeQuestList for what "invalid" means and
+  // why (this is the root-cause fix for the "Level NaN" mastery bug).
+  const questDefinitions = useMemo(() => normalizeQuestList(rawQuestDefinitions), [rawQuestDefinitions]);
   const questDefinitionsRef = useRef(questDefinitions);
   const questCompletionsRef = useRef(questCompletions);
 
   useEffect(() => {
     questDefinitionsRef.current = questDefinitions;
   }, [questDefinitions]);
+
+  // Self-heal the actual persisted data once real corruption is detected,
+  // mirroring the same "detect drift, correct once" pattern already used
+  // for the Goal Tree (commitGoalTree/normalizeGoalTree). Only ever rewrites
+  // the specific invalid field(s) - never touches completions, streaks, or
+  // any other quest data.
+  useEffect(() => {
+    if (!hasQuestDefinitionsLoaded || questDefinitions === rawQuestDefinitions) {
+      return;
+    }
+
+    setQuestDefinitions(questDefinitions);
+  }, [hasQuestDefinitionsLoaded, questDefinitions, rawQuestDefinitions, setQuestDefinitions]);
 
   useEffect(() => {
     questCompletionsRef.current = questCompletions;

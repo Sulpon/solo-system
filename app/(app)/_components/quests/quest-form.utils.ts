@@ -75,7 +75,11 @@ export function toQuestForm(quest: Quest): QuestFormModel {
     title: quest.title,
     description: quest.description ?? "",
     categoryId: quest.categoryId,
-    xp: quest.xp,
+    // A legacy quest record can have an invalid/missing xp (see
+    // upsertQuestFromForm's own sanitization below, added for the same
+    // reason) - default to 0 rather than let `undefined` reach the form
+    // and crash every `form.xp.toLocaleString()` read in this component.
+    xp: Number.isFinite(quest.xp) ? quest.xp : 0,
     cadence: quest.cadence,
     importance: quest.importance ?? "core",
     scheduledDays: [...(quest.scheduledDays ?? [])],
@@ -98,7 +102,7 @@ export function toQuestForm(quest: Quest): QuestFormModel {
     challengeRequiredStreak: quest.challenge?.requiredStreak ?? 3,
     streakMilestoneInterval: quest.streakMilestoneInterval ?? 10,
     streakMilestones: quest.streakMilestones?.map((milestone) => ({ ...milestone })) ?? [],
-    masteryMultiplier: quest.masteryMultiplier ?? DEFAULT_QUEST_MASTERY_MULTIPLIER,
+    masteryMultiplier: Number.isFinite(quest.masteryMultiplier) ? (quest.masteryMultiplier as number) : DEFAULT_QUEST_MASTERY_MULTIPLIER,
   };
 }
 
@@ -141,6 +145,15 @@ export function upsertQuestFromForm(quests: ReadonlyArray<Quest>, form: QuestFor
   const streakMilestones = buildStreakMilestones(form);
   const streakMilestoneInterval = Math.max(1, Math.floor(Number(form.streakMilestoneInterval) || 1));
   const masteryMultiplier = Math.max(1, Math.floor(Number(form.masteryMultiplier) || DEFAULT_QUEST_MASTERY_MULTIPLIER));
+  // Every other numeric field here is defensively parsed before being
+  // persisted - xp was the one exception, written straight from form state.
+  // An undefined/NaN xp (e.g. editing a legacy quest whose xp was never
+  // set) would persist as NaN and break every downstream calculation that
+  // reads quest.xp (mastery level, streak bonus, attribute XP split, real
+  // XP awarded on completion) - this is the write-path source of "Level
+  // NaN". Never silently invents a plausible-looking amount, just clamps
+  // to a safe non-negative integer.
+  const xp = Math.max(0, Math.floor(Number(form.xp) || 0));
 
   if (form.id) {
     return quests.map((quest) =>
@@ -150,7 +163,7 @@ export function upsertQuestFromForm(quests: ReadonlyArray<Quest>, form: QuestFor
             title: form.title.trim(),
             description: form.description.trim(),
             categoryId,
-            xp: form.xp,
+            xp,
             cadence: form.cadence,
             importance: form.importance,
             scheduledDays,
@@ -178,7 +191,7 @@ export function upsertQuestFromForm(quests: ReadonlyArray<Quest>, form: QuestFor
       title: form.title.trim(),
       description: form.description.trim(),
       categoryId,
-      xp: form.xp,
+      xp,
       cadence: form.cadence,
       importance: form.importance,
       scheduledDays,

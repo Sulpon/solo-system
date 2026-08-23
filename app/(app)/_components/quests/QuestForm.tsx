@@ -532,7 +532,7 @@ export default function QuestForm({ form, isEditing, onChange, onCancel, onSave 
             </label>
             <label className="space-y-2">
               <span className={labelClass}>XP</span>
-              <input type="number" min={0} value={form.xp} onChange={(event) => onChange({ ...form, xp: Number(event.target.value) })} className={inputClass} />
+              <input type="number" min={0} value={form.xp} onChange={(event) => onChange({ ...form, xp: Math.max(0, Math.floor(Number(event.target.value) || 0)) })} className={inputClass} />
             </label>
             <label className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-950/45 px-3 py-2 text-sm text-slate-300">
               <input type="checkbox" checked={form.active} onChange={(event) => onChange({ ...form, active: event.target.checked })} className="accent-purple-500" />

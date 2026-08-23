@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useAttributes } from "../../_lib/hooks/useAttributes";
 import { isQuestScheduledForDate, calculateQuestStreak, calculateQuestConsistency, calculateStreakXpBonus } from "../../_lib/daily-system";
 import { deriveChallengeProgress } from "../../_lib/engines/challenge-engine";
-import { calculateQuestMastery, getNextIdentityMilestone, getQuestMasteryLevel100Target, getQuestMasteryTitle, getQuestMasteryXP } from "../../_lib/engines/quest-mastery-engine";
+import { calculateQuestMastery, formatQuestMasteryLevel, getNextIdentityMilestone, getQuestMasteryLevel100Target, getQuestMasteryTitle, getQuestMasteryXP } from "../../_lib/engines/quest-mastery-engine";
 import { getConsistencyTier } from "../../_lib/engines/quest-visual-engine";
 import { getLocalDayKey } from "../../_lib/local-day";
 import ChallengeStreakDots from "./ChallengeStreakDots";
@@ -200,7 +200,7 @@ export default function QuestList({
               <div className="flex items-baseline gap-2">
                 <h3 className="truncate text-sm font-bold text-white">{quest.title}</h3>
                 <span className="shrink-0 rounded-full border border-yellow-400/40 bg-yellow-400/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-yellow-200">
-                  Lv {mastery.currentLevel} · {masteryTitle}
+                  Lv {formatQuestMasteryLevel(mastery.currentLevel)} · {masteryTitle}
                 </span>
                 <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{getCategoryName(quest.categoryId)}</span>
                 {quest.status === "archived" ? (

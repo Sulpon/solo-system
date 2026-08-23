@@ -1,7 +1,7 @@
 import type { DailyQuest, QuestCompletion } from "../_lib/types";
 import { calculateQuestConsistency } from "../_lib/daily-system";
 import { deriveChallengeProgress } from "../_lib/engines/challenge-engine";
-import { calculateQuestMastery, getQuestMasteryLevel100Target, getQuestMasteryTitle, getQuestMasteryXP } from "../_lib/engines/quest-mastery-engine";
+import { calculateQuestMastery, formatQuestMasteryLevel, getQuestMasteryLevel100Target, getQuestMasteryTitle, getQuestMasteryXP } from "../_lib/engines/quest-mastery-engine";
 import { getConsistencyTier } from "../_lib/engines/quest-visual-engine";
 import FocusButton from "./focus/FocusButton";
 import ChallengeStreakDots from "./quests/ChallengeStreakDots";
@@ -41,7 +41,7 @@ export default function QuestCard({ quest, completed, onToggle, questCompletions
             </span>
             <span className="flex items-center gap-1.5">
               <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-yellow-200">
-                Lv {masteryLevel} · {masteryTitle}
+                Lv {formatQuestMasteryLevel(masteryLevel)} · {masteryTitle}
               </span>
               <span className={`text-[10px] font-semibold uppercase tracking-[0.1em] ${tier.textClass}`}>{tier.label}</span>
             </span>
