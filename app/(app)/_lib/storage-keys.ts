@@ -58,6 +58,14 @@ export const STORAGE_KEYS = {
   worldMapCityConquests: "menace-world-map-city-conquests",
   worldMapPosition: "menace-world-map-position",
   worldMapDiscoveredCountryIds: "menace-world-map-discovered-country-ids",
+  // Player Character - real photos/measurements/wardrobe, see
+  // types/player-character.ts. Each collection persists independently, same
+  // as every other feature in this app - not one monolithic blob.
+  characterReferencePhotos: "menace-character-reference-photos",
+  wardrobeItems: "menace-wardrobe-items",
+  hairstyles: "menace-hairstyles",
+  characterEquippedItems: "menace-character-equipped-items",
+  characterProfile: "menace-character-profile",
 } as const;
 
 export const MENACE_STORAGE_EVENT = "menace-local-storage-change";

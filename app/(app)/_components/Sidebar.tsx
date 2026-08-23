@@ -15,6 +15,7 @@ const leadingNavItems = [
 ];
 
 const preSettingsNavItems = [
+  { name: "Character", href: "/character" },
   { name: "World Map", href: "/world-map" },
   { name: "Chronicle", href: "/chronicle" },
 ];
