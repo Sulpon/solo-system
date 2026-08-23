@@ -1,7 +1,8 @@
 import { WORLD_CONTINENTS } from "../world-map/continents";
 import { WORLD_COUNTRIES, getCountriesForContinent, getCountry } from "../world-map/countries";
+import { getRivalsTargetingCountry } from "../world-map/rivals";
 import type { GoalNode, GoalNodeType, GoalTree } from "../types/goal-tree";
-import type { CountryProgressState, RivalArchetype } from "../types/world-map";
+import type { CountryProgressState, WorldRivalProfile } from "../types/world-map";
 
 // No generic "flatten all nodes" helper exists in goal-tree-storage.ts
 // (only collectProgressGoalNodes, which is type-specific) - mirrors the
@@ -75,7 +76,28 @@ export function getCountryState(progressPercent: number): CountryProgressState {
 }
 
 export function getCountryStateLabel(state: CountryProgressState): string {
+  if (state === "contested") {
+    return "Contested";
+  }
+
   return STATE_THRESHOLDS.find((entry) => entry.state === state)?.label ?? "Unknown";
+}
+
+// "contested" is a real-and-fictional overlay, not a percentage band: real
+// player progress (25-99%, i.e. actively-worked territory) combined with a
+// deterministically-assigned rival targeting the same country (never
+// random, never fabricating the player's side of the equation).
+export function isCountryContested(countryId: string, goalTree: GoalTree): boolean {
+  const progress = getCountryProgress(countryId, goalTree);
+  return progress >= 25 && progress < 100 && getRivalsTargetingCountry(countryId).length > 0;
+}
+
+// The state actually shown on the map/detail panel - percentage-driven
+// state, with contested as an overlay when applicable.
+export function getCountryDisplayState(countryId: string, goalTree: GoalTree): CountryProgressState {
+  const progress = getCountryProgress(countryId, goalTree);
+  const baseState = getCountryState(progress);
+  return isCountryContested(countryId, goalTree) ? "contested" : baseState;
 }
 
 // -----------------------------------------------------------------------
@@ -179,6 +201,11 @@ export type WorldStatistics = Readonly<{
   worldProgressPercent: number;
   activeGoalsCount: number;
   milestonesCompletedCount: number;
+  // Always 0 today - no Boss can be defeated until the future Boss system
+  // exists (every seeded CountryBoss is permanently "locked" for now). Kept
+  // as a real, honestly-computed field rather than omitted, so the HUD
+  // never needs to fabricate a number once defeats become possible.
+  bossesDefeated: number;
 }>;
 
 export function getWorldStatistics(goalTree: GoalTree): WorldStatistics {
@@ -195,6 +222,7 @@ export function getWorldStatistics(goalTree: GoalTree): WorldStatistics {
     worldProgressPercent,
     activeGoalsCount: linkedGoals.filter((node) => node.status === "in_progress").length,
     milestonesCompletedCount: linkedGoals.reduce((sum, goal) => sum + getRealCompletedMilestoneCount(goal), 0),
+    bossesDefeated: 0,
   };
 }
 
@@ -204,7 +232,19 @@ export function getWorldStatistics(goalTree: GoalTree): WorldStatistics {
 
 const RIVAL_EPOCH_MS = Date.UTC(2024, 0, 1);
 
-export function getRivalLevel(rival: RivalArchetype, referenceDate: Date = new Date()): number {
+export function getRivalLevel(rival: WorldRivalProfile, referenceDate: Date = new Date()): number {
   const daysSinceEpoch = Math.max(0, Math.floor((referenceDate.getTime() - RIVAL_EPOCH_MS) / 86400000));
   return rival.baseLevel + Math.floor(daysSinceEpoch / rival.daysPerLevel);
+}
+
+// Deterministic, level-scaled leaderboard flavor stats - never random, never
+// exceeding how many seeded countries exist in the rival's own continent.
+export function getRivalCountriesConquered(rival: WorldRivalProfile, referenceDate: Date = new Date()): number {
+  const cap = getCountriesForContinent(rival.originContinentId).length;
+  return Math.max(0, Math.min(cap, Math.floor(getRivalLevel(rival, referenceDate) / 6)));
+}
+
+export function getRivalBossesDefeated(rival: WorldRivalProfile, referenceDate: Date = new Date()): number {
+  const cap = getCountriesForContinent(rival.originContinentId).length;
+  return Math.max(0, Math.min(cap, Math.floor(getRivalLevel(rival, referenceDate) / 9)));
 }

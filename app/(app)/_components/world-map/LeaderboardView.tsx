@@ -1,81 +1,86 @@
 "use client";
 
-import { RIVAL_ARCHETYPES } from "../../_lib/world-map/rivals";
-import { getRivalLevel } from "../../_lib/engines/world-map-engine";
+import { RIVAL_PROFILES } from "../../_lib/world-map/rivals";
+import { getRivalLevel, getRivalCountriesConquered, getRivalBossesDefeated, getWorldStatistics } from "../../_lib/engines/world-map-engine";
 import { getRankLabel } from "../../_lib/engines/level-engine";
 import { useProgression } from "../../_lib/hooks/useProgression";
+import { useGoalTree } from "../../_lib/hooks/useGoalTree";
 
 export default function LeaderboardView() {
   const { isReady, progressionSummary } = useProgression();
+  const { goalTree, hasLoaded } = useGoalTree();
 
-  if (!isReady) {
+  if (!isReady || !hasLoaded) {
     return null;
   }
 
   const youLevel = progressionSummary.currentLevel;
   const youRank = getRankLabel(youLevel);
+  const youStats = getWorldStatistics(goalTree);
 
   const entries = [
-    { id: "you", name: "YOU", icon: "🧍", level: youLevel, isUser: true },
-    ...RIVAL_ARCHETYPES.map((rival) => ({ id: rival.id, name: rival.name, icon: rival.icon, level: getRivalLevel(rival), isUser: false })),
+    { id: "you", name: "YOU", icon: "🧍", level: youLevel, rank: youRank, countries: youStats.countriesConquered, bosses: youStats.bossesDefeated, isUser: true },
+    ...RIVAL_PROFILES.map((rival) => ({
+      id: rival.id,
+      name: rival.name,
+      icon: rival.icon,
+      level: getRivalLevel(rival),
+      rank: getRankLabel(getRivalLevel(rival)),
+      countries: getRivalCountriesConquered(rival),
+      bosses: getRivalBossesDefeated(rival),
+      isUser: false,
+    })),
   ].sort((first, second) => second.level - first.level);
+
+  const aheadOfYou = entries.filter((entry) => !entry.isUser && entry.level > youLevel).sort((first, second) => first.level - second.level);
+  const closestRival = aheadOfYou[0];
 
   return (
     <div className="rounded-2xl border border-purple-500/25 bg-slate-950/55 p-5">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-purple-300">Leaderboard</p>
-        <p className="mt-1 text-sm text-slate-400">Fictional rivals for motivation - not real people. Their growth is slow and fixed, never random.</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-purple-300">Leaderboard · Global</p>
+        <p className="mt-1 text-sm text-slate-400">18 fictional rivals for motivation - not real people. Their growth is slow, fixed, and never random.</p>
       </div>
 
-      <div className="mt-4 space-y-2">
-        {entries.map((entry, index) => (
-          <div
-            key={entry.id}
-            className={
-              "flex items-center gap-3 rounded-xl border px-4 py-3 " +
-              (entry.isUser ? "border-purple-400/50 bg-purple-500/10 shadow-[0_0_18px_rgba(168,85,247,0.18)]" : "border-slate-800 bg-slate-950/50")
-            }
-          >
-            <span className="w-6 text-center text-xs font-bold text-slate-500">#{index + 1}</span>
-            <span className="text-xl">{entry.icon}</span>
-            <div className="min-w-0 flex-1">
-              <p className={"truncate text-sm font-bold " + (entry.isUser ? "text-purple-100" : "text-white")}>{entry.name}</p>
-              {entry.isUser ? <p className="text-xs text-slate-500">Rank {youRank}</p> : null}
-            </div>
-            <span className="text-lg font-black text-white">Lv {entry.level}</span>
-          </div>
-        ))}
-      </div>
+      {closestRival ? (
+        <p className="mt-3 text-xs text-slate-400">
+          <span className="font-semibold text-purple-200">{closestRival.level - youLevel}</span> level{closestRival.level - youLevel === 1 ? "" : "s"} until you overtake{" "}
+          <span className="font-semibold text-white">{closestRival.name}</span>.
+        </p>
+      ) : (
+        <p className="mt-3 text-xs text-emerald-300">You&rsquo;re ahead of every rival right now.</p>
+      )}
 
-      <div className="mt-4 space-y-1.5 border-t border-slate-800 pt-4">
-        {RIVAL_ARCHETYPES.filter((rival) => getRivalLevel(rival) > youLevel).map((rival) => {
-          const gap = getRivalLevel(rival) - youLevel;
-          return (
-            <p key={rival.id} className="text-xs text-slate-400">
-              <span className="font-semibold text-purple-200">{gap}</span> level{gap === 1 ? "" : "s"} until you overtake <span className="font-semibold text-white">{rival.name}</span>.
-            </p>
-          );
-        })}
-        {RIVAL_ARCHETYPES.every((rival) => getRivalLevel(rival) <= youLevel) ? <p className="text-xs text-emerald-300">You're ahead of every rival right now.</p> : null}
-      </div>
-
-      <div className="mt-5 grid gap-3 sm:grid-cols-3">
-        {RIVAL_ARCHETYPES.map((rival) => (
-          <div key={rival.id} className="rounded-xl border border-slate-800 bg-slate-950/50 p-3">
-            <p className="flex items-center gap-1.5 text-sm font-bold text-white">
-              <span>{rival.icon}</span> {rival.name}
-            </p>
-            <p className="mt-1 text-xs text-slate-500">{rival.description}</p>
-            <div className="mt-2 space-y-1">
-              {Object.entries(rival.statProfile).map(([stat, value]) => (
-                <div key={stat} className="flex items-center justify-between text-[11px] text-slate-400">
-                  <span>{stat}</span>
-                  <span className="font-semibold text-slate-300">{value}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
+      <div className="mt-4 overflow-x-auto">
+        <table className="w-full min-w-[560px] border-collapse text-sm">
+          <thead>
+            <tr className="text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-500">
+              <th className="px-2 py-2">#</th>
+              <th className="px-2 py-2">Rival</th>
+              <th className="px-2 py-2">Level</th>
+              <th className="px-2 py-2">Rank</th>
+              <th className="px-2 py-2">Countries</th>
+              <th className="px-2 py-2">Bosses</th>
+            </tr>
+          </thead>
+          <tbody>
+            {entries.map((entry, index) => (
+              <tr key={entry.id} className={"border-t border-slate-800 " + (entry.isUser ? "bg-purple-500/10" : "")}>
+                <td className="px-2 py-2 text-xs font-bold text-slate-500">#{index + 1}</td>
+                <td className="px-2 py-2">
+                  <span className="flex items-center gap-2">
+                    <span>{entry.icon}</span>
+                    <span className={"font-semibold " + (entry.isUser ? "text-purple-100" : "text-white")}>{entry.name}</span>
+                  </span>
+                </td>
+                <td className="px-2 py-2 font-black text-white">Lv {entry.level}</td>
+                <td className="px-2 py-2 text-slate-300">{entry.rank}</td>
+                <td className="px-2 py-2 text-slate-300">{entry.countries}</td>
+                <td className="px-2 py-2 text-slate-300">{entry.bosses}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

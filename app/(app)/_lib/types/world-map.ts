@@ -36,8 +36,11 @@ export type WorldCountry = Readonly<{
 
 // The single state ladder driving both the label and the fog-of-war visual
 // treatment - see quest-mastery-engine.ts-style "one derived value, many
-// uses" convention already established elsewhere in this app.
-export type CountryProgressState = "unknown" | "explored" | "occupied" | "dominated" | "conquered";
+// uses" convention already established elsewhere in this app. "contested"
+// is a real-and-fictional overlay (real player progress + a deterministic
+// rival target) rather than a percentage band - see getCountryState /
+// isCountryContested in world-map-engine.ts.
+export type CountryProgressState = "unknown" | "explored" | "occupied" | "dominated" | "conquered" | "contested";
 
 export type CountryBossStatus = "locked" | "available" | "defeated";
 
@@ -69,14 +72,25 @@ export type WorldDungeon = Readonly<{
   status: DungeonStatus;
 }>;
 
-export type RivalArchetype = Readonly<{
+// Fictional, motivational-only rivals (never implied to be real people).
+// Every number here is deterministic - derived from a fixed calendar
+// formula, never Math.random() - so a rival can never randomly change
+// between page loads or arbitrarily leap ahead of the user.
+export type WorldRivalProfile = Readonly<{
   id: string;
   name: string;
-  description: string;
+  title: string;
   icon: string;
+  originContinentId: string;
+  originCountryId: string;
+  primaryDomain: string;
+  personality: string;
   baseLevel: number;
   // One level gained roughly every this-many days, deterministically from
-  // the calendar date - never random, never able to leap ahead arbitrarily.
+  // the calendar date.
   daysPerLevel: number;
   statProfile: Readonly<Record<string, number>>;
+  // The one country (from the seeded set) this rival is deterministically
+  // "active" in - drives their map marker and the contested-state overlay.
+  targetCountryId: string;
 }>;
