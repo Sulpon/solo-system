@@ -66,6 +66,7 @@ export const STORAGE_KEYS = {
   hairstyles: "menace-hairstyles",
   characterEquippedItems: "menace-character-equipped-items",
   characterProfile: "menace-character-profile",
+  characterAvatarConfig: "menace-character-avatar-config",
 } as const;
 
 export const MENACE_STORAGE_EVENT = "menace-local-storage-change";

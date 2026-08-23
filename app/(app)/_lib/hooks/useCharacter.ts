@@ -7,6 +7,7 @@ import { useWardrobe } from "./useWardrobe";
 import { useHairstyles } from "./useHairstyles";
 import { useEquippedItems } from "./useEquippedItems";
 import { useCharacterProfile } from "./useCharacterProfile";
+import { useAvatarConfig } from "./useAvatarConfig";
 import { getLocalDayKey } from "../local-day";
 import type { BodyweightEntry } from "../types/bodyweight";
 
@@ -29,6 +30,7 @@ export function useCharacter() {
   const hairstyles = useHairstyles();
   const equippedItems = useEquippedItems();
   const characterProfile = useCharacterProfile();
+  const avatarConfig = useAvatarConfig();
 
   const hasLoaded =
     bodyweight.hasLoaded &&
@@ -36,7 +38,8 @@ export function useCharacter() {
     wardrobe.hasLoaded &&
     hairstyles.hasLoaded &&
     equippedItems.hasLoaded &&
-    characterProfile.hasLoaded;
+    characterProfile.hasLoaded &&
+    avatarConfig.hasLoaded;
 
   const hasSeededRef = useRef(false);
 
@@ -77,6 +80,7 @@ export function useCharacter() {
     hairstyles,
     equippedItems,
     characterProfile,
+    avatarConfig,
     activeHairstyle,
     latestMeasurement,
   } as const;

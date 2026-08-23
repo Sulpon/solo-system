@@ -5,16 +5,16 @@ import Card from "../Card";
 import { useCharacter } from "../../_lib/hooks/useCharacter";
 import { useProgression } from "../../_lib/hooks/useProgression";
 import { getRankLabel } from "../../_lib/engines/level-engine";
-import CharacterViewer from "./CharacterViewer";
+import AvatarSection from "./AvatarSection";
 import WardrobeSection from "./WardrobeSection";
 import HairstylesSection from "./HairstylesSection";
 import PhysicalProfileSection from "./PhysicalProfileSection";
 import ReferencePhotosSection from "./ReferencePhotosSection";
 
-type PageTab = "character" | "wardrobe" | "hairstyles" | "physical" | "photos";
+type PageTab = "avatar" | "wardrobe" | "hairstyles" | "physical" | "photos";
 
 const TABS: ReadonlyArray<{ id: PageTab; label: string }> = [
-  { id: "character", label: "Character" },
+  { id: "avatar", label: "Avatar" },
   { id: "wardrobe", label: "Wardrobe" },
   { id: "hairstyles", label: "Hairstyles" },
   { id: "physical", label: "Physical Profile" },
@@ -24,7 +24,7 @@ const TABS: ReadonlyArray<{ id: PageTab; label: string }> = [
 export default function CharacterPageClient() {
   const character = useCharacter();
   const { isReady: progressionReady, progressionSummary } = useProgression();
-  const [tab, setTab] = useState<PageTab>("character");
+  const [tab, setTab] = useState<PageTab>("avatar");
 
   if (!character.hasLoaded || !progressionReady) {
     return (
@@ -57,16 +57,15 @@ export default function CharacterPageClient() {
       </Card>
 
       <Card className="p-5">
-        {tab === "character" ? (
-          <CharacterViewer
-            view={character.characterProfile.profile.view}
-            onChangeView={character.characterProfile.setView}
-            referencePhotos={character.referencePhotos.photos}
-            equippedItems={character.equippedItems.equipped}
-            wardrobeItems={character.wardrobe.items}
-            activeHairstyle={character.activeHairstyle}
+        {tab === "avatar" ? (
+          <AvatarSection
+            avatarConfig={character.avatarConfig.avatarConfig}
+            onSetMeshVisible={character.avatarConfig.setMeshVisible}
             level={progressionSummary.currentLevel}
             rank={rank}
+            heightCm={character.latestMeasurement?.heightCm}
+            weightKg={character.latestMeasurement?.weight}
+            weightUnit={character.latestMeasurement?.unit}
           />
         ) : null}
 
