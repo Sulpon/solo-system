@@ -51,6 +51,13 @@ export const STORAGE_KEYS = {
   worldRivalState: "menace-world-rival-state",
   worldRivalEncounters: "menace-world-rival-encounters",
   worldRivalLastSimulatedAt: "menace-world-rival-last-simulated-at",
+  // Per-city Dungeon/Boss progression - only ever written for a dungeon the
+  // player has actually completed (locked/available are always derived live
+  // from city progress, never stored). See engines/world-map-engine.ts.
+  worldMapDungeonProgress: "menace-world-map-dungeon-progress",
+  worldMapCityConquests: "menace-world-map-city-conquests",
+  worldMapPosition: "menace-world-map-position",
+  worldMapDiscoveredCountryIds: "menace-world-map-discovered-country-ids",
 } as const;
 
 export const MENACE_STORAGE_EVENT = "menace-local-storage-change";

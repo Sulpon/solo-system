@@ -1,19 +1,28 @@
 "use client";
 
 import { useState } from "react";
-import { getCountry } from "../../_lib/world-map/countries";
+import { getCountry, getCountryFlagEmoji } from "../../_lib/world-map/countries";
 import { getContinent } from "../../_lib/world-map/continents";
-import { getBossForCountry } from "../../_lib/world-map/bosses";
-import { getDungeonsForCountry } from "../../_lib/world-map/dungeons";
+import { getCitiesForCountry } from "../../_lib/world-map/cities";
+import { getDungeonsForCity } from "../../_lib/world-map/dungeons";
 import {
   getCountryDisplayState,
   getCountryStateLabel,
   getCountryOwnership,
+  getCountryConquestStatus,
   getLinkedGoals,
   getLinkableGoalCandidates,
+  getLinkedGoalsForCity,
+  getLinkableGoalCandidatesForCity,
   getGoalRouteCheckpoints,
+  getCityProgress,
+  getCityState,
+  getDungeonStatus,
+  isCityConquered,
+  type WorldMapDungeonProgress,
 } from "../../_lib/engines/world-map-engine";
 import { getStateVisuals } from "./world-map-visuals";
+import DungeonCard from "./DungeonCard";
 import type { GoalTree } from "../../_lib/types/goal-tree";
 import type { RivalState } from "../../_lib/types/rival";
 
@@ -23,11 +32,15 @@ type CountryDetailPanelProps = Readonly<{
   selectedGoalId: string | null;
   rivalStates: Readonly<Record<string, RivalState>>;
   playerCountryId: string | null;
+  dungeonProgress: WorldMapDungeonProgress;
   onClose: () => void;
   onLinkGoal: (goalId: string, countryId: string) => void;
   onUnlinkGoal: (goalId: string) => void;
+  onLinkGoalToCity: (goalId: string, cityId: string) => void;
+  onUnlinkGoalFromCity: (goalId: string) => void;
   onSelectActiveGoal: (goalId: string) => void;
   onSelectRival: (rivalId: string) => void;
+  onCompleteDungeon: (dungeonId: string) => void;
 }>;
 
 export default function CountryDetailPanel({
@@ -36,13 +49,21 @@ export default function CountryDetailPanel({
   selectedGoalId,
   rivalStates,
   playerCountryId,
+  dungeonProgress,
   onClose,
   onLinkGoal,
   onUnlinkGoal,
+  onLinkGoalToCity,
+  onUnlinkGoalFromCity,
   onSelectActiveGoal,
   onSelectRival,
+  onCompleteDungeon,
 }: CountryDetailPanelProps) {
   const [pickerValue, setPickerValue] = useState("");
+  const [selectedCityId, setSelectedCityId] = useState<string | null>(null);
+  const [selectedDungeonId, setSelectedDungeonId] = useState<string | null>(null);
+  const [cityGoalPickerValue, setCityGoalPickerValue] = useState("");
+
   const country = getCountry(countryId);
   const continent = country ? getContinent(country.continentId) : null;
 
@@ -55,14 +76,24 @@ export default function CountryDetailPanel({
   const visuals = getStateVisuals(state);
   const linkedGoals = getLinkedGoals(country.id, goalTree);
   const linkableGoals = getLinkableGoalCandidates(goalTree);
-  const boss = getBossForCountry(country.id);
-  const dungeons = getDungeonsForCountry(country.id);
+  const cities = getCitiesForCountry(country.id);
+  const conquestStatus = getCountryConquestStatus(country, dungeonProgress);
   const isEncounter = playerCountryId === country.id && ownership.rivals.length > 0;
+
+  const selectedCity = selectedCityId ? cities.find((city) => city.id === selectedCityId) : null;
+  const selectedDungeon = selectedCity && selectedDungeonId ? getDungeonsForCity(selectedCity.id).find((dungeon) => dungeon.id === selectedDungeonId) : null;
 
   function handleLink() {
     if (pickerValue) {
       onLinkGoal(pickerValue, country!.id);
       setPickerValue("");
+    }
+  }
+
+  function handleLinkCity(cityId: string) {
+    if (cityGoalPickerValue) {
+      onLinkGoalToCity(cityGoalPickerValue, cityId);
+      setCityGoalPickerValue("");
     }
   }
 
@@ -73,7 +104,7 @@ export default function CountryDetailPanel({
         className="max-h-[88vh] w-full overflow-y-auto rounded-t-2xl border border-purple-500/30 bg-slate-950 p-5 shadow-[0_0_55px_rgba(124,58,237,0.28)] sm:max-w-2xl sm:rounded-2xl"
       >
         <div className="flex items-center gap-3">
-          <span className="text-3xl">{country.flag}</span>
+          <span className="text-3xl">{getCountryFlagEmoji(country.iso2)}</span>
           <div>
             <h2 className="text-xl font-black text-white">{country.name}</h2>
             <p className="text-xs text-slate-500">
@@ -97,6 +128,13 @@ export default function CountryDetailPanel({
           <div className="mt-3 flex items-center gap-2 rounded-lg border border-dashed border-rose-400/50 bg-rose-400/10 px-3 py-2 text-xs text-rose-200">
             <span>⚔️</span>
             <span>Contested territory - more than one party has meaningful progress here.</span>
+          </div>
+        ) : null}
+
+        {conquestStatus.isConquered ? (
+          <div className="mt-3 flex items-center gap-2 rounded-lg border border-amber-400/50 bg-amber-400/10 px-3 py-2 text-xs font-semibold text-amber-200">
+            <span>🏆</span>
+            <span>Country Conquered - every city here has fallen.</span>
           </div>
         ) : null}
 
@@ -209,29 +247,192 @@ export default function CountryDetailPanel({
           </div>
         </div>
 
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Dungeons</p>
-            <p className="mt-1 text-sm text-slate-400">
-              0 / {dungeons.length} discovered - locked until the Dungeon system unlocks.
-            </p>
-            <ul className="mt-2 flex flex-wrap gap-1.5">
-              {dungeons.map((dungeon) => (
-                <li key={dungeon.id} className="rounded-full border border-slate-700 bg-slate-950/60 px-2 py-1 text-[10px] font-semibold text-slate-500" title={dungeon.name}>
-                  🔒 {dungeon.name}
-                </li>
-              ))}
-            </ul>
+        {/* Cities - the country's own control points. Each has its own
+            independent progress and its own Dungeon/Boss ladder (never a
+            shared country-wide ladder). */}
+        <div className="mt-5 rounded-xl border border-slate-800 bg-slate-950/50 p-4">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-purple-300">Cities</p>
+            <p className="text-[10px] text-slate-500">{conquestStatus.conqueredCityIds.length} / {conquestStatus.totalCityIds} conquered</p>
           </div>
-          {boss ? (
-            <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-rose-300">Boss</p>
-              <p className="mt-2 text-sm font-bold text-white">{boss.name}</p>
-              <p className="mt-1 text-xs text-slate-500">{boss.description}</p>
-              <span className="mt-2 inline-block rounded-full border border-slate-700 bg-slate-950/60 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400">Locked</span>
-            </div>
-          ) : null}
+
+          <div className="mt-2 space-y-2">
+            {cities.map((city) => {
+              const progress = getCityProgress(city.id, goalTree);
+              const cityState = getCityState(city.id, progress, dungeonProgress);
+              const cityVisuals = getStateVisuals(cityState);
+              const isSelected = selectedCityId === city.id;
+
+              return (
+                <div key={city.id}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCityId(isSelected ? null : city.id)}
+                    className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition ${isSelected ? "border-purple-400/60 bg-purple-500/10" : "border-slate-800 bg-slate-950/60 hover:border-slate-700"}`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-white">{city.name}</p>
+                      <p className="truncate text-[11px] text-slate-500">{city.cityAspect}</p>
+                    </div>
+                    <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] ${cityVisuals.border} ${cityVisuals.bg} ${cityVisuals.text}`}>
+                      {cityState === "conquered" ? "Conquered" : `${progress}%`}
+                    </span>
+                  </button>
+
+                  {isSelected ? (
+                    <CityDungeonLadder
+                      cityId={city.id}
+                      cityName={city.name}
+                      progress={progress}
+                      dungeonProgress={dungeonProgress}
+                      goalTree={goalTree}
+                      onSelectDungeon={setSelectedDungeonId}
+                      linkedGoals={getLinkedGoalsForCity(city.id, goalTree)}
+                      linkableGoals={getLinkableGoalCandidatesForCity(country.id, goalTree)}
+                      cityGoalPickerValue={cityGoalPickerValue}
+                      onCityGoalPickerChange={setCityGoalPickerValue}
+                      onLinkCity={() => handleLinkCity(city.id)}
+                      onUnlinkFromCity={onUnlinkGoalFromCity}
+                    />
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
         </div>
+      </div>
+
+      {selectedDungeon && selectedCity ? (
+        <DungeonCard
+          dungeon={selectedDungeon}
+          city={selectedCity}
+          country={country}
+          status={getDungeonStatus(selectedDungeon, getCityProgress(selectedCity.id, goalTree), dungeonProgress, goalTree)}
+          goalTree={goalTree}
+          onClose={() => setSelectedDungeonId(null)}
+          onComplete={() => {
+            onCompleteDungeon(selectedDungeon.id);
+            setSelectedDungeonId(null);
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+type CityDungeonLadderProps = Readonly<{
+  cityId: string;
+  cityName: string;
+  progress: number;
+  dungeonProgress: WorldMapDungeonProgress;
+  goalTree: GoalTree;
+  onSelectDungeon: (dungeonId: string) => void;
+  linkedGoals: GoalTree;
+  linkableGoals: GoalTree;
+  cityGoalPickerValue: string;
+  onCityGoalPickerChange: (value: string) => void;
+  onLinkCity: () => void;
+  onUnlinkFromCity: (goalId: string) => void;
+}>;
+
+function CityDungeonLadder({
+  cityId,
+  cityName,
+  progress,
+  dungeonProgress,
+  goalTree,
+  onSelectDungeon,
+  linkedGoals,
+  linkableGoals,
+  cityGoalPickerValue,
+  onCityGoalPickerChange,
+  onLinkCity,
+  onUnlinkFromCity,
+}: CityDungeonLadderProps) {
+  const dungeons = getDungeonsForCity(cityId);
+  const conquered = isCityConquered(cityId, dungeonProgress);
+
+  return (
+    <div className="ml-2 mt-1 space-y-3 border-l border-slate-800 pl-4">
+      <div>
+        <div className="flex items-center justify-between text-[10px] text-slate-500">
+          <span>{cityName} Progress</span>
+          <span>{progress}%</span>
+        </div>
+        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-900">
+          <div className="h-full rounded-full bg-purple-400" style={{ width: `${progress}%` }} />
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-1.5">
+        {dungeons.map((dungeon) => {
+          const status = getDungeonStatus(dungeon, progress, dungeonProgress, goalTree);
+          const icon = status === "completed" ? (dungeon.isBoss ? "👑" : "✓") : status === "available" ? (dungeon.isBoss ? "⚔️" : "🔓") : "🔒";
+          return (
+            <button
+              key={dungeon.id}
+              type="button"
+              onClick={() => onSelectDungeon(dungeon.id)}
+              className={
+                "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition " +
+                (status === "completed"
+                  ? "border-emerald-400/50 bg-emerald-400/10 text-emerald-200"
+                  : status === "available"
+                    ? dungeon.isBoss
+                      ? "border-rose-400/60 bg-rose-400/15 text-rose-200 animate-pulse"
+                      : "border-amber-400/50 bg-amber-400/10 text-amber-200"
+                    : "border-slate-700 bg-slate-900 text-slate-500")
+              }
+            >
+              {icon} {dungeon.isBoss ? "Boss" : `Dungeon ${dungeon.dungeonNumber}`}
+            </button>
+          );
+        })}
+      </div>
+
+      {conquered ? <p className="text-[11px] font-semibold text-amber-300">🏙️ {cityName} Conquered</p> : null}
+
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-purple-300">Goals for {cityName}</p>
+        {linkedGoals.length === 0 ? (
+          <p className="mt-1 text-xs text-slate-500">No Goal linked to this city yet.</p>
+        ) : (
+          <ul className="mt-1 space-y-1">
+            {linkedGoals.map((goal) => (
+              <li key={goal.id} className="flex items-center justify-between gap-2 text-xs">
+                <span className="truncate text-slate-300">{goal.title}</span>
+                <button type="button" onClick={() => onUnlinkFromCity(goal.id)} className="shrink-0 text-rose-300 hover:text-rose-200">
+                  Unlink
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {linkableGoals.length > 0 ? (
+          <div className="mt-2 flex gap-2">
+            <select
+              value={cityGoalPickerValue}
+              onChange={(event) => onCityGoalPickerChange(event.target.value)}
+              className="flex-1 rounded-lg border border-slate-700 bg-slate-950/70 px-2 py-1 text-[11px] text-white outline-none focus:border-purple-400"
+            >
+              <option value="">Refine with a country-linked Goal...</option>
+              {linkableGoals.map((goal) => (
+                <option key={goal.id} value={goal.id}>
+                  {goal.title}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={onLinkCity}
+              disabled={!cityGoalPickerValue}
+              className="rounded-lg border border-purple-400/50 bg-purple-500/15 px-2.5 py-1 text-[11px] font-semibold text-purple-100 transition hover:bg-purple-500/25 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Link
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>
   );

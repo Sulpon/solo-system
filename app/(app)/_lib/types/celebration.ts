@@ -17,7 +17,11 @@ export type CelebrationKind =
   | "personal_best"
   | "major_milestone"
   | "quest_mastery_level_up"
-  | "quest_mastery_identity_evolution";
+  | "quest_mastery_identity_evolution"
+  | "dungeon_completed"
+  | "boss_defeated"
+  | "city_conquered"
+  | "country_conquered";
 
 export type CelebrationPayload = Readonly<{
   id: string;

@@ -2,17 +2,18 @@
 
 import { RIVAL_IDENTITIES } from "../../_lib/world-map/rival-roster";
 import { calculateLevel, getRankLabel } from "../../_lib/engines/level-engine";
-import { getWorldStatistics } from "../../_lib/engines/world-map-engine";
+import { getWorldStatistics, type WorldMapDungeonProgress } from "../../_lib/engines/world-map-engine";
 import { useProgression } from "../../_lib/hooks/useProgression";
 import { useGoalTree } from "../../_lib/hooks/useGoalTree";
 import type { RivalState } from "../../_lib/types/rival";
 
 type LeaderboardViewProps = Readonly<{
   rivalStates: Readonly<Record<string, RivalState>>;
+  dungeonProgress: WorldMapDungeonProgress;
   onSelectRival: (rivalId: string) => void;
 }>;
 
-export default function LeaderboardView({ rivalStates, onSelectRival }: LeaderboardViewProps) {
+export default function LeaderboardView({ rivalStates, dungeonProgress, onSelectRival }: LeaderboardViewProps) {
   const { isReady, progressionSummary } = useProgression();
   const { goalTree, hasLoaded } = useGoalTree();
 
@@ -22,7 +23,7 @@ export default function LeaderboardView({ rivalStates, onSelectRival }: Leaderbo
 
   const youLevel = progressionSummary.currentLevel;
   const youRank = getRankLabel(youLevel);
-  const youStats = getWorldStatistics(goalTree);
+  const youStats = getWorldStatistics(goalTree, dungeonProgress);
 
   const entries = [
     { id: "you", name: "YOU", icon: "🧍", level: youLevel, rank: youRank, countries: youStats.countriesConquered, bosses: youStats.bossesDefeated, isUser: true, isRival: false },

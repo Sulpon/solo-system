@@ -1,7 +1,7 @@
 "use client";
 
 import { getRivalIdentity, getRivalQuestCatalog } from "../../_lib/world-map/rival-roster";
-import { getCountry } from "../../_lib/world-map/countries";
+import { getCountry, getCountryFlagEmoji } from "../../_lib/world-map/countries";
 import { calculateLevel, getRankLabel } from "../../_lib/engines/level-engine";
 import { calculateQuestMastery, getQuestMasteryLevel100Target, getQuestMasteryTitle } from "../../_lib/engines/quest-mastery-engine";
 import { getRivalDistance } from "../../_lib/engines/world-map-engine";
@@ -74,7 +74,7 @@ export default function RivalProfilePanel({ rivalId, rivalState, playerCountryId
         </div>
 
         <p className="mt-2 text-xs text-slate-500">
-          {originCountry?.flag} Origin: {originCountry?.name ?? identity.originCountryId}
+          {originCountry ? getCountryFlagEmoji(originCountry.iso2) : ""} Origin: {originCountry?.name ?? identity.originCountryId}
         </p>
 
         <div className="mt-4 flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-950/50 p-3">
@@ -86,7 +86,7 @@ export default function RivalProfilePanel({ rivalId, rivalState, playerCountryId
           <div className="ml-auto text-right text-xs text-slate-400">
             <p className="font-semibold text-rose-300">{proximityLabel(distance)}</p>
             <p className="mt-0.5">
-              {currentCountry?.flag} Currently in {currentCountry?.name ?? rivalState.currentCountryId}
+              {currentCountry ? getCountryFlagEmoji(currentCountry.iso2) : ""} Currently in {currentCountry?.name ?? rivalState.currentCountryId}
             </p>
           </div>
         </div>

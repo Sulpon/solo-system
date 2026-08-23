@@ -47,6 +47,10 @@ export type GoalNode = Readonly<{
   // source of truth for progress/completion; this just lets the World Map
   // visualize where it exists. See engines/world-map-engine.ts.
   worldMapLocationId?: string;
+  // Optional further refinement to one of that country's cities. Only
+  // meaningful alongside worldMapLocationId - a Goal is assigned to a
+  // Country first, and optionally to one of its Cities.
+  worldMapCityId?: string;
   createdAt: string;
   updatedAt: string;
 }>;

@@ -32,6 +32,13 @@ export function getKindAccent(kind: CelebrationKind) {
     case "quest_mastery_level_up":
     case "quest_mastery_identity_evolution":
       return { border: "border-yellow-400/50", text: "text-yellow-200" };
+    case "dungeon_completed":
+      return { border: "border-amber-400/40", text: "text-amber-200" };
+    case "boss_defeated":
+    case "city_conquered":
+      return { border: "border-rose-400/50", text: "text-rose-200" };
+    case "country_conquered":
+      return { border: "border-amber-400/60", text: "text-amber-200" };
     default:
       return { border: "border-slate-600/50", text: "text-slate-200" };
   }

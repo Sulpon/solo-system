@@ -4,11 +4,16 @@ import { useState } from "react";
 import Card from "../Card";
 import { useGoalTree } from "../../_lib/hooks/useGoalTree";
 import { useWorldMapState } from "../../_lib/hooks/useWorldMapState";
+import { useWorldMapDungeons } from "../../_lib/hooks/useWorldMapDungeons";
 import { useProgression } from "../../_lib/hooks/useProgression";
+import { useCelebration } from "../../_lib/hooks/useCelebration";
 import { useRivalWorld } from "../../_lib/hooks/useRivalWorld";
 import { getRankLabel } from "../../_lib/engines/level-engine";
-import { getCharacterPosition, getWorldStatistics, getRivalDistance } from "../../_lib/engines/world-map-engine";
+import { getCharacterPosition, getWorldStatistics, getRivalDistance, getCountryConquestStatus, isCityConquered } from "../../_lib/engines/world-map-engine";
 import { getRivalIdentity } from "../../_lib/world-map/rival-roster";
+import { getDungeon } from "../../_lib/world-map/dungeons";
+import { getCountry } from "../../_lib/world-map/countries";
+import { getCity } from "../../_lib/world-map/cities";
 import WorldView from "./WorldView";
 import ContinentView from "./ContinentView";
 import CountryDetailPanel from "./CountryDetailPanel";
@@ -21,7 +26,9 @@ type PageTab = "map" | "leaderboard";
 export default function WorldMapPageClient() {
   const { goalTree, hasLoaded, saveNode } = useGoalTree();
   const { selectedGoalId, setSelectedGoalId, hasLoaded: worldMapStateLoaded } = useWorldMapState();
-  const { isReady: progressionReady, progressionSummary } = useProgression();
+  const { dungeonProgress, completeDungeon, hasLoaded: dungeonsLoaded } = useWorldMapDungeons();
+  const { isReady: progressionReady, progressionSummary, addBonusXpEvents } = useProgression();
+  const { enqueueCelebration } = useCelebration();
   const [tab, setTab] = useState<PageTab>("map");
   const [viewLevel, setViewLevel] = useState<MapViewLevel>("world");
   const [selectedContinentId, setSelectedContinentId] = useState<string | null>(null);
@@ -31,7 +38,7 @@ export default function WorldMapPageClient() {
   const characterPosition = hasLoaded && worldMapStateLoaded ? getCharacterPosition(goalTree, selectedGoalId) : null;
   const { statesById: rivalStates, hasLoaded: rivalWorldLoaded } = useRivalWorld(characterPosition?.countryId ?? null, progressionSummary.currentLevel);
 
-  if (!hasLoaded || !worldMapStateLoaded || !progressionReady || !rivalWorldLoaded) {
+  if (!hasLoaded || !worldMapStateLoaded || !progressionReady || !rivalWorldLoaded || !dungeonsLoaded) {
     return (
       <Card className="p-5">
         <div className="rounded-xl border border-slate-800 bg-slate-950/45 p-4 text-sm text-slate-400">Loading World Map...</div>
@@ -39,7 +46,7 @@ export default function WorldMapPageClient() {
     );
   }
 
-  const stats = getWorldStatistics(goalTree);
+  const stats = getWorldStatistics(goalTree, dungeonProgress);
   const rank = getRankLabel(progressionSummary.currentLevel);
 
   const nearbyRivals = Object.values(rivalStates)
@@ -57,9 +64,88 @@ export default function WorldMapPageClient() {
   }
 
   function unlinkGoal(goalId: string) {
-    saveNode(goalId, (current) => ({ ...current, worldMapLocationId: undefined }));
+    saveNode(goalId, (current) => ({ ...current, worldMapLocationId: undefined, worldMapCityId: undefined }));
     if (selectedGoalId === goalId) {
       setSelectedGoalId(null);
+    }
+  }
+
+  function linkGoalToCity(goalId: string, cityId: string) {
+    saveNode(goalId, (current) => ({ ...current, worldMapCityId: cityId }));
+  }
+
+  function unlinkGoalFromCity(goalId: string) {
+    saveNode(goalId, (current) => ({ ...current, worldMapCityId: undefined }));
+  }
+
+  // Reward + celebration only - the dungeon completion itself is persisted
+  // by useWorldMapDungeons. Reuses the existing bonus-XP-event pipeline
+  // (the same one Challenges/Mystery Rewards use) and the existing
+  // celebration queue - never a parallel XP or notification system.
+  function handleCompleteDungeon(dungeonId: string) {
+    const dungeon = getDungeon(dungeonId);
+    if (!dungeon) return;
+
+    const city = getCity(dungeon.cityId);
+    const country = getCountry(dungeon.countryId);
+    const nowIso = new Date().toISOString();
+
+    completeDungeon(dungeonId, nowIso);
+
+    if (dungeon.xpReward > 0) {
+      addBonusXpEvents([
+        {
+          id: `world-map-dungeon-${dungeon.id}`,
+          sourceType: "world_map",
+          sourceId: dungeon.id,
+          sourceTitle: dungeon.name,
+          amount: dungeon.xpReward,
+          attributeXp: [],
+          createdAt: nowIso,
+        },
+      ]);
+    }
+
+    const nextDungeonProgress = { ...dungeonProgress, [dungeonId]: nowIso };
+
+    if (!dungeon.isBoss) {
+      enqueueCelebration({
+        kind: "dungeon_completed",
+        intensity: "small",
+        title: "Dungeon Completed",
+        description: `${dungeon.name}${city ? ` - ${city.name}` : ""}`,
+        xpGained: dungeon.xpReward,
+      });
+      return;
+    }
+
+    enqueueCelebration({
+      kind: "boss_defeated",
+      intensity: "major",
+      title: "Boss Defeated",
+      description: dungeon.name,
+      xpGained: dungeon.xpReward,
+    });
+
+    if (city) {
+      enqueueCelebration({
+        kind: "city_conquered",
+        intensity: "major",
+        title: "City Conquered",
+        description: `🏙️ ${city.name}${country ? `, ${country.name}` : ""}`,
+      });
+    }
+
+    if (country && isCityConquered(dungeon.cityId, nextDungeonProgress)) {
+      const conquestStatus = getCountryConquestStatus(country, nextDungeonProgress);
+      if (conquestStatus.isConquered) {
+        enqueueCelebration({
+          kind: "country_conquered",
+          intensity: "legendary",
+          title: "Country Conquered",
+          description: `🏆 ${country.name}`,
+        });
+      }
     }
   }
 
@@ -116,7 +202,7 @@ export default function WorldMapPageClient() {
               <span className="font-black text-amber-300">{stats.countriesConquered}</span> Countries Conquered
             </span>
             <span className="rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-1.5 text-xs text-slate-300">
-              <span className="font-black text-rose-300">{stats.bossesDefeated}</span> Bosses Defeated
+              <span className="font-black text-rose-300">{stats.citiesConquered}</span> Cities Conquered
             </span>
             <span className="rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-1.5 text-xs text-slate-300">
               <span className="font-black text-cyan-300">{stats.worldProgressPercent}%</span> World Progress
@@ -126,7 +212,7 @@ export default function WorldMapPageClient() {
       </Card>
 
       {tab === "leaderboard" ? (
-        <LeaderboardView rivalStates={rivalStates} onSelectRival={setSelectedRivalId} />
+        <LeaderboardView rivalStates={rivalStates} dungeonProgress={dungeonProgress} onSelectRival={setSelectedRivalId} />
       ) : (
         <>
           {characterPosition ? (
@@ -191,11 +277,15 @@ export default function WorldMapPageClient() {
               selectedGoalId={selectedGoalId}
               rivalStates={rivalStates}
               playerCountryId={characterPosition?.countryId ?? null}
+              dungeonProgress={dungeonProgress}
               onClose={() => setSelectedCountryId(null)}
               onLinkGoal={linkGoal}
               onUnlinkGoal={unlinkGoal}
+              onLinkGoalToCity={linkGoalToCity}
+              onUnlinkGoalFromCity={unlinkGoalFromCity}
               onSelectActiveGoal={setSelectedGoalId}
               onSelectRival={setSelectedRivalId}
+              onCompleteDungeon={handleCompleteDungeon}
             />
           ) : null}
         </>

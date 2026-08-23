@@ -17,8 +17,8 @@ export const WORLD_CONTINENTS: ReadonlyArray<WorldContinent> = [
   {
     id: "north-america",
     name: "North America",
-    domain: "trading",
-    domainLabel: "Trading",
+    domain: "career-money",
+    domainLabel: "Career / Money",
     description: "The continent of markets - strategy, risk, and market psychology.",
     icon: "📈",
     position: { x: 222, y: 125 },
@@ -47,7 +47,7 @@ export const WORLD_CONTINENTS: ReadonlyArray<WorldContinent> = [
   {
     id: "south-america",
     name: "South America",
-    domain: "spirit",
+    domain: "spirit-identity",
     domainLabel: "Spirit / Identity",
     description: "The continent of self - confidence, identity, and resilience.",
     icon: "🌿",
@@ -57,8 +57,8 @@ export const WORLD_CONTINENTS: ReadonlyArray<WorldContinent> = [
   {
     id: "oceania",
     name: "Oceania",
-    domain: "adventure",
-    domainLabel: "Adventure / Exploration",
+    domain: "life-exploration",
+    domainLabel: "Life / Exploration",
     description: "The continent of the unknown path - exploration, adventure, and creativity.",
     icon: "🏝️",
     position: { x: 875, y: 319 },

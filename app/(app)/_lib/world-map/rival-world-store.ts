@@ -2,7 +2,29 @@ import { getLocalDayKey, parseLocalDayKey } from "../local-day";
 import { calculateLevel, getRankLabel } from "../engines/level-engine";
 import { initializeRivalState, simulateRivalDay } from "./rival-simulation-engine";
 import { RIVAL_IDENTITIES } from "./rival-roster";
+import { resolveCountryId } from "./legacy-country-ids";
 import type { RivalEncounter, RivalState } from "../types/rival";
+
+// The 195-country rebuild renamed several country ids (kebab-case ->
+// snake_case, "usa" -> "united_states"). A Rival that had already been
+// simulating under the old ids must keep their real accumulated progress,
+// not silently reset to zero - every id a RivalState references is resolved
+// through the same alias table Goals use. A no-op once a state has already
+// been migrated (resolveCountryId is idempotent).
+function migrateLegacyRivalCountryIds(state: RivalState): RivalState {
+  const countryProgress: Record<string, number> = {};
+  Object.entries(state.countryProgress).forEach(([countryId, progress]) => {
+    const resolved = resolveCountryId(countryId);
+    countryProgress[resolved] = Math.max(countryProgress[resolved] ?? 0, progress);
+  });
+
+  return {
+    ...state,
+    currentCountryId: resolveCountryId(state.currentCountryId),
+    countryProgress,
+    conqueredCountryIds: Array.from(new Set(state.conqueredCountryIds.map(resolveCountryId))),
+  };
+}
 
 // Bounds how far a single catch-up pass will replay - a long absence (or a
 // missing/corrupted clock) fast-forwards to the last 60 simulated days
@@ -52,7 +74,10 @@ export function runCatchUpSimulation(
   const nowIso = now.toISOString();
   const nowDayKey = getLocalDayKey(now);
 
-  const states: Record<string, RivalState> = { ...existingStates };
+  const states: Record<string, RivalState> = {};
+  Object.entries(existingStates).forEach(([id, state]) => {
+    states[id] = migrateLegacyRivalCountryIds(state);
+  });
   RIVAL_IDENTITIES.forEach((identity) => {
     if (!states[identity.id]) {
       states[identity.id] = initializeRivalState(identity, nowIso);

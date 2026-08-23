@@ -38,7 +38,7 @@ export type XpEventAttributeReward = Readonly<{
   amount: number;
 }>;
 
-export type XpEventSourceType = "quest" | "dream" | "goal" | "milestone" | "progress_goal" | "sequential_step" | "sequential_milestone" | "achievement" | "streak_milestone";
+export type XpEventSourceType = "quest" | "dream" | "goal" | "milestone" | "progress_goal" | "sequential_step" | "sequential_milestone" | "achievement" | "streak_milestone" | "world_map";
 
 export type XpEvent = Readonly<{
   id: string;

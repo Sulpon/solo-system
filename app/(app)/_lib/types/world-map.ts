@@ -1,10 +1,11 @@
-// The World Map is a read-oriented visualization layer - it never stores
-// Goal or Quest data, only its own small config (continents/countries,
-// developer-curated, mirrors achievement-definitions.ts) and one piece of
-// UI preference (which Goal is "active" on the map). Progress, state, and
-// statistics are all derived live from the existing Goal Tree.
+// The World Map is a read-oriented visualization layer over the real Atlas
+// systems (Goal Tree, Quests, XP, Rivals). Hierarchy: Continent (fixed
+// life-domain mental map) -> Country (real, all 195) -> City (a country's
+// control points, 3 seeded per country) -> Dungeon/Boss (each city's own
+// independent 4 Dungeons + 1 Boss). Country/city progress is always derived
+// live from the Goal Tree, never stored - see engines/world-map-engine.ts.
 
-export type LifeDomain = "body" | "mind" | "trading" | "spirit" | "discipline" | "adventure" | "unknown";
+export type LifeDomain = "body" | "mind" | "career-money" | "discipline" | "spirit-identity" | "life-exploration" | "unknown";
 
 export type MapPosition = Readonly<{ x: number; y: number }>;
 
@@ -21,57 +22,77 @@ export type WorldContinent = Readonly<{
 
 export type WorldCountry = Readonly<{
   id: string;
-  continentId: string;
   name: string;
-  flag: string;
+  iso2: string;
+  continentId: string;
+  // The Excel's "real-world association" - a short life-domain flavor
+  // description (e.g. "Resilience / conditioning"), not the Attribute
+  // catalog. See rival-roster.ts for the same LifeDomain-vs-real-CategoryId
+  // distinction already resolved for Rivals.
   domain: string;
+  goalFit: string;
+  cityIds: ReadonlyArray<string>;
   description: string;
-  position: MapPosition;
-  // Placeholders for future systems - referenced by id only, never resolved
-  // or rendered as real content yet. See world-map-engine.ts.
-  relatedSkillIds?: ReadonlyArray<string>;
-  dungeonIds?: ReadonlyArray<string>;
-  bossId?: string;
+}>;
+
+export type WorldCity = Readonly<{
+  id: string;
+  countryId: string;
+  name: string;
+  cityAspect: string;
+  description: string;
+  mapRole: string;
+  // Real per-city coordinates are not in the source data (585 of them) -
+  // stays a real, optional extension point. Absent today; when unset the UI
+  // computes a deterministic layout position instead of inventing precision.
+  coordinates?: MapPosition;
 }>;
 
 // The single state ladder driving both the label and the fog-of-war visual
-// treatment - see quest-mastery-engine.ts-style "one derived value, many
-// uses" convention already established elsewhere in this app. "contested" is
-// a multi-party overlay (the player and/or one or more Rivals each holding
-// meaningful real progress in the same country) rather than a percentage
-// band - see getCountryOwnership / isCountryContested in world-map-engine.ts.
+// treatment. "contested" is a multi-party overlay (the player and/or one or
+// more Rivals each holding meaningful real progress in the same country)
+// rather than a percentage band - see getCountryOwnership / isCountryContested
+// in world-map-engine.ts.
 export type CountryProgressState = "unknown" | "explored" | "occupied" | "dominated" | "conquered" | "contested";
 
-export type CountryBossStatus = "locked" | "available" | "defeated";
+export type CityProgressState = "unknown" | "explored" | "occupied" | "dominated" | "conquered";
 
-export type CountryBoss = Readonly<{
-  id: string;
-  countryId: string;
-  name: string;
-  description: string;
-  // Free-text placeholders for now - will become structured requirements
-  // (Quest Mastery level, Skill level, Dungeon completion, ...) once those
-  // systems exist.
-  requirements: ReadonlyArray<string>;
-  rewardId?: string;
-  status: CountryBossStatus;
-}>;
-
-export type DungeonType = "training" | "challenge" | "boss";
+export type DungeonType = "DUNGEON_1" | "DUNGEON_2" | "DUNGEON_3" | "DUNGEON_4" | "BOSS";
 export type DungeonStatus = "locked" | "available" | "completed";
+export type DungeonVerificationStatus = "curated" | "needs_verification";
 
+// Boss is a WorldDungeon with isBoss:true (dungeonNumber 5, type "BOSS"),
+// not a separate type - the Excel itself models it this way (Atlas Data
+// Model's WorldBoss key fields are a strict subset of what's here), and the
+// UI renders the isBoss row with the stronger Boss Card presentation.
 export type WorldDungeon = Readonly<{
   id: string;
+  cityId: string;
   countryId: string;
+  dungeonNumber: number;
   name: string;
   type: DungeonType;
-  difficulty: number;
-  requiredSkillIds?: ReadonlyArray<string>;
-  recommendedSkillIds?: ReadonlyArray<string>;
-  objective: string;
-  status: DungeonStatus;
+  unlockProgressPct: number;
+  isBoss: boolean;
+  bossRank?: string;
+  // Data-driven requirement references - real Goal/Skill ids, never
+  // hardcoded into the UI. Empty in the seed (none authored yet); the
+  // requirements engine supports them the moment any exist.
+  requirementGoalIds: ReadonlyArray<string>;
+  requirementSkillIds: ReadonlyArray<string>;
+  xpReward: number;
+  masteryReward: number;
+  description: string;
+  whyItMatters: string;
+  travelMemoryHook: string;
+  photoQuery: string;
+  photoSearchUrl: string;
+  photoSource: string;
+  verificationStatus: DungeonVerificationStatus;
 }>;
 
-// AI Rival types (identity, personality, simulated state) live in
-// types/rival.ts - Rivals are simulated "other players", not part of this
-// file's static config-only world.
+export type WorldMapPosition = Readonly<{
+  continentId: string;
+  countryId: string;
+  cityId?: string;
+}>;

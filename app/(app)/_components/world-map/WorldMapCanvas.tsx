@@ -55,7 +55,12 @@ export default function WorldMapCanvas({
   const path = useMemo(() => geoPath(projection), [projection]);
   const toPixel = usePixel(projection);
 
-  const seededCountries = continentId ? getCountriesForContinent(continentId) : WORLD_COUNTRIES;
+  const countries = continentId ? getCountriesForContinent(continentId) : WORLD_COUNTRIES;
+
+  // Countries with no world-atlas polygon (~29 mostly microstates) still
+  // need a real, clickable presence at continent zoom - a small dot at
+  // their real marker coordinates instead of a filled territory shape.
+  const unshaped = useMemo(() => (continentId ? countries.filter((country) => !getCountryFeature(country.id)) : []), [countries, continentId]);
 
   const rivalsByCountry = useMemo(() => {
     const map = new Map<string, RivalState[]>();
@@ -66,6 +71,53 @@ export default function WorldMapCanvas({
     });
     return map;
   }, [rivalStates]);
+
+  function renderMarkersForCountry(countryId: string, left: number, top: number) {
+    const isCharacterHere = characterPosition?.countryId === countryId;
+    const rivalsHere = rivalsByCountry.get(countryId) ?? [];
+
+    if (!isCharacterHere && rivalsHere.length === 0) {
+      return null;
+    }
+
+    return (
+      <div key={`markers-${countryId}`} style={{ left: `${left}%`, top: `${top}%` }} className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2">
+        {isCharacterHere ? (
+          <span
+            className="absolute -top-4 left-1/2 -translate-x-1/2 animate-pulse text-lg drop-shadow-[0_0_8px_rgba(192,132,252,0.9)]"
+            title={`You are here${characterPosition?.goalTitle ? ` - ${characterPosition.goalTitle}` : ""}`}
+          >
+            🧍
+          </span>
+        ) : null}
+
+        {rivalsHere.length > 0 ? (
+          <span className="pointer-events-auto absolute -bottom-3 left-1/2 flex -translate-x-1/2 gap-0.5">
+            {rivalsHere.slice(0, 3).map((rivalState) => {
+              const identity = getRivalIdentity(rivalState.identityId);
+              if (!identity) return null;
+              const isEncounter = isCharacterHere;
+              return (
+                <span
+                  key={rivalState.identityId}
+                  role="button"
+                  tabIndex={0}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onSelectRival?.(rivalState.identityId);
+                  }}
+                  className="cursor-pointer text-[10px] leading-none opacity-90 hover:opacity-100"
+                  title={`${identity.name} (${identity.title})${isEncounter ? " - Rival encounter" : " - Rival nearby"}`}
+                >
+                  {isEncounter ? "⚔️" : "⚠️"} {identity.icon}
+                </span>
+              );
+            })}
+          </span>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div className="relative aspect-[2/1] w-full overflow-hidden rounded-xl">
@@ -95,9 +147,12 @@ export default function WorldMapCanvas({
           ))}
         </g>
 
-        {/* Seeded, stateful countries - real borders, ownership-driven glow */}
+        {/* Every seeded (real, playable) country - real borders,
+            ownership-driven glow. Hover shows the country name (works even
+            at continent zoom with 40-50+ countries, where a text label per
+            country would be unreadable clutter). */}
         <g>
-          {seededCountries.map((country) => {
+          {countries.map((country) => {
             const featureItem = getCountryFeature(country.id);
             if (!featureItem) {
               return null;
@@ -128,10 +183,47 @@ export default function WorldMapCanvas({
           })}
         </g>
 
+        {/* Small dot markers for the ~29 countries with no world-atlas
+            polygon (mostly microstates/small islands) - still real,
+            clickable, playable, just without a filled shape. */}
+        {continentId ? (
+          <g>
+            {unshaped.map((country) => {
+              const coords = getCountryMarkerCoords(country.id);
+              const pixel = coords ? projection([coords[0], coords[1]]) : null;
+              if (!pixel) return null;
+
+              const state = getCountryDisplayState(country.id, goalTree, rivalStates);
+              const visuals = getStateVisuals(state);
+              const isSelected = selectedCountryId === country.id;
+
+              return (
+                <circle
+                  key={country.id}
+                  cx={pixel[0]}
+                  cy={pixel[1]}
+                  r={isSelected ? 5 : 3.5}
+                  fill={visuals.ring}
+                  stroke="#020617"
+                  strokeWidth={1}
+                  className="cursor-pointer"
+                  onClick={() => onSelectCountry(country.id)}
+                >
+                  <title>
+                    {country.name} - {getCountryStateLabel(state)}
+                  </title>
+                </circle>
+              );
+            })}
+          </g>
+        ) : null}
+
         <rect x={0} y={0} width={VIEW_WIDTH} height={VIEW_HEIGHT} fill="url(#wm-vignette)" className="pointer-events-none" />
       </svg>
 
-      {/* HTML overlay: continent/country labels, player marker, rival markers */}
+      {/* HTML overlay: continent labels (world scope) or player/rival
+          markers only (continent scope - country identification happens
+          via the SVG hover tooltip above, not a text label per country). */}
       <div className="pointer-events-none absolute inset-0">
         {!continentId
           ? WORLD_CONTINENTS.map((continent) => {
@@ -165,75 +257,13 @@ export default function WorldMapCanvas({
                 </button>
               );
             })
-          : seededCountries.map((country) => {
+          : countries.map((country) => {
               const coords = getCountryMarkerCoords(country.id);
               const pixel = coords ? toPixel(coords[0], coords[1]) : null;
-              if (!pixel) {
-                return null;
-              }
-
-              const state = getCountryDisplayState(country.id, goalTree, rivalStates);
-              const visuals = getStateVisuals(state);
-              const isCharacterHere = characterPosition?.countryId === country.id;
-              const rivalsHere = rivalsByCountry.get(country.id) ?? [];
+              if (!pixel) return null;
               const left = (pixel[0] / VIEW_WIDTH) * 100;
               const top = (pixel[1] / VIEW_HEIGHT) * 100;
-
-              return (
-                <button
-                  key={country.id}
-                  type="button"
-                  onClick={() => onSelectCountry(country.id)}
-                  style={{ left: `${left}%`, top: `${top}%` }}
-                  className="group pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2"
-                >
-                  <span
-                    className={`flex flex-col items-center gap-0.5 rounded-lg border px-2 py-1 backdrop-blur-sm transition group-hover:scale-105 ${visuals.border} ${visuals.bg} ${visuals.glow}`}
-                  >
-                    <span className="text-sm leading-none">{country.flag}</span>
-                    <span className="whitespace-nowrap text-[9px] font-bold text-white">{country.name}</span>
-                  </span>
-
-                  {isCharacterHere ? (
-                    <span
-                      className="absolute -top-4 left-1/2 -translate-x-1/2 animate-pulse text-lg drop-shadow-[0_0_8px_rgba(192,132,252,0.9)]"
-                      title={`You are here${characterPosition?.goalTitle ? ` - ${characterPosition.goalTitle}` : ""}`}
-                    >
-                      🧍
-                    </span>
-                  ) : null}
-
-                  {/* Rival markers - always visually smaller/subordinate to
-                      the player marker above, per spec. Clickable to open a
-                      Rival Profile without navigating the map. */}
-                  {rivalsHere.length > 0 ? (
-                    <span className="pointer-events-auto absolute -bottom-3 left-1/2 flex -translate-x-1/2 gap-0.5">
-                      {rivalsHere.slice(0, 3).map((rivalState) => {
-                        const identity = getRivalIdentity(rivalState.identityId);
-                        if (!identity) {
-                          return null;
-                        }
-                        const isEncounter = isCharacterHere;
-                        return (
-                          <span
-                            key={rivalState.identityId}
-                            role="button"
-                            tabIndex={0}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              onSelectRival?.(rivalState.identityId);
-                            }}
-                            className="cursor-pointer text-[10px] leading-none opacity-90 hover:opacity-100"
-                            title={`${identity.name} (${identity.title})${isEncounter ? " - Rival encounter" : " - Rival nearby"}`}
-                          >
-                            {isEncounter ? "⚔️" : "⚠️"} {identity.icon}
-                          </span>
-                        );
-                      })}
-                    </span>
-                  ) : null}
-                </button>
-              );
+              return renderMarkersForCountry(country.id, left, top);
             })}
       </div>
     </div>
