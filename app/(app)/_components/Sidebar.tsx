@@ -14,7 +14,10 @@ const leadingNavItems = [
   { name: "Rewards", href: "/rewards" },
 ];
 
-const preSettingsNavItems = [{ name: "Chronicle", href: "/chronicle" }];
+const preSettingsNavItems = [
+  { name: "World Map", href: "/world-map" },
+  { name: "Chronicle", href: "/chronicle" },
+];
 
 const trailingNavItems = [{ name: "Settings", href: "/settings" }];
 

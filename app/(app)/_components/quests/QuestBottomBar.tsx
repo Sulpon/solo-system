@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useProgression } from "../../_lib/hooks/useProgression";
 
 function ScrollIcon({ className = "h-5 w-5" }: { className?: string }) {
@@ -51,17 +52,17 @@ function ChartIcon({ className = "h-5 w-5" }: { className?: string }) {
 }
 
 const NAV_ITEMS = [
-  { key: "quests", label: "Quests", icon: ScrollIcon },
-  { key: "world", label: "World", icon: GlobeIcon },
-  { key: "character", label: "Character", icon: ShieldIcon },
-  { key: "rewards", label: "Rewards", icon: ChestIcon },
-  { key: "progress", label: "Progress", icon: ChartIcon },
+  { key: "quests", label: "Quests", icon: ScrollIcon, href: undefined },
+  { key: "world", label: "World", icon: GlobeIcon, href: "/world-map" },
+  { key: "character", label: "Character", icon: ShieldIcon, href: undefined },
+  { key: "rewards", label: "Rewards", icon: ChestIcon, href: undefined },
+  { key: "progress", label: "Progress", icon: ChartIcon, href: undefined },
 ] as const;
 
-// Decorative for this pass - Quests is the only page this bar exists on and
-// the only item wired as "active". World/Character/Rewards/Progress render
-// present but inert rather than guessing at routes for pages that don't
-// have a natural single home yet (Character/Progress in particular).
+// Quests is the only page this bar exists on and the only item wired as
+// "active". "World" now links to the real World Map page. Character/
+// Rewards/Progress remain decorative/inert - they don't yet have a single
+// natural page to point at.
 export default function QuestBottomBar() {
   const { isReady, progressionSummary } = useProgression();
 
@@ -78,17 +79,25 @@ export default function QuestBottomBar() {
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const isActive = item.key === "quests";
+          const className =
+            "flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] transition " +
+            (isActive
+              ? "border-purple-400/60 bg-purple-500/20 text-white shadow-[0_0_18px_rgba(168,85,247,0.22)]"
+              : item.href
+                ? "border-slate-800 bg-slate-950/40 text-slate-400 hover:border-purple-400/40 hover:text-white"
+                : "border-slate-800 bg-slate-950/40 text-slate-500");
+
+          if (item.href) {
+            return (
+              <Link key={item.key} href={item.href} className={className}>
+                <Icon className="h-4 w-4" />
+                {item.label}
+              </Link>
+            );
+          }
 
           return (
-            <div
-              key={item.key}
-              className={
-                "flex items-center gap-2 rounded-xl border px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] transition " +
-                (isActive
-                  ? "border-purple-400/60 bg-purple-500/20 text-white shadow-[0_0_18px_rgba(168,85,247,0.22)]"
-                  : "border-slate-800 bg-slate-950/40 text-slate-500")
-              }
-            >
+            <div key={item.key} className={className}>
               <Icon className="h-4 w-4" />
               {item.label}
             </div>

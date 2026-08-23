@@ -43,6 +43,7 @@ export const STORAGE_KEYS = {
   realLifeRewards: "menace-real-life-rewards",
   bonusXpEvents: "menace-bonus-xp-events",
   journalEntries: "menace-journal-entries",
+  worldMapSelectedGoalId: "menace-world-map-selected-goal-id",
 } as const;
 
 export const MENACE_STORAGE_EVENT = "menace-local-storage-change";

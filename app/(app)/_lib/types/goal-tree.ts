@@ -43,6 +43,10 @@ export type GoalNode = Readonly<{
   steps?: SequentialMilestoneStep[];
   currentStepIndex?: number;
   completed?: boolean;
+  // Optional link to a World Map country - the Goal remains the single
+  // source of truth for progress/completion; this just lets the World Map
+  // visualize where it exists. See engines/world-map-engine.ts.
+  worldMapLocationId?: string;
   createdAt: string;
   updatedAt: string;
 }>;
