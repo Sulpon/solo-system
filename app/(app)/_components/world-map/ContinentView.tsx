@@ -6,16 +6,19 @@ import { getContinentProgress } from "../../_lib/engines/world-map-engine";
 import WorldMapCanvas from "./WorldMapCanvas";
 import type { GoalTree } from "../../_lib/types/goal-tree";
 import type { CharacterPosition } from "../../_lib/engines/world-map-engine";
+import type { RivalState } from "../../_lib/types/rival";
 
 type ContinentViewProps = Readonly<{
   continentId: string;
   goalTree: GoalTree;
   characterPosition: CharacterPosition | null;
+  rivalStates: Readonly<Record<string, RivalState>>;
   onBack: () => void;
   onSelectCountry: (countryId: string) => void;
+  onSelectRival: (rivalId: string) => void;
 }>;
 
-export default function ContinentView({ continentId, goalTree, characterPosition, onBack, onSelectCountry }: ContinentViewProps) {
+export default function ContinentView({ continentId, goalTree, characterPosition, rivalStates, onBack, onSelectCountry, onSelectRival }: ContinentViewProps) {
   const continent = getContinent(continentId);
   const countries = getCountriesForContinent(continentId);
 
@@ -51,7 +54,14 @@ export default function ContinentView({ continentId, goalTree, characterPosition
           No countries charted here yet.
         </div>
       ) : (
-        <WorldMapCanvas goalTree={goalTree} characterPosition={characterPosition} continentId={continentId} onSelectCountry={onSelectCountry} />
+        <WorldMapCanvas
+          goalTree={goalTree}
+          characterPosition={characterPosition}
+          rivalStates={rivalStates}
+          continentId={continentId}
+          onSelectCountry={onSelectCountry}
+          onSelectRival={onSelectRival}
+        />
       )}
     </div>
   );

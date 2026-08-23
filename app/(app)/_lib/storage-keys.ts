@@ -44,6 +44,13 @@ export const STORAGE_KEYS = {
   bonusXpEvents: "menace-bonus-xp-events",
   journalEntries: "menace-journal-entries",
   worldMapSelectedGoalId: "menace-world-map-selected-goal-id",
+  // AI Rival simulation state - synced via the cloud snapshot like everything
+  // else under "menace-" so the world looks the same across devices. Kept
+  // compact (incremental aggregates + capped logs, not unbounded completion
+  // history) - see world-map/rival-world-store.ts.
+  worldRivalState: "menace-world-rival-state",
+  worldRivalEncounters: "menace-world-rival-encounters",
+  worldRivalLastSimulatedAt: "menace-world-rival-last-simulated-at",
 } as const;
 
 export const MENACE_STORAGE_EVENT = "menace-local-storage-change";

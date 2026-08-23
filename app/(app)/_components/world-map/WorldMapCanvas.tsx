@@ -4,13 +4,13 @@ import { useMemo } from "react";
 import { geoEquirectangular, geoPath, type GeoProjection } from "d3-geo";
 import { WORLD_CONTINENTS } from "../../_lib/world-map/continents";
 import { WORLD_COUNTRIES, getCountriesForContinent } from "../../_lib/world-map/countries";
-import { getRivalsForContinent } from "../../_lib/world-map/rivals";
+import { getRivalIdentity } from "../../_lib/world-map/rival-roster";
 import { getCountryDisplayState, getCountryStateLabel } from "../../_lib/engines/world-map-engine";
 import { getStateVisuals } from "./world-map-visuals";
 import { WORLD_COUNTRY_FEATURES, WORLD_FRAME, getContinentFrame, getContinentCentroid, getCountryFeature, getCountryMarkerCoords } from "../../_lib/world-map/geo-data";
 import type { GoalTree } from "../../_lib/types/goal-tree";
 import type { CharacterPosition } from "../../_lib/engines/world-map-engine";
-import type { WorldRivalProfile } from "../../_lib/types/world-map";
+import type { RivalState } from "../../_lib/types/rival";
 
 const VIEW_WIDTH = 960;
 const VIEW_HEIGHT = 480;
@@ -18,18 +18,29 @@ const VIEW_HEIGHT = 480;
 type WorldMapCanvasProps = Readonly<{
   goalTree: GoalTree;
   characterPosition: CharacterPosition | null;
+  rivalStates: Readonly<Record<string, RivalState>>;
   // null = world scope (all continents); a continentId = zoomed-in scope.
   continentId?: string | null;
   selectedCountryId?: string | null;
   onSelectCountry: (countryId: string) => void;
   onSelectContinent?: (continentId: string) => void;
+  onSelectRival?: (rivalId: string) => void;
 }>;
 
 function usePixel(projection: GeoProjection) {
   return (lon: number, lat: number): [number, number] | null => projection([lon, lat]);
 }
 
-export default function WorldMapCanvas({ goalTree, characterPosition, continentId = null, selectedCountryId = null, onSelectCountry, onSelectContinent }: WorldMapCanvasProps) {
+export default function WorldMapCanvas({
+  goalTree,
+  characterPosition,
+  rivalStates,
+  continentId = null,
+  selectedCountryId = null,
+  onSelectCountry,
+  onSelectContinent,
+  onSelectRival,
+}: WorldMapCanvasProps) {
   const projection = useMemo(() => {
     const frame = (continentId && getContinentFrame(continentId)) || WORLD_FRAME;
     return geoEquirectangular().fitExtent(
@@ -45,9 +56,16 @@ export default function WorldMapCanvas({ goalTree, characterPosition, continentI
   const toPixel = usePixel(projection);
 
   const seededCountries = continentId ? getCountriesForContinent(continentId) : WORLD_COUNTRIES;
-  const rivals = continentId ? getRivalsForContinent(continentId) : [];
-  const rivalsByCountry = new Map<string, WorldRivalProfile>();
-  rivals.forEach((rival) => rivalsByCountry.set(rival.targetCountryId, rival));
+
+  const rivalsByCountry = useMemo(() => {
+    const map = new Map<string, RivalState[]>();
+    Object.values(rivalStates).forEach((state) => {
+      const list = map.get(state.currentCountryId) ?? [];
+      list.push(state);
+      map.set(state.currentCountryId, list);
+    });
+    return map;
+  }, [rivalStates]);
 
   return (
     <div className="relative aspect-[2/1] w-full overflow-hidden rounded-xl">
@@ -77,7 +95,7 @@ export default function WorldMapCanvas({ goalTree, characterPosition, continentI
           ))}
         </g>
 
-        {/* Seeded, stateful countries - real borders, state-driven glow */}
+        {/* Seeded, stateful countries - real borders, ownership-driven glow */}
         <g>
           {seededCountries.map((country) => {
             const featureItem = getCountryFeature(country.id);
@@ -85,7 +103,7 @@ export default function WorldMapCanvas({ goalTree, characterPosition, continentI
               return null;
             }
 
-            const state = getCountryDisplayState(country.id, goalTree);
+            const state = getCountryDisplayState(country.id, goalTree, rivalStates);
             const visuals = getStateVisuals(state);
             const isSelected = selectedCountryId === country.id;
 
@@ -154,10 +172,10 @@ export default function WorldMapCanvas({ goalTree, characterPosition, continentI
                 return null;
               }
 
-              const state = getCountryDisplayState(country.id, goalTree);
+              const state = getCountryDisplayState(country.id, goalTree, rivalStates);
               const visuals = getStateVisuals(state);
               const isCharacterHere = characterPosition?.countryId === country.id;
-              const rivalHere = rivalsByCountry.get(country.id);
+              const rivalsHere = rivalsByCountry.get(country.id) ?? [];
               const left = (pixel[0] / VIEW_WIDTH) * 100;
               const top = (pixel[1] / VIEW_HEIGHT) * 100;
 
@@ -185,12 +203,33 @@ export default function WorldMapCanvas({ goalTree, characterPosition, continentI
                     </span>
                   ) : null}
 
-                  {rivalHere ? (
-                    <span
-                      className="absolute -bottom-3 left-1/2 -translate-x-1/2 text-[10px] leading-none opacity-90"
-                      title={`${rivalHere.name} (${rivalHere.title})${isCharacterHere ? " - Rival encounter" : " - Rival nearby"}`}
-                    >
-                      {isCharacterHere ? "⚔️" : "⚠️"} {rivalHere.icon}
+                  {/* Rival markers - always visually smaller/subordinate to
+                      the player marker above, per spec. Clickable to open a
+                      Rival Profile without navigating the map. */}
+                  {rivalsHere.length > 0 ? (
+                    <span className="pointer-events-auto absolute -bottom-3 left-1/2 flex -translate-x-1/2 gap-0.5">
+                      {rivalsHere.slice(0, 3).map((rivalState) => {
+                        const identity = getRivalIdentity(rivalState.identityId);
+                        if (!identity) {
+                          return null;
+                        }
+                        const isEncounter = isCharacterHere;
+                        return (
+                          <span
+                            key={rivalState.identityId}
+                            role="button"
+                            tabIndex={0}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onSelectRival?.(rivalState.identityId);
+                            }}
+                            className="cursor-pointer text-[10px] leading-none opacity-90 hover:opacity-100"
+                            title={`${identity.name} (${identity.title})${isEncounter ? " - Rival encounter" : " - Rival nearby"}`}
+                          >
+                            {isEncounter ? "⚔️" : "⚠️"} {identity.icon}
+                          </span>
+                        );
+                      })}
                     </span>
                   ) : null}
                 </button>

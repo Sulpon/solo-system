@@ -1,12 +1,18 @@
 "use client";
 
-import { RIVAL_PROFILES } from "../../_lib/world-map/rivals";
-import { getRivalLevel, getRivalCountriesConquered, getRivalBossesDefeated, getWorldStatistics } from "../../_lib/engines/world-map-engine";
-import { getRankLabel } from "../../_lib/engines/level-engine";
+import { RIVAL_IDENTITIES } from "../../_lib/world-map/rival-roster";
+import { calculateLevel, getRankLabel } from "../../_lib/engines/level-engine";
+import { getWorldStatistics } from "../../_lib/engines/world-map-engine";
 import { useProgression } from "../../_lib/hooks/useProgression";
 import { useGoalTree } from "../../_lib/hooks/useGoalTree";
+import type { RivalState } from "../../_lib/types/rival";
 
-export default function LeaderboardView() {
+type LeaderboardViewProps = Readonly<{
+  rivalStates: Readonly<Record<string, RivalState>>;
+  onSelectRival: (rivalId: string) => void;
+}>;
+
+export default function LeaderboardView({ rivalStates, onSelectRival }: LeaderboardViewProps) {
   const { isReady, progressionSummary } = useProgression();
   const { goalTree, hasLoaded } = useGoalTree();
 
@@ -19,17 +25,22 @@ export default function LeaderboardView() {
   const youStats = getWorldStatistics(goalTree);
 
   const entries = [
-    { id: "you", name: "YOU", icon: "🧍", level: youLevel, rank: youRank, countries: youStats.countriesConquered, bosses: youStats.bossesDefeated, isUser: true },
-    ...RIVAL_PROFILES.map((rival) => ({
-      id: rival.id,
-      name: rival.name,
-      icon: rival.icon,
-      level: getRivalLevel(rival),
-      rank: getRankLabel(getRivalLevel(rival)),
-      countries: getRivalCountriesConquered(rival),
-      bosses: getRivalBossesDefeated(rival),
-      isUser: false,
-    })),
+    { id: "you", name: "YOU", icon: "🧍", level: youLevel, rank: youRank, countries: youStats.countriesConquered, bosses: youStats.bossesDefeated, isUser: true, isRival: false },
+    ...RIVAL_IDENTITIES.map((identity) => {
+      const state = rivalStates[identity.id];
+      const level = state ? calculateLevel(state.totalXp).currentLevel : 1;
+      return {
+        id: identity.id,
+        name: identity.name,
+        icon: identity.icon,
+        level,
+        rank: getRankLabel(level),
+        countries: state?.conqueredCountryIds.length ?? 0,
+        bosses: state ? Object.values(state.bossAttempts).filter((attempt) => attempt.defeated).length : 0,
+        isUser: false,
+        isRival: true,
+      };
+    }),
   ].sort((first, second) => second.level - first.level);
 
   const aheadOfYou = entries.filter((entry) => !entry.isUser && entry.level > youLevel).sort((first, second) => first.level - second.level);
@@ -39,7 +50,7 @@ export default function LeaderboardView() {
     <div className="rounded-2xl border border-purple-500/25 bg-slate-950/55 p-5">
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-purple-300">Leaderboard · Global</p>
-        <p className="mt-1 text-sm text-slate-400">18 fictional rivals for motivation - not real people. Their growth is slow, fixed, and never random.</p>
+        <p className="mt-1 text-sm text-slate-400">18 fictional rivals, each simulated day by day from their own personality and activity - not real people, never scripted to match you.</p>
       </div>
 
       {closestRival ? (
@@ -65,7 +76,11 @@ export default function LeaderboardView() {
           </thead>
           <tbody>
             {entries.map((entry, index) => (
-              <tr key={entry.id} className={"border-t border-slate-800 " + (entry.isUser ? "bg-purple-500/10" : "")}>
+              <tr
+                key={entry.id}
+                onClick={() => entry.isRival && onSelectRival(entry.id)}
+                className={"border-t border-slate-800 " + (entry.isUser ? "bg-purple-500/10" : "cursor-pointer hover:bg-slate-900/60")}
+              >
                 <td className="px-2 py-2 text-xs font-bold text-slate-500">#{index + 1}</td>
                 <td className="px-2 py-2">
                   <span className="flex items-center gap-2">

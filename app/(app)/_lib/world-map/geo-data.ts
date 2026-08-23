@@ -132,3 +132,34 @@ export const COUNTRY_MARKER_COORDS: Readonly<Record<string, readonly [number, nu
 export function getCountryMarkerCoords(countryId: string): readonly [number, number] | null {
   return COUNTRY_MARKER_COORDS[countryId] ?? null;
 }
+
+function haversineDistanceKm(a: readonly [number, number], b: readonly [number, number]): number {
+  const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
+  const [lon1, lat1] = a;
+  const [lon2, lat2] = b;
+  const earthRadiusKm = 6371;
+  const dLat = toRadians(lat2 - lat1);
+  const dLon = toRadians(lon2 - lon1);
+  const haversine = Math.sin(dLat / 2) ** 2 + Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * earthRadiusKm * Math.asin(Math.sqrt(haversine));
+}
+
+export type NearestCountry = Readonly<{ id: string; distanceKm: number }>;
+
+// Real geographic distance between seeded countries, using the same marker
+// coordinates the map renders from - no adjacency/border dataset needed.
+// Drives Rival movement (world-map/rival-simulation-engine.ts) so a rival
+// steps to nearby countries instead of teleporting across the globe.
+export function getNearestCountries(countryId: string, limit = 26): ReadonlyArray<NearestCountry> {
+  const origin = COUNTRY_MARKER_COORDS[countryId];
+
+  if (!origin) {
+    return [];
+  }
+
+  return Object.entries(COUNTRY_MARKER_COORDS)
+    .filter(([id]) => id !== countryId)
+    .map(([id, coords]) => ({ id, distanceKm: haversineDistanceKm(origin, coords) }))
+    .sort((a, b) => a.distanceKm - b.distanceKm)
+    .slice(0, limit);
+}

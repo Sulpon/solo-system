@@ -1,8 +1,10 @@
 import { WORLD_CONTINENTS } from "../world-map/continents";
 import { WORLD_COUNTRIES, getCountriesForContinent, getCountry } from "../world-map/countries";
-import { getRivalsTargetingCountry } from "../world-map/rivals";
+import { getRivalIdentity } from "../world-map/rival-roster";
+import { getNearestCountries } from "../world-map/geo-data";
 import type { GoalNode, GoalNodeType, GoalTree } from "../types/goal-tree";
-import type { CountryProgressState, WorldRivalProfile } from "../types/world-map";
+import type { CountryProgressState } from "../types/world-map";
+import type { RivalState } from "../types/rival";
 
 // No generic "flatten all nodes" helper exists in goal-tree-storage.ts
 // (only collectProgressGoalNodes, which is type-specific) - mirrors the
@@ -83,21 +85,100 @@ export function getCountryStateLabel(state: CountryProgressState): string {
   return STATE_THRESHOLDS.find((entry) => entry.state === state)?.label ?? "Unknown";
 }
 
-// "contested" is a real-and-fictional overlay, not a percentage band: real
-// player progress (25-99%, i.e. actively-worked territory) combined with a
-// deterministically-assigned rival targeting the same country (never
-// random, never fabricating the player's side of the equation).
-export function isCountryContested(countryId: string, goalTree: GoalTree): boolean {
-  const progress = getCountryProgress(countryId, goalTree);
-  return progress >= 25 && progress < 100 && getRivalsTargetingCountry(countryId).length > 0;
+// -----------------------------------------------------------------------
+// Territory ownership - multi-party now that Rivals have real, simulated
+// progress of their own (see world-map/rival-simulation-engine.ts). The
+// player's side is still 100% real Goal Tree data; each Rival's side is
+// their own persisted RivalState.countryProgress - nothing here is
+// fabricated or teleported in reaction to the player.
+// -----------------------------------------------------------------------
+
+const CONTESTED_PROGRESS_THRESHOLD = 20;
+
+export type CountryOwnershipEntry = Readonly<{ rivalId: string; name: string; progress: number; conquered: boolean }>;
+
+export type CountryOwnership = Readonly<{
+  playerProgress: number;
+  playerConquered: boolean;
+  rivals: ReadonlyArray<CountryOwnershipEntry>;
+  isContested: boolean;
+  dominantOwner: "player" | "rival" | "unknown";
+  dominantRivalId: string | null;
+}>;
+
+export function getCountryOwnership(countryId: string, goalTree: GoalTree, rivalStates: Readonly<Record<string, RivalState>>): CountryOwnership {
+  const playerProgress = getCountryProgress(countryId, goalTree);
+  const playerConquered = playerProgress >= 100;
+
+  const rivals: CountryOwnershipEntry[] = Object.values(rivalStates)
+    .map((state) => ({
+      rivalId: state.identityId,
+      name: getRivalIdentity(state.identityId)?.name ?? state.identityId,
+      progress: state.countryProgress[countryId] ?? 0,
+      conquered: state.conqueredCountryIds.includes(countryId),
+    }))
+    .filter((entry) => entry.progress > 0)
+    .sort((a, b) => b.progress - a.progress);
+
+  const partiesAboveThreshold = (playerProgress >= CONTESTED_PROGRESS_THRESHOLD ? 1 : 0) + rivals.filter((entry) => entry.progress >= CONTESTED_PROGRESS_THRESHOLD).length;
+  const isContested = partiesAboveThreshold >= 2;
+
+  const topRival = rivals[0] ?? null;
+  let dominantOwner: "player" | "rival" | "unknown" = "unknown";
+  let dominantRivalId: string | null = null;
+
+  if (playerConquered && !topRival?.conquered) {
+    dominantOwner = "player";
+  } else if (topRival?.conquered) {
+    dominantOwner = "rival";
+    dominantRivalId = topRival.rivalId;
+  } else if (playerProgress > 0 && playerProgress >= (topRival?.progress ?? 0)) {
+    dominantOwner = "player";
+  } else if (topRival) {
+    dominantOwner = "rival";
+    dominantRivalId = topRival.rivalId;
+  }
+
+  return { playerProgress, playerConquered, rivals, isContested, dominantOwner, dominantRivalId };
+}
+
+export function isCountryContested(countryId: string, goalTree: GoalTree, rivalStates: Readonly<Record<string, RivalState>>): boolean {
+  return getCountryOwnership(countryId, goalTree, rivalStates).isContested;
 }
 
 // The state actually shown on the map/detail panel - percentage-driven
-// state, with contested as an overlay when applicable.
-export function getCountryDisplayState(countryId: string, goalTree: GoalTree): CountryProgressState {
-  const progress = getCountryProgress(countryId, goalTree);
-  const baseState = getCountryState(progress);
-  return isCountryContested(countryId, goalTree) ? "contested" : baseState;
+// state of whichever party dominates, with contested as an overlay when
+// applicable.
+export function getCountryDisplayState(countryId: string, goalTree: GoalTree, rivalStates: Readonly<Record<string, RivalState>>): CountryProgressState {
+  const ownership = getCountryOwnership(countryId, goalTree, rivalStates);
+
+  if (ownership.isContested) {
+    return "contested";
+  }
+
+  if (ownership.dominantOwner === "rival") {
+    const rival = ownership.rivals.find((entry) => entry.rivalId === ownership.dominantRivalId);
+    return getCountryState(rival?.progress ?? 0);
+  }
+
+  return getCountryState(ownership.playerProgress);
+}
+
+// Ring distance to a Rival using real geography (see geo-data.ts) - 0 means
+// same country (an encounter), 1 the nearest neighbor, and so on. Not a
+// precise border-adjacency graph, an approximation by sorted distance.
+export function getRivalDistance(playerCountryId: string | null, rivalCountryId: string): number | null {
+  if (!playerCountryId) {
+    return null;
+  }
+
+  if (playerCountryId === rivalCountryId) {
+    return 0;
+  }
+
+  const nearest = getNearestCountries(playerCountryId, WORLD_COUNTRIES.length);
+  const index = nearest.findIndex((entry) => entry.id === rivalCountryId);
+  return index === -1 ? null : index + 1;
 }
 
 // -----------------------------------------------------------------------
@@ -224,27 +305,4 @@ export function getWorldStatistics(goalTree: GoalTree): WorldStatistics {
     milestonesCompletedCount: linkedGoals.reduce((sum, goal) => sum + getRealCompletedMilestoneCount(goal), 0),
     bossesDefeated: 0,
   };
-}
-
-// -----------------------------------------------------------------------
-// Fictional rivals - deterministic, seeded by calendar date, never random.
-// -----------------------------------------------------------------------
-
-const RIVAL_EPOCH_MS = Date.UTC(2024, 0, 1);
-
-export function getRivalLevel(rival: WorldRivalProfile, referenceDate: Date = new Date()): number {
-  const daysSinceEpoch = Math.max(0, Math.floor((referenceDate.getTime() - RIVAL_EPOCH_MS) / 86400000));
-  return rival.baseLevel + Math.floor(daysSinceEpoch / rival.daysPerLevel);
-}
-
-// Deterministic, level-scaled leaderboard flavor stats - never random, never
-// exceeding how many seeded countries exist in the rival's own continent.
-export function getRivalCountriesConquered(rival: WorldRivalProfile, referenceDate: Date = new Date()): number {
-  const cap = getCountriesForContinent(rival.originContinentId).length;
-  return Math.max(0, Math.min(cap, Math.floor(getRivalLevel(rival, referenceDate) / 6)));
-}
-
-export function getRivalBossesDefeated(rival: WorldRivalProfile, referenceDate: Date = new Date()): number {
-  const cap = getCountriesForContinent(rival.originContinentId).length;
-  return Math.max(0, Math.min(cap, Math.floor(getRivalLevel(rival, referenceDate) / 9)));
 }

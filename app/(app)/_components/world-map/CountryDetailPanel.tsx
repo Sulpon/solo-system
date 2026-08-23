@@ -6,29 +6,42 @@ import { getContinent } from "../../_lib/world-map/continents";
 import { getBossForCountry } from "../../_lib/world-map/bosses";
 import { getDungeonsForCountry } from "../../_lib/world-map/dungeons";
 import {
-  getCountryProgress,
   getCountryDisplayState,
   getCountryStateLabel,
-  isCountryContested,
+  getCountryOwnership,
   getLinkedGoals,
   getLinkableGoalCandidates,
   getGoalRouteCheckpoints,
 } from "../../_lib/engines/world-map-engine";
-import { getRivalsTargetingCountry } from "../../_lib/world-map/rivals";
 import { getStateVisuals } from "./world-map-visuals";
 import type { GoalTree } from "../../_lib/types/goal-tree";
+import type { RivalState } from "../../_lib/types/rival";
 
 type CountryDetailPanelProps = Readonly<{
   countryId: string;
   goalTree: GoalTree;
   selectedGoalId: string | null;
+  rivalStates: Readonly<Record<string, RivalState>>;
+  playerCountryId: string | null;
   onClose: () => void;
   onLinkGoal: (goalId: string, countryId: string) => void;
   onUnlinkGoal: (goalId: string) => void;
   onSelectActiveGoal: (goalId: string) => void;
+  onSelectRival: (rivalId: string) => void;
 }>;
 
-export default function CountryDetailPanel({ countryId, goalTree, selectedGoalId, onClose, onLinkGoal, onUnlinkGoal, onSelectActiveGoal }: CountryDetailPanelProps) {
+export default function CountryDetailPanel({
+  countryId,
+  goalTree,
+  selectedGoalId,
+  rivalStates,
+  playerCountryId,
+  onClose,
+  onLinkGoal,
+  onUnlinkGoal,
+  onSelectActiveGoal,
+  onSelectRival,
+}: CountryDetailPanelProps) {
   const [pickerValue, setPickerValue] = useState("");
   const country = getCountry(countryId);
   const continent = country ? getContinent(country.continentId) : null;
@@ -37,15 +50,14 @@ export default function CountryDetailPanel({ countryId, goalTree, selectedGoalId
     return null;
   }
 
-  const progress = getCountryProgress(country.id, goalTree);
-  const state = getCountryDisplayState(country.id, goalTree);
-  const contested = isCountryContested(country.id, goalTree);
+  const ownership = getCountryOwnership(country.id, goalTree, rivalStates);
+  const state = getCountryDisplayState(country.id, goalTree, rivalStates);
   const visuals = getStateVisuals(state);
   const linkedGoals = getLinkedGoals(country.id, goalTree);
   const linkableGoals = getLinkableGoalCandidates(goalTree);
   const boss = getBossForCountry(country.id);
   const dungeons = getDungeonsForCountry(country.id);
-  const rivalHere = getRivalsTargetingCountry(country.id)[0] ?? null;
+  const isEncounter = playerCountryId === country.id && ownership.rivals.length > 0;
 
   function handleLink() {
     if (pickerValue) {
@@ -76,23 +88,43 @@ export default function CountryDetailPanel({ countryId, goalTree, selectedGoalId
 
         <p className="mt-3 text-sm text-slate-400">{country.description}</p>
 
-        {contested && rivalHere ? (
+        {isEncounter ? (
+          <div className="mt-3 flex items-center gap-2 rounded-lg border border-rose-400/60 bg-rose-400/15 px-3 py-2 text-xs font-semibold text-rose-200">
+            <span>⚔️</span>
+            <span>Rival encounter - you and {ownership.rivals.length === 1 ? ownership.rivals[0].name : `${ownership.rivals.length} rivals`} are both here.</span>
+          </div>
+        ) : ownership.isContested ? (
           <div className="mt-3 flex items-center gap-2 rounded-lg border border-dashed border-rose-400/50 bg-rose-400/10 px-3 py-2 text-xs text-rose-200">
             <span>⚔️</span>
-            <span>
-              Contested territory - <span className="font-semibold text-white">{rivalHere.name}</span> ({rivalHere.title}) is active here too.
-            </span>
+            <span>Contested territory - more than one party has meaningful progress here.</span>
           </div>
         ) : null}
 
-        <div className="mt-4">
+        {/* Territory ownership - player + every rival with real progress in
+            this country (section 26: additive, never destroying history). */}
+        <div className="mt-4 space-y-2">
           <div className="flex items-center justify-between text-xs text-slate-500">
-            <span>Territory Progress</span>
-            <span className={`font-semibold ${visuals.text}`}>{progress}%</span>
+            <span>Your Territory Progress</span>
+            <span className={`font-semibold ${visuals.text}`}>{ownership.playerProgress}%</span>
           </div>
-          <div className="mt-1 h-2.5 overflow-hidden rounded-full bg-slate-900">
-            <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, backgroundColor: visuals.ring }} />
+          <div className="h-2.5 overflow-hidden rounded-full bg-slate-900">
+            <div className="h-full rounded-full transition-all" style={{ width: `${ownership.playerProgress}%`, backgroundColor: "#c084fc" }} />
           </div>
+
+          {ownership.rivals.map((rival) => (
+            <button key={rival.rivalId} type="button" onClick={() => onSelectRival(rival.rivalId)} className="block w-full text-left">
+              <div className="flex items-center justify-between text-xs text-slate-500">
+                <span className="hover:text-rose-300 hover:underline">
+                  {rival.name}
+                  {rival.conquered ? " (Conquered)" : ""}
+                </span>
+                <span className="font-semibold text-rose-300">{Math.round(rival.progress)}%</span>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-slate-900">
+                <div className="h-full rounded-full bg-rose-400/70" style={{ width: `${rival.progress}%` }} />
+              </div>
+            </button>
+          ))}
         </div>
 
         <div className="mt-5 grid gap-4 lg:grid-cols-2">

@@ -5,11 +5,14 @@ import Card from "../Card";
 import { useGoalTree } from "../../_lib/hooks/useGoalTree";
 import { useWorldMapState } from "../../_lib/hooks/useWorldMapState";
 import { useProgression } from "../../_lib/hooks/useProgression";
+import { useRivalWorld } from "../../_lib/hooks/useRivalWorld";
 import { getRankLabel } from "../../_lib/engines/level-engine";
-import { getCharacterPosition, getWorldStatistics } from "../../_lib/engines/world-map-engine";
+import { getCharacterPosition, getWorldStatistics, getRivalDistance } from "../../_lib/engines/world-map-engine";
+import { getRivalIdentity } from "../../_lib/world-map/rival-roster";
 import WorldView from "./WorldView";
 import ContinentView from "./ContinentView";
 import CountryDetailPanel from "./CountryDetailPanel";
+import RivalProfilePanel from "./RivalProfilePanel";
 import LeaderboardView from "./LeaderboardView";
 
 type MapViewLevel = "world" | "continent";
@@ -23,8 +26,12 @@ export default function WorldMapPageClient() {
   const [viewLevel, setViewLevel] = useState<MapViewLevel>("world");
   const [selectedContinentId, setSelectedContinentId] = useState<string | null>(null);
   const [selectedCountryId, setSelectedCountryId] = useState<string | null>(null);
+  const [selectedRivalId, setSelectedRivalId] = useState<string | null>(null);
 
-  if (!hasLoaded || !worldMapStateLoaded || !progressionReady) {
+  const characterPosition = hasLoaded && worldMapStateLoaded ? getCharacterPosition(goalTree, selectedGoalId) : null;
+  const { statesById: rivalStates, hasLoaded: rivalWorldLoaded } = useRivalWorld(characterPosition?.countryId ?? null, progressionSummary.currentLevel);
+
+  if (!hasLoaded || !worldMapStateLoaded || !progressionReady || !rivalWorldLoaded) {
     return (
       <Card className="p-5">
         <div className="rounded-xl border border-slate-800 bg-slate-950/45 p-4 text-sm text-slate-400">Loading World Map...</div>
@@ -32,9 +39,13 @@ export default function WorldMapPageClient() {
     );
   }
 
-  const characterPosition = getCharacterPosition(goalTree, selectedGoalId);
   const stats = getWorldStatistics(goalTree);
   const rank = getRankLabel(progressionSummary.currentLevel);
+
+  const nearbyRivals = Object.values(rivalStates)
+    .map((state) => ({ state, distance: getRivalDistance(characterPosition?.countryId ?? null, state.currentCountryId) }))
+    .filter((entry) => entry.distance !== null && entry.distance <= 1)
+    .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0));
 
   function goToContinent(continentId: string) {
     setSelectedContinentId(continentId);
@@ -115,7 +126,7 @@ export default function WorldMapPageClient() {
       </Card>
 
       {tab === "leaderboard" ? (
-        <LeaderboardView />
+        <LeaderboardView rivalStates={rivalStates} onSelectRival={setSelectedRivalId} />
       ) : (
         <>
           {characterPosition ? (
@@ -135,11 +146,30 @@ export default function WorldMapPageClient() {
                   {characterPosition.checkpointIndex + 1} / {characterPosition.totalCheckpoints} checkpoints
                 </span>
               </div>
+
+              {nearbyRivals.length > 0 ? (
+                <div className="mt-2 flex flex-wrap gap-2 border-t border-slate-800 pt-2">
+                  {nearbyRivals.map(({ state, distance }) => {
+                    const identity = getRivalIdentity(state.identityId);
+                    if (!identity) return null;
+                    return (
+                      <button
+                        key={state.identityId}
+                        type="button"
+                        onClick={() => setSelectedRivalId(state.identityId)}
+                        className="rounded-full border border-rose-400/40 bg-rose-400/10 px-3 py-1 text-xs font-semibold text-rose-200 transition hover:bg-rose-400/20"
+                      >
+                        {distance === 0 ? "⚔️" : "⚠️"} {identity.name} {distance === 0 ? "- encounter" : "- 1 country away"}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
             </Card>
           ) : null}
 
           {viewLevel === "world" ? (
-            <WorldView goalTree={goalTree} characterPosition={characterPosition} onSelectContinent={goToContinent} onSelectCountry={setSelectedCountryId} />
+            <WorldView goalTree={goalTree} characterPosition={characterPosition} rivalStates={rivalStates} onSelectContinent={goToContinent} onSelectCountry={setSelectedCountryId} />
           ) : null}
 
           {viewLevel === "continent" && selectedContinentId ? (
@@ -147,8 +177,10 @@ export default function WorldMapPageClient() {
               continentId={selectedContinentId}
               goalTree={goalTree}
               characterPosition={characterPosition}
+              rivalStates={rivalStates}
               onBack={() => setViewLevel("world")}
               onSelectCountry={setSelectedCountryId}
+              onSelectRival={setSelectedRivalId}
             />
           ) : null}
 
@@ -157,14 +189,26 @@ export default function WorldMapPageClient() {
               countryId={selectedCountryId}
               goalTree={goalTree}
               selectedGoalId={selectedGoalId}
+              rivalStates={rivalStates}
+              playerCountryId={characterPosition?.countryId ?? null}
               onClose={() => setSelectedCountryId(null)}
               onLinkGoal={linkGoal}
               onUnlinkGoal={unlinkGoal}
               onSelectActiveGoal={setSelectedGoalId}
+              onSelectRival={setSelectedRivalId}
             />
           ) : null}
         </>
       )}
+
+      {selectedRivalId ? (
+        <RivalProfilePanel
+          rivalId={selectedRivalId}
+          rivalState={rivalStates[selectedRivalId] ?? null}
+          playerCountryId={characterPosition?.countryId ?? null}
+          onClose={() => setSelectedRivalId(null)}
+        />
+      ) : null}
     </div>
   );
 }
