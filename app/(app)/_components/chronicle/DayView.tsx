@@ -69,7 +69,7 @@ function PhotoThumbnail({ photoId, fileName }: { photoId: string; fileName: stri
   }
 
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={url} alt={fileName} className="h-56 w-full rounded-xl border border-slate-800 object-cover" />;
+  return <img src={url} alt={fileName} className="max-h-[32rem] w-full rounded-xl border border-slate-800 bg-slate-950/40 object-contain" />;
 }
 
 export default function DayView({ date, context, journalEntry, onSelectDate, onSaveEntry }: DayViewProps) {

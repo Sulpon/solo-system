@@ -27,7 +27,7 @@ type QuestImportanceFilter = "all" | "today" | "core" | "bonus";
 
 export default function QuestManagerPage({}: QuestManagerPageProps) {
   const [form, setForm] = useState<QuestFormModel | null>(null);
-  const [importanceFilter, setImportanceFilter] = useState<QuestImportanceFilter>("all");
+  const [importanceFilter, setImportanceFilter] = useState<QuestImportanceFilter>("today");
   const [logDayKey, setLogDayKey] = useState(() => getLocalDayKey());
   const { isReady, questDefinitions: quests, setQuestDefinitions, questCompletions, activityEvents, progressionSummary } = useProgression();
   const { startSession: startWorkoutSession } = useWorkout();
