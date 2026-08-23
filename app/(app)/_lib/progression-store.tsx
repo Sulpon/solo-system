@@ -64,6 +64,10 @@ export type ProgressionStoreValue = Readonly<{
   questCompletions: QuestCompletion[];
   goalXpEvents: ReadonlyArray<XpEvent>;
   bonusXpEvents: ReadonlyArray<XpEvent>;
+  // goalXpEvents + bonusXpEvents, already merged - the same combined array
+  // progressionSummary is computed from, exposed so consumers that need the
+  // raw events (e.g. chronicle-engine.ts) don't have to re-merge themselves.
+  combinedXpEvents: ReadonlyArray<XpEvent>;
   activityEvents: ActivityEvent[];
   dailySnapshots: DailySnapshot[];
   progressionSummary: ProgressionSummary;
@@ -223,6 +227,7 @@ export function ProgressionProvider({ children }: Readonly<{ children: React.Rea
       questCompletions,
       goalXpEvents,
       bonusXpEvents,
+      combinedXpEvents,
       activityEvents,
       dailySnapshots,
       progressionSummary,
@@ -250,6 +255,8 @@ export function ProgressionProvider({ children }: Readonly<{ children: React.Rea
       hasQuestDefinitionsLoaded,
       hasQuestCompletedToday,
       goalXpEvents,
+      bonusXpEvents,
+      combinedXpEvents,
       progressionSummary,
       questCompletions,
       questDefinitions,

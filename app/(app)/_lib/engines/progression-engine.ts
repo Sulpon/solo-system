@@ -38,7 +38,7 @@ type XpEntry = Readonly<{
   amount: number;
 }>;
 
-function buildCombinedXpEntries(completions: ReadonlyArray<QuestCompletion>, goalXpEvents: ReadonlyArray<XpEvent>) {
+export function buildCombinedXpEntries(completions: ReadonlyArray<QuestCompletion>, goalXpEvents: ReadonlyArray<XpEvent>) {
   const questEntries: XpEntry[] = completions.map((completion) => ({
     completedAt: completion.completedAt,
     amount: completion.xpAwarded,

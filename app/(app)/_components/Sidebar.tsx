@@ -14,6 +14,8 @@ const leadingNavItems = [
   { name: "Rewards", href: "/rewards" },
 ];
 
+const preSettingsNavItems = [{ name: "Chronicle", href: "/chronicle" }];
+
 const trailingNavItems = [{ name: "Settings", href: "/settings" }];
 
 type SidebarProps = Readonly<{
@@ -37,7 +39,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
       href: `/attributes/${attribute.id}`,
     }));
 
-    return [...leadingNavItems, ...attributeNavItems, ...trailingNavItems];
+    return [...leadingNavItems, ...attributeNavItems, ...preSettingsNavItems, ...trailingNavItems];
   }, [attributes]);
 
   return (
