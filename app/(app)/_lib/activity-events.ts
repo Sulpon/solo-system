@@ -3,6 +3,7 @@ import { getLocalDayKey } from "./local-day";
 import type { ActivityEvent, ActivityEventType } from "./types/activity-event";
 import type { BodyweightEntry } from "./types/bodyweight";
 import type { CategoryId } from "./types/category";
+import type { Challenge } from "./types/challenge";
 import type { DailySnapshot } from "./types/daily-system";
 import type { GoalNode, GoalTree } from "./types/goal-tree";
 import type { XpEvent } from "./types/progression";
@@ -340,6 +341,26 @@ export function createBodyweightActivityEvent(entry: BodyweightEntry): ActivityE
       entryId: entry.id,
       weight: entry.weight,
       unit: entry.unit,
+    },
+  };
+}
+
+// Fired exactly once, at the moment a Challenge's status transitions to
+// "completed" (see useChallenge.ts) - never per day, never per metric log.
+// Challenges deliberately award no XP, so this event carries none.
+export function createChallengeCompletedActivityEvent(challenge: Challenge): ActivityEvent {
+  const completedAt = challenge.completedAt ?? new Date().toISOString();
+  return {
+    id: activityEventId("challenge_completed", challenge.id, completedAt),
+    type: "challenge_completed",
+    createdAt: completedAt,
+    title: `Challenge completed: ${challenge.title}`,
+    description: `${challenge.durationDays} days · ${challenge.category}`,
+    sourceType: "challenge",
+    sourceId: challenge.id,
+    metadata: {
+      challengeId: challenge.id,
+      durationDays: challenge.durationDays,
     },
   };
 }

@@ -67,6 +67,12 @@ export const STORAGE_KEYS = {
   characterEquippedItems: "menace-character-equipped-items",
   characterProfile: "menace-character-profile",
   characterAvatarConfig: "menace-character-avatar-config",
+  // Challenges - temporary fixed-duration missions, see types/challenge.ts.
+  // Three independent collections cross-referenced by id, same convention as
+  // every other feature (e.g. wardrobeItems/characterEquippedItems).
+  challenges: "menace-challenges",
+  challengeMetrics: "menace-challenge-metrics",
+  challengeEntries: "menace-challenge-entries",
 } as const;
 
 export const MENACE_STORAGE_EVENT = "menace-local-storage-change";

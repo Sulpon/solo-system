@@ -10,6 +10,7 @@ import { getRankLabel } from "../_lib/engines/level-engine";
 const leadingNavItems = [
   { name: "Dashboard", href: "/" },
   { name: "Quests", href: "/quests" },
+  { name: "Challenges", href: "/challenges" },
   { name: "Goal Tree", href: "/goals" },
   { name: "Rewards", href: "/rewards" },
 ];

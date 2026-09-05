@@ -168,6 +168,7 @@ const HIGHLIGHT_EVENT_ICONS: ReadonlyArray<Readonly<{ type: ActivityEventType; i
   { type: "level_up", icon: "LVL" },
   { type: "attribute_level_up", icon: "LVL" },
   { type: "challenge_level_up", icon: "CH" },
+  { type: "challenge_completed", icon: "MSN" },
   { type: "streak_milestone", icon: "STREAK" },
   { type: "achievement_unlocked", icon: "★" },
   { type: "goal_completed", icon: "GOAL" },
@@ -385,7 +386,7 @@ function getLongestStreakInRange(quest: Quest, completions: ReadonlyArray<QuestC
   return best > 0 && bestStart && bestEnd ? { questTitle: quest.title, days: best, startDate: bestStart, endDate: bestEnd } : null;
 }
 
-const MAJOR_MILESTONE_TYPES: ReadonlyArray<ActivityEventType> = ["level_up", "achievement_unlocked", "goal_completed", "dream_completed", "streak_milestone", "personal_record_achieved"];
+const MAJOR_MILESTONE_TYPES: ReadonlyArray<ActivityEventType> = ["level_up", "achievement_unlocked", "goal_completed", "dream_completed", "streak_milestone", "personal_record_achieved", "challenge_completed"];
 
 export function getYearOverview(year: number, context: ChronicleContext, today: Date = new Date()): YearOverview {
   const todayStart = startOfDay(today);
