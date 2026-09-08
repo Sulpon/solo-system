@@ -12,6 +12,7 @@ const leadingNavItems = [
   { name: "Quests", href: "/quests" },
   { name: "Challenges", href: "/challenges" },
   { name: "Goal Tree", href: "/goals" },
+  { name: "Planning", href: "/planning" },
   { name: "Rewards", href: "/rewards" },
 ];
 

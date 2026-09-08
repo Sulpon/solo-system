@@ -1,6 +1,6 @@
 import { STORAGE_KEYS } from "./storage-keys";
 import type { CategoryId } from "./types/category";
-import type { AttributeWeight, GoalNode, GoalNodeStatus, GoalNodeType, GoalTree, SequentialMilestoneStep } from "./types/goal-tree";
+import type { AttributeWeight, GoalNode, GoalNodePeriodType, GoalNodeStatus, GoalNodeType, GoalTree, KeyResult, SequentialMilestoneStep } from "./types/goal-tree";
 
 export const GOAL_TREE_STORAGE_KEY = STORAGE_KEYS.goalTree;
 
@@ -24,6 +24,10 @@ export type GoalNodeDraft = Readonly<{
   steps?: SequentialMilestoneStep[];
   currentStepIndex?: number;
   completed?: boolean;
+  periodType?: GoalNodePeriodType;
+  periodStart?: string;
+  periodEnd?: string;
+  keyResults?: KeyResult[];
   createdAt?: string;
   updatedAt?: string;
 }>;
@@ -67,6 +71,10 @@ export function createGoalNode(draft: GoalNodeDraft): GoalNode {
     steps,
     currentStepIndex: draft.type === "sequential_milestone" ? normalizeCurrentStepIndex(steps ?? [], draft.currentStepIndex) : undefined,
     completed: draft.type === "sequential_milestone" ? Boolean(draft.completed) : undefined,
+    periodType: draft.periodType,
+    periodStart: draft.periodStart,
+    periodEnd: draft.periodEnd,
+    keyResults: draft.keyResults,
     createdAt: draft.createdAt ?? now,
     updatedAt: draft.updatedAt ?? now,
   };
