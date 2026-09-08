@@ -296,3 +296,96 @@ export function getQuestDetailStats(quest: Quest, completions: ReadonlyArray<Que
     totalXpEarned: questCompletions.reduce((sum, completion) => sum + completion.xpAwarded, 0),
   };
 }
+
+// ---------------------------------------------------------------------------
+// Global Calendar (/calendar) - "what quests are on this date," across every
+// quest, as opposed to everything above which asks about one quest at a
+// time. Still built entirely from Quest + QuestCompletion - no new
+// persistence, no events derived from Planning nodes (Dreams/Goals/
+// Milestones never appear here, only real Quests).
+// ---------------------------------------------------------------------------
+
+export type CalendarQuestStatus = "completed" | "missed" | "scheduled";
+
+export type CalendarQuestItem = Readonly<{ quest: Quest; status: CalendarQuestStatus; completion: QuestCompletion | null }>;
+
+// One-time quests have no scheduled-date field (see types/quest.ts) - the
+// only date they can honestly be associated with is the day they were
+// actually completed. Before completion they simply don't appear on any
+// day, rather than guessing one - the explicit "unscheduled quests should
+// NOT randomly appear on dates" requirement.
+export function getQuestsForDate(quests: ReadonlyArray<Quest>, completions: ReadonlyArray<QuestCompletion>, date: Date, referenceDate = new Date()): CalendarQuestItem[] {
+  const dayKey = getLocalDayKey(date);
+  const today = new Date(referenceDate);
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(date);
+  target.setHours(0, 0, 0, 0);
+
+  const items: CalendarQuestItem[] = [];
+
+  for (const quest of quests) {
+    if (quest.status !== "active") {
+      continue;
+    }
+
+    const completion = completions.find((entry) => entry.questId === quest.id && getLocalDayKey(entry.completedAt) === dayKey) ?? null;
+
+    if (completion) {
+      items.push({ quest, status: "completed", completion });
+      continue;
+    }
+
+    if (quest.cadence === "one-time") {
+      continue;
+    }
+
+    if (!isQuestScheduledForDate(quest, target)) {
+      continue;
+    }
+
+    items.push({ quest, status: target < today ? "missed" : "scheduled", completion: null });
+  }
+
+  return items;
+}
+
+export type CalendarDayCell = Readonly<{ date: Date; dayKey: string; inCurrentPeriod: boolean; items: CalendarQuestItem[] }>;
+
+function buildCalendarDayCell(quests: ReadonlyArray<Quest>, completions: ReadonlyArray<QuestCompletion>, date: Date, referenceDate: Date, inCurrentPeriod: boolean): CalendarDayCell {
+  return { date: new Date(date), dayKey: getLocalDayKey(date), inCurrentPeriod, items: getQuestsForDate(quests, completions, date, referenceDate) };
+}
+
+// Full 6-row (42-day) Monday-first month grid, matching the per-quest month
+// grid's exact convention above (buildQuestCalendarMonth) for visual
+// consistency between the Quest Detail Panel and the global Calendar.
+export function buildCalendarMonth(quests: ReadonlyArray<Quest>, completions: ReadonlyArray<QuestCompletion>, year: number, month: number, referenceDate = new Date()): CalendarDayCell[][] {
+  const firstOfMonth = new Date(year, month, 1);
+  const gridStart = startOfWeekMonday(firstOfMonth);
+
+  const weeks: CalendarDayCell[][] = [];
+  const cursor = new Date(gridStart);
+
+  for (let week = 0; week < 6; week += 1) {
+    const days: CalendarDayCell[] = [];
+    for (let day = 0; day < 7; day += 1) {
+      days.push(buildCalendarDayCell(quests, completions, cursor, referenceDate, cursor.getMonth() === month));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    weeks.push(days);
+  }
+
+  return weeks;
+}
+
+export function buildCalendarWeek(quests: ReadonlyArray<Quest>, completions: ReadonlyArray<QuestCompletion>, anyDateInWeek: Date, referenceDate = new Date()): CalendarDayCell[] {
+  const weekStart = startOfWeekMonday(anyDateInWeek);
+  const days: CalendarDayCell[] = [];
+  const cursor = new Date(weekStart);
+
+  for (let day = 0; day < 7; day += 1) {
+    days.push(buildCalendarDayCell(quests, completions, cursor, referenceDate, true));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return days;
+}
