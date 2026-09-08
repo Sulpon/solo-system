@@ -12,6 +12,7 @@ import { createQuestFormModel, toQuestForm, upsertQuestFromForm } from "../quest
 import { useProgression } from "../../_lib/hooks/useProgression";
 import { useGoalTree } from "../../_lib/hooks/useGoalTree";
 import { useAttributes } from "../../_lib/hooks/useAttributes";
+import { useCalendarPlacements } from "../../_lib/hooks/useCalendarPlacements";
 import { getAncestorChainForQuest } from "../../_lib/engines/planning-engine";
 import { buildCalendarMonth, buildCalendarWeek, getQuestsForDate } from "../../_lib/engines/quest-calendar-engine";
 import type { CalendarDayCell, CalendarQuestItem } from "../../_lib/engines/quest-calendar-engine";
@@ -43,6 +44,7 @@ export default function CalendarPageClient() {
   const { isReady, questDefinitions: quests, setQuestDefinitions, questCompletions } = useProgression();
   const { goalTree, progressGoals } = useGoalTree();
   const { attributes: categories } = useAttributes();
+  const { placements, addPlacement, removePlacement, removePlacementsForQuest } = useCalendarPlacements();
 
   const [view, setView] = useState<CalendarView>("month");
   const [cursorDate, setCursorDate] = useState(() => new Date());
@@ -52,6 +54,11 @@ export default function CalendarPageClient() {
   const [dreamFilter, setDreamFilter] = useState("all");
   const [selectedQuestId, setSelectedQuestId] = useState<string | null>(null);
   const [form, setForm] = useState<QuestFormModel | null>(null);
+  // Which date "+ New Quest" was opened from, if any - a brand-new quest
+  // created from a specific day is placed on that day automatically (that
+  // click IS the act of putting it there); editing an existing quest never
+  // touches placements.
+  const [pendingPlacementDate, setPendingPlacementDate] = useState<string | null>(null);
 
   const {
     pendingQuest,
@@ -86,22 +93,37 @@ export default function CalendarPageClient() {
   const todayKey = useMemo(() => getLocalDayKey(), []);
   const selectedDate = useMemo(() => parseLocalDayKey(selectedDayKey), [selectedDayKey]);
 
-  const rawMonthWeeks = useMemo(() => buildCalendarMonth(filteredQuests, questCompletions, cursorDate.getFullYear(), cursorDate.getMonth()), [filteredQuests, questCompletions, cursorDate]);
+  const rawMonthWeeks = useMemo(
+    () => buildCalendarMonth(filteredQuests, questCompletions, placements, cursorDate.getFullYear(), cursorDate.getMonth()),
+    [filteredQuests, questCompletions, placements, cursorDate],
+  );
   const monthWeeks = useMemo(() => rawMonthWeeks.map((week) => week.map((cell) => filterCellItems(cell, statusFilter))), [rawMonthWeeks, statusFilter]);
 
-  const rawWeekDays = useMemo(() => buildCalendarWeek(filteredQuests, questCompletions, view === "week" ? cursorDate : selectedDate), [filteredQuests, questCompletions, view, cursorDate, selectedDate]);
+  const rawWeekDays = useMemo(
+    () => buildCalendarWeek(filteredQuests, questCompletions, placements, view === "week" ? cursorDate : selectedDate),
+    [filteredQuests, questCompletions, placements, view, cursorDate, selectedDate],
+  );
   const weekDays = useMemo(() => rawWeekDays.map((cell) => filterCellItems(cell, statusFilter)), [rawWeekDays, statusFilter]);
 
   const dayCell = useMemo((): CalendarDayCell => {
     const date = view === "day" ? cursorDate : selectedDate;
-    return filterCellItems({ date, dayKey: getLocalDayKey(date), inCurrentPeriod: true, items: getQuestsForDate(filteredQuests, questCompletions, date) }, statusFilter);
-  }, [view, cursorDate, selectedDate, filteredQuests, questCompletions, statusFilter]);
+    return filterCellItems({ date, dayKey: getLocalDayKey(date), inCurrentPeriod: true, items: getQuestsForDate(filteredQuests, questCompletions, placements, date) }, statusFilter);
+  }, [view, cursorDate, selectedDate, filteredQuests, questCompletions, placements, statusFilter]);
 
   // Selected-day panel always reflects selectedDayKey, independent of which
   // main view is active (so it stays meaningful in Month/Week too).
   const selectedCell = useMemo((): CalendarDayCell => {
-    return filterCellItems({ date: selectedDate, dayKey: selectedDayKey, inCurrentPeriod: true, items: getQuestsForDate(filteredQuests, questCompletions, selectedDate) }, statusFilter);
-  }, [selectedDate, selectedDayKey, filteredQuests, questCompletions, statusFilter]);
+    return filterCellItems({ date: selectedDate, dayKey: selectedDayKey, inCurrentPeriod: true, items: getQuestsForDate(filteredQuests, questCompletions, placements, selectedDate) }, statusFilter);
+  }, [selectedDate, selectedDayKey, filteredQuests, questCompletions, placements, statusFilter]);
+
+  // Quests available to manually assign to a given day - active, not
+  // already showing there (completed or already placed). Deliberately uses
+  // the unfiltered quest list: category/Goal filters shape what you SEE,
+  // not what you're allowed to place.
+  function getAvailableQuestsForCell(cell: CalendarDayCell): Quest[] {
+    const shownIds = new Set(cell.items.map((item) => item.quest.id));
+    return quests.filter((quest) => quest.status === "active" && !shownIds.has(quest.id));
+  }
 
   const miniWeeks = useMemo(
     () => rawMonthWeeks.map((week) => week.map((cell) => ({ date: cell.date, dayKey: cell.dayKey, inCurrentPeriod: cell.inCurrentPeriod, hasItems: cell.items.length > 0 }))),
@@ -158,7 +180,12 @@ export default function CalendarPageClient() {
   }
 
   function openAddQuestForDate(date: Date) {
-    setForm(createQuestFormModel({ scheduledDays: [date.getDay()] }));
+    setForm(createQuestFormModel());
+    setPendingPlacementDate(getLocalDayKey(date));
+  }
+
+  function handleAssignQuest(date: Date, questId: string) {
+    addPlacement(questId, getLocalDayKey(date));
   }
 
   function completionTimestampFor(date: Date) {
@@ -180,8 +207,19 @@ export default function CalendarPageClient() {
 
   function saveQuest() {
     if (!form || !form.title.trim()) return;
-    setQuestDefinitions(upsertQuestFromForm(quests, form));
+    const isNewQuest = !form.id;
+    const nextQuests = upsertQuestFromForm(quests, form);
+    setQuestDefinitions(nextQuests);
+
+    if (isNewQuest && pendingPlacementDate) {
+      const createdQuest = nextQuests.find((quest) => !quests.some((existing) => existing.id === quest.id));
+      if (createdQuest) {
+        addPlacement(createdQuest.id, pendingPlacementDate);
+      }
+    }
+
     setForm(null);
+    setPendingPlacementDate(null);
   }
 
   function setQuestStatus(quest: Quest, status: QuestStatus) {
@@ -191,6 +229,7 @@ export default function CalendarPageClient() {
   function deleteQuest(questId: string) {
     setQuestDefinitions(quests.filter((quest) => quest.id !== questId));
     setSelectedQuestId((current) => (current === questId ? null : current));
+    removePlacementsForQuest(questId);
   }
 
   function linkQuestGoal(questId: string, goalId: string | null) {
@@ -227,7 +266,16 @@ export default function CalendarPageClient() {
         <Card className="p-5">
           {view === "month" ? <MonthView weeks={monthWeeks} todayKey={todayKey} selectedDayKey={selectedDayKey} onSelectDate={selectDate} onOpenQuest={setSelectedQuestId} /> : null}
           {view === "week" ? <WeekView days={weekDays} todayKey={todayKey} selectedDayKey={selectedDayKey} onSelectDate={selectDate} onOpenQuest={setSelectedQuestId} /> : null}
-          {view === "day" ? <DayView cell={dayCell} onOpenQuest={setSelectedQuestId} onAddQuest={() => openAddQuestForDate(dayCell.date)} /> : null}
+          {view === "day" ? (
+            <DayView
+              cell={dayCell}
+              onOpenQuest={setSelectedQuestId}
+              onAddQuest={() => openAddQuestForDate(dayCell.date)}
+              availableQuests={getAvailableQuestsForCell(dayCell)}
+              onAssignQuest={(questId) => handleAssignQuest(dayCell.date, questId)}
+              onRemovePlacement={removePlacement}
+            />
+          ) : null}
         </Card>
 
         {!selectedQuest ? (
@@ -244,6 +292,9 @@ export default function CalendarPageClient() {
               onToggleComplete={handleToggleComplete}
               onOpenQuest={setSelectedQuestId}
               onAddQuest={() => openAddQuestForDate(selectedCell.date)}
+              availableQuests={getAvailableQuestsForCell(selectedCell)}
+              onAssignQuest={(questId) => handleAssignQuest(selectedCell.date, questId)}
+              onRemovePlacement={removePlacement}
             />
           </div>
         ) : null}
@@ -263,7 +314,10 @@ export default function CalendarPageClient() {
               goalTree={goalTree}
               progressGoals={progressGoals}
               onClose={() => setSelectedQuestId(null)}
-              onEdit={(quest) => setForm(toQuestForm(quest))}
+              onEdit={(quest) => {
+                setPendingPlacementDate(null);
+                setForm(toQuestForm(quest));
+              }}
               onToggleStatus={(quest) => setQuestStatus(quest, quest.status === "active" ? "archived" : "active")}
               onDelete={deleteQuest}
               onLinkGoal={linkQuestGoal}
@@ -272,7 +326,18 @@ export default function CalendarPageClient() {
         ) : null}
       </div>
 
-      {form ? <QuestForm form={form} isEditing={Boolean(form.id)} onChange={setForm} onCancel={() => setForm(null)} onSave={saveQuest} /> : null}
+      {form ? (
+        <QuestForm
+          form={form}
+          isEditing={Boolean(form.id)}
+          onChange={setForm}
+          onCancel={() => {
+            setForm(null);
+            setPendingPlacementDate(null);
+          }}
+          onSave={saveQuest}
+        />
+      ) : null}
 
       {pendingQuest ? (
         <QuestCompletionModal

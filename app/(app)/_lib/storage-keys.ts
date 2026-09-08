@@ -77,6 +77,12 @@ export const STORAGE_KEYS = {
   // single flat collection, not split like Challenges - Notes has no
   // sub-entities to cross-reference.
   notes: "menace-notes",
+  // Calendar is a view over Quest/QuestCompletion (see quest-calendar-engine.ts)
+  // - this is the one small exception: which quests the user has manually
+  // placed on which day, since Quest itself has no date field. Completed
+  // quests still show automatically on their real completion day regardless
+  // of this list.
+  calendarPlacements: "menace-calendar-placements",
 } as const;
 
 export const MENACE_STORAGE_EVENT = "menace-local-storage-change";

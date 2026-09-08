@@ -3,7 +3,9 @@
 import { getQuestIconKey } from "../quests/QuestIcon";
 import QuestIcon from "../quests/QuestIcon";
 import type { CalendarDayCell, CalendarQuestItem } from "../../_lib/engines/quest-calendar-engine";
+import type { Quest } from "../../_lib/types/quest";
 import MiniCalendar from "./MiniCalendar";
+import AssignExistingQuestPicker from "./AssignExistingQuestPicker";
 
 type MiniCalendarCell = Readonly<{ date: Date; dayKey: string; inCurrentPeriod: boolean; hasItems: boolean }>;
 
@@ -19,9 +21,27 @@ type DayPanelProps = Readonly<{
   onToggleComplete: (item: CalendarQuestItem) => void;
   onOpenQuest: (questId: string) => void;
   onAddQuest: () => void;
+  availableQuests: ReadonlyArray<Quest>;
+  onAssignQuest: (questId: string) => void;
+  onRemovePlacement: (placementId: string) => void;
 }>;
 
-export default function DayPanel({ miniWeeks, miniMonthLabel, todayKey, selectedDayKey, onSelectDate, onPreviousMonth, onNextMonth, selectedCell, onToggleComplete, onOpenQuest, onAddQuest }: DayPanelProps) {
+export default function DayPanel({
+  miniWeeks,
+  miniMonthLabel,
+  todayKey,
+  selectedDayKey,
+  onSelectDate,
+  onPreviousMonth,
+  onNextMonth,
+  selectedCell,
+  onToggleComplete,
+  onOpenQuest,
+  onAddQuest,
+  availableQuests,
+  onAssignQuest,
+  onRemovePlacement,
+}: DayPanelProps) {
   const dateLabel = selectedCell.date.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" });
 
   return (
@@ -72,15 +92,29 @@ export default function DayPanel({ miniWeeks, miniMonthLabel, todayKey, selected
                     </span>
                     {time ? <span className="mt-0.5 block text-[11px] text-slate-500">{time}</span> : null}
                   </button>
+                  {item.placementId ? (
+                    <button
+                      type="button"
+                      onClick={() => onRemovePlacement(item.placementId as string)}
+                      aria-label="Remove from calendar"
+                      title="Remove from this day"
+                      className="mt-0.5 shrink-0 text-xs text-slate-600 transition hover:text-rose-300"
+                    >
+                      ✕
+                    </button>
+                  ) : null}
                 </div>
               );
             })
           )}
         </div>
 
-        <button type="button" onClick={onAddQuest} className="mt-3 w-full rounded-lg border border-purple-400/50 bg-purple-500/15 px-3 py-2 text-xs font-semibold text-purple-100 transition hover:bg-purple-500/25">
-          + Add Quest
-        </button>
+        <div className="mt-3 space-y-2">
+          <button type="button" onClick={onAddQuest} className="w-full rounded-lg border border-purple-400/50 bg-purple-500/15 px-3 py-2 text-xs font-semibold text-purple-100 transition hover:bg-purple-500/25">
+            + New Quest
+          </button>
+          <AssignExistingQuestPicker availableQuests={availableQuests} onAssign={onAssignQuest} />
+        </div>
       </div>
     </div>
   );

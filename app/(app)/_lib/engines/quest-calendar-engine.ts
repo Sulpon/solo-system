@@ -1,5 +1,6 @@
 import { calculateQuestConsistency, calculateQuestStreak, getQuestCompletionCounts, isQuestScheduledForDate } from "../daily-system";
 import { getLocalDayKey } from "../local-day";
+import type { CalendarPlacement } from "../types/calendar-placement";
 import type { Quest, QuestCompletion } from "../types/quest";
 
 export type QuestDayState = "completed" | "missed" | "future";
@@ -307,14 +308,21 @@ export function getQuestDetailStats(quest: Quest, completions: ReadonlyArray<Que
 
 export type CalendarQuestStatus = "completed" | "missed" | "scheduled";
 
-export type CalendarQuestItem = Readonly<{ quest: Quest; status: CalendarQuestStatus; completion: QuestCompletion | null }>;
+export type CalendarQuestItem = Readonly<{ quest: Quest; status: CalendarQuestStatus; completion: QuestCompletion | null; placementId: string | null }>;
 
-// One-time quests have no scheduled-date field (see types/quest.ts) - the
-// only date they can honestly be associated with is the day they were
-// actually completed. Before completion they simply don't appear on any
-// day, rather than guessing one - the explicit "unscheduled quests should
-// NOT randomly appear on dates" requirement.
-export function getQuestsForDate(quests: ReadonlyArray<Quest>, completions: ReadonlyArray<QuestCompletion>, date: Date, referenceDate = new Date()): CalendarQuestItem[] {
+// Calendar never auto-populates from a quest's recurrence (isQuestScheduledForDate
+// is deliberately not consulted here) - only two things put a quest on a
+// day: a real completion (historical fact, always shown), or the user
+// explicitly placing it there via a CalendarPlacement. One-time quests
+// still have no date field, so before completion they can only appear via
+// an explicit placement, same as any other quest.
+export function getQuestsForDate(
+  quests: ReadonlyArray<Quest>,
+  completions: ReadonlyArray<QuestCompletion>,
+  placements: ReadonlyArray<CalendarPlacement>,
+  date: Date,
+  referenceDate = new Date(),
+): CalendarQuestItem[] {
   const dayKey = getLocalDayKey(date);
   const today = new Date(referenceDate);
   today.setHours(0, 0, 0, 0);
@@ -331,19 +339,17 @@ export function getQuestsForDate(quests: ReadonlyArray<Quest>, completions: Read
     const completion = completions.find((entry) => entry.questId === quest.id && getLocalDayKey(entry.completedAt) === dayKey) ?? null;
 
     if (completion) {
-      items.push({ quest, status: "completed", completion });
+      items.push({ quest, status: "completed", completion, placementId: null });
       continue;
     }
 
-    if (quest.cadence === "one-time") {
+    const placement = placements.find((entry) => entry.questId === quest.id && entry.date === dayKey) ?? null;
+
+    if (!placement) {
       continue;
     }
 
-    if (!isQuestScheduledForDate(quest, target)) {
-      continue;
-    }
-
-    items.push({ quest, status: target < today ? "missed" : "scheduled", completion: null });
+    items.push({ quest, status: target < today ? "missed" : "scheduled", completion: null, placementId: placement.id });
   }
 
   return items;
@@ -351,14 +357,28 @@ export function getQuestsForDate(quests: ReadonlyArray<Quest>, completions: Read
 
 export type CalendarDayCell = Readonly<{ date: Date; dayKey: string; inCurrentPeriod: boolean; items: CalendarQuestItem[] }>;
 
-function buildCalendarDayCell(quests: ReadonlyArray<Quest>, completions: ReadonlyArray<QuestCompletion>, date: Date, referenceDate: Date, inCurrentPeriod: boolean): CalendarDayCell {
-  return { date: new Date(date), dayKey: getLocalDayKey(date), inCurrentPeriod, items: getQuestsForDate(quests, completions, date, referenceDate) };
+function buildCalendarDayCell(
+  quests: ReadonlyArray<Quest>,
+  completions: ReadonlyArray<QuestCompletion>,
+  placements: ReadonlyArray<CalendarPlacement>,
+  date: Date,
+  referenceDate: Date,
+  inCurrentPeriod: boolean,
+): CalendarDayCell {
+  return { date: new Date(date), dayKey: getLocalDayKey(date), inCurrentPeriod, items: getQuestsForDate(quests, completions, placements, date, referenceDate) };
 }
 
 // Full 6-row (42-day) Monday-first month grid, matching the per-quest month
 // grid's exact convention above (buildQuestCalendarMonth) for visual
 // consistency between the Quest Detail Panel and the global Calendar.
-export function buildCalendarMonth(quests: ReadonlyArray<Quest>, completions: ReadonlyArray<QuestCompletion>, year: number, month: number, referenceDate = new Date()): CalendarDayCell[][] {
+export function buildCalendarMonth(
+  quests: ReadonlyArray<Quest>,
+  completions: ReadonlyArray<QuestCompletion>,
+  placements: ReadonlyArray<CalendarPlacement>,
+  year: number,
+  month: number,
+  referenceDate = new Date(),
+): CalendarDayCell[][] {
   const firstOfMonth = new Date(year, month, 1);
   const gridStart = startOfWeekMonday(firstOfMonth);
 
@@ -368,7 +388,7 @@ export function buildCalendarMonth(quests: ReadonlyArray<Quest>, completions: Re
   for (let week = 0; week < 6; week += 1) {
     const days: CalendarDayCell[] = [];
     for (let day = 0; day < 7; day += 1) {
-      days.push(buildCalendarDayCell(quests, completions, cursor, referenceDate, cursor.getMonth() === month));
+      days.push(buildCalendarDayCell(quests, completions, placements, cursor, referenceDate, cursor.getMonth() === month));
       cursor.setDate(cursor.getDate() + 1);
     }
     weeks.push(days);
@@ -377,13 +397,19 @@ export function buildCalendarMonth(quests: ReadonlyArray<Quest>, completions: Re
   return weeks;
 }
 
-export function buildCalendarWeek(quests: ReadonlyArray<Quest>, completions: ReadonlyArray<QuestCompletion>, anyDateInWeek: Date, referenceDate = new Date()): CalendarDayCell[] {
+export function buildCalendarWeek(
+  quests: ReadonlyArray<Quest>,
+  completions: ReadonlyArray<QuestCompletion>,
+  placements: ReadonlyArray<CalendarPlacement>,
+  anyDateInWeek: Date,
+  referenceDate = new Date(),
+): CalendarDayCell[] {
   const weekStart = startOfWeekMonday(anyDateInWeek);
   const days: CalendarDayCell[] = [];
   const cursor = new Date(weekStart);
 
   for (let day = 0; day < 7; day += 1) {
-    days.push(buildCalendarDayCell(quests, completions, cursor, referenceDate, true));
+    days.push(buildCalendarDayCell(quests, completions, placements, cursor, referenceDate, true));
     cursor.setDate(cursor.getDate() + 1);
   }
 
