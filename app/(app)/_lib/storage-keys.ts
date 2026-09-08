@@ -73,6 +73,10 @@ export const STORAGE_KEYS = {
   challenges: "menace-challenges",
   challengeMetrics: "menace-challenge-metrics",
   challengeEntries: "menace-challenge-entries",
+  // Frictionless idea/thought capture - see types/note.ts. Deliberately a
+  // single flat collection, not split like Challenges - Notes has no
+  // sub-entities to cross-reference.
+  notes: "menace-notes",
 } as const;
 
 export const MENACE_STORAGE_EVENT = "menace-local-storage-change";
