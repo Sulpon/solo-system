@@ -9,6 +9,7 @@ import { isQuestScheduledForDate } from "../../_lib/daily-system";
 import { hasCompletedToday } from "../../_lib/quest-storage";
 import { getLocalDayKey, parseLocalDayKey } from "../../_lib/local-day";
 import { useProgression } from "../../_lib/hooks/useProgression";
+import { useGoalTree } from "../../_lib/hooks/useGoalTree";
 import { useWorkout } from "../../_lib/workout-store";
 import type { Quest, QuestStatus } from "../../_lib/types/quest";
 import QuestForm, { type QuestFormModel } from "./QuestForm";
@@ -18,6 +19,7 @@ import QuestCompletionModal from "./QuestCompletionModal";
 import QuestReflectionModal from "./QuestReflectionModal";
 import UndoCompletionModal from "./UndoCompletionModal";
 import QuestList from "./QuestList";
+import QuestDetailPanel from "./QuestDetailPanel";
 import { useQuestCompletionFlow } from "./useQuestCompletionFlow";
 import { createQuestFormModel, toQuestForm, upsertQuestFromForm } from "./quest-form.utils";
 import type { EditablePageSection } from "../page-edit/types";
@@ -29,7 +31,9 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
   const [form, setForm] = useState<QuestFormModel | null>(null);
   const [importanceFilter, setImportanceFilter] = useState<QuestImportanceFilter>("today");
   const [logDayKey, setLogDayKey] = useState(() => getLocalDayKey());
+  const [selectedQuestId, setSelectedQuestId] = useState<string | null>(null);
   const { isReady, questDefinitions: quests, setQuestDefinitions, questCompletions, activityEvents, progressionSummary } = useProgression();
+  const { goalTree, progressGoals } = useGoalTree();
   const { startSession: startWorkoutSession } = useWorkout();
   const availableWidgets = useMemo(() => getCatalogWidgetsForPage("quests"), []);
   const {
@@ -124,7 +128,15 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
   function deleteQuest(questId: string) {
     const nextQuests = quests.filter((quest) => quest.id !== questId);
     setQuestDefinitions(nextQuests);
+    setSelectedQuestId((current) => (current === questId ? null : current));
   }
+
+  function linkQuestGoal(questId: string, goalId: string | null) {
+    const nextQuests = quests.map((item) => (item.id === questId ? { ...item, linkedProgressGoalId: goalId, updatedAt: new Date().toISOString() } : item));
+    setQuestDefinitions(nextQuests);
+  }
+
+  const selectedQuest = quests.find((quest) => quest.id === selectedQuestId) ?? null;
 
   if (!isReady) {
     return (
@@ -142,6 +154,7 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
 
       <CustomizablePage pageId="quests" title="Quest Widgets" subtitle="Read-only quest statistics and progress panels." sections={statsSections} availableWidgets={availableWidgets} />
 
+      <div className={"grid gap-5 " + (selectedQuest ? "lg:grid-cols-[minmax(0,1fr)_420px] lg:items-start" : "")}>
       <Card className="p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -217,6 +230,8 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
           onComplete={(quest) => beginQuestCompletion(quest, completionTimestampForLogDay())}
           onUndoComplete={(quest) => beginUndoCompletion(quest.id, logDate.toISOString())}
           onStartWorkout={(quest) => startWorkoutSession({ templateId: quest.linkedWorkoutTemplateId, linkedQuestId: quest.id })}
+          onSelect={(quest) => setSelectedQuestId(quest.id)}
+          selectedQuestId={selectedQuestId}
         />
       )}
 
@@ -254,6 +269,30 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
         />
       ) : null}
       </Card>
+
+      {selectedQuest ? (
+        <div className="fixed inset-0 z-40 overflow-y-auto bg-slate-950 p-4 lg:static lg:z-auto lg:overflow-visible lg:bg-transparent lg:p-0">
+          <button
+            type="button"
+            onClick={() => setSelectedQuestId(null)}
+            className="mb-3 flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:border-purple-400/60 hover:text-white lg:hidden"
+          >
+            ← Back
+          </button>
+          <QuestDetailPanel
+            quest={selectedQuest}
+            completions={questCompletions}
+            goalTree={goalTree}
+            progressGoals={progressGoals}
+            onClose={() => setSelectedQuestId(null)}
+            onEdit={(quest) => setForm(toQuestForm(quest))}
+            onToggleStatus={(quest) => setQuestStatus(quest, quest.status === "active" ? "archived" : "active")}
+            onDelete={deleteQuest}
+            onLinkGoal={linkQuestGoal}
+          />
+        </div>
+      ) : null}
+      </div>
 
       <QuestBottomBar />
     </div>

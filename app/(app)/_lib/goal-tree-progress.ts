@@ -87,6 +87,25 @@ export function calculateGoalTree(nodes: GoalTree): GoalNodeView[] {
   return nodes.map((node) => computeNode(node, 0));
 }
 
+// Find a node (with its computed progress) inside an already-calculated
+// view tree - the GoalNodeView counterpart to goal-tree-storage.ts's
+// findGoalNode, needed because progress only exists on the view, not the
+// raw GoalNode.
+export function findGoalNodeView(nodes: ReadonlyArray<GoalNodeView>, nodeId: string): GoalNodeView | null {
+  for (const node of nodes) {
+    if (node.id === nodeId) {
+      return node;
+    }
+
+    const found = findGoalNodeView(node.children, nodeId);
+    if (found) {
+      return found;
+    }
+  }
+
+  return null;
+}
+
 export function summarizeGoalTree(nodes: GoalTree): GoalTreeSummary {
   const roots = calculateGoalTree(nodes);
 

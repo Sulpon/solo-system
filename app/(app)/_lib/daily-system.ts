@@ -169,12 +169,18 @@ export function calculateStreakXpBonus(baseXp: number, streakDays: number) {
 // this directly too. A missing createdAt is treated as "always existed" -
 // the full window applies, same as calculateQuestStreak's ChallengeSource-
 // style trick.
-export function calculateQuestConsistency(
+export type QuestCompletionCounts = Readonly<{ scheduledDays: number; completedDays: number }>;
+
+// The single real implementation of "how many of this quest's scheduled
+// days were actually completed in this window" - calculateQuestConsistency
+// below is just this expressed as a percent, so both stay in sync by
+// construction.
+export function getQuestCompletionCounts(
   quest: Pick<Quest, "id" | "scheduledDays"> & { createdAt?: string },
   completions: ReadonlyArray<QuestCompletion>,
   referenceDate = new Date(),
   windowDays = 30,
-) {
+): QuestCompletionCounts {
   const completionDays = new Set(
     completions.filter((completion) => completion.questId === quest.id).map((completion) => getLocalDayKey(completion.completedAt)),
   );
@@ -202,11 +208,22 @@ export function calculateQuestConsistency(
     cursor.setDate(cursor.getDate() + 1);
   }
 
-  if (scheduledDaysCount === 0) {
+  return { scheduledDays: scheduledDaysCount, completedDays: completedDaysCount };
+}
+
+export function calculateQuestConsistency(
+  quest: Pick<Quest, "id" | "scheduledDays"> & { createdAt?: string },
+  completions: ReadonlyArray<QuestCompletion>,
+  referenceDate = new Date(),
+  windowDays = 30,
+) {
+  const { scheduledDays, completedDays } = getQuestCompletionCounts(quest, completions, referenceDate, windowDays);
+
+  if (scheduledDays === 0) {
     return 0;
   }
 
-  return Math.round((completedDaysCount / scheduledDaysCount) * 100);
+  return Math.round((completedDays / scheduledDays) * 100);
 }
 
 export function getConsistencyScore(snapshots: ReadonlyArray<DailySnapshot>, referenceDate = new Date()) {

@@ -22,9 +22,11 @@ type QuestListProps = Readonly<{
   onComplete: (quest: Quest) => void;
   onUndoComplete?: (quest: Quest) => void;
   onStartWorkout?: (quest: Quest) => void;
+  onSelect?: (quest: Quest) => void;
+  selectedQuestId?: string | null;
 }>;
 
-function formatSchedule(quest: Quest) {
+export function formatSchedule(quest: Quest) {
   const days = quest.scheduledDays ?? [];
 
   if (days.length === 0) {
@@ -97,6 +99,8 @@ export default function QuestList({
   onComplete,
   onUndoComplete,
   onStartWorkout,
+  onSelect,
+  selectedQuestId,
 }: QuestListProps) {
   const { attributes: categories } = useAttributes();
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -162,9 +166,11 @@ export default function QuestList({
             key={quest.id}
             className={
               "flex items-center gap-3 rounded-xl border bg-slate-900/50 px-3 py-2.5 transition duration-150 " +
-              (isCompleted
-                ? "border-emerald-500/50 shadow-[0_0_14px_rgba(16,185,129,0.14)]"
-                : `${tier.borderClass} hover:border-slate-600 ${tier.glowClass}`)
+              (quest.id === selectedQuestId
+                ? "border-purple-400/70 shadow-[0_0_16px_rgba(168,85,247,0.22)]"
+                : isCompleted
+                  ? "border-emerald-500/50 shadow-[0_0_14px_rgba(16,185,129,0.14)]"
+                  : `${tier.borderClass} hover:border-slate-600 ${tier.glowClass}`)
             }
           >
             <button
@@ -198,7 +204,13 @@ export default function QuestList({
 
             <div className="min-w-0 flex-1">
               <div className="flex items-baseline gap-2">
-                <h3 className="truncate text-sm font-bold text-white">{quest.title}</h3>
+                {onSelect ? (
+                  <button type="button" onClick={() => onSelect(quest)} className="truncate text-left text-sm font-bold text-white transition hover:text-purple-200 hover:underline">
+                    {quest.title}
+                  </button>
+                ) : (
+                  <h3 className="truncate text-sm font-bold text-white">{quest.title}</h3>
+                )}
                 <span className="shrink-0 rounded-full border border-yellow-400/40 bg-yellow-400/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-yellow-200">
                   Lv {formatQuestMasteryLevel(mastery.currentLevel)} · {masteryTitle}
                 </span>
