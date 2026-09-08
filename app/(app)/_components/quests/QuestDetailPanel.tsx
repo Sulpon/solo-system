@@ -6,6 +6,7 @@ import { calculateQuestStreak } from "../../_lib/daily-system";
 import { getQuestDetailStats } from "../../_lib/engines/quest-calendar-engine";
 import { formatSchedule } from "./QuestList";
 import QuestDetailHeader from "./QuestDetailHeader";
+import QuestPlanningPath from "./QuestPlanningPath";
 import QuestDetailTabs, { type QuestDetailTab } from "./QuestDetailTabs";
 import QuestCalendar from "./QuestCalendar";
 import QuestStatistics from "./QuestStatistics";
@@ -82,6 +83,7 @@ export default function QuestDetailPanel({ quest, completions, goalTree, progres
   return (
     <div className="overflow-hidden rounded-2xl border border-purple-500/20 bg-slate-950/70">
       <QuestDetailHeader quest={quest} completions={completions} onClose={onClose} onEdit={onEdit} onToggleStatus={onToggleStatus} onDelete={onDelete} />
+      <QuestPlanningPath quest={quest} goalTree={goalTree} />
       <QuestDetailTabs activeTab={activeTab} onChange={setActiveTab} />
 
       <div className="p-5">
