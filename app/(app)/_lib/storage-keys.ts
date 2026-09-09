@@ -82,6 +82,19 @@ export const STORAGE_KEYS = {
   // like every other photo in this app - only the small coverImageId lives
   // here.
   libraryItems: "menace-library",
+  // Dashboard Streaks/Achievements/Goal Progress widgets are VIEWS over real
+  // source data - this is the one object that stores which items the user
+  // chose to see (see types/dashboard-preferences.ts). It never stores a
+  // streak value, achievement-unlocked flag, or goal progress percent -
+  // those are always read live from their real systems.
+  dashboardPreferences: "menace-dashboard-preferences",
+  // Real, user-authored streaks/achievements with no underlying Quest or
+  // Atlas-verified event - see types/manual-streak.ts and
+  // types/manual-achievement.ts. Independent collections, same convention
+  // as every other entity in this app - not folded into dashboardPreferences,
+  // since these are source data, not a display preference.
+  manualStreaks: "menace-manual-streaks",
+  manualAchievements: "menace-manual-achievements",
 } as const;
 
 export const MENACE_STORAGE_EVENT = "menace-local-storage-change";

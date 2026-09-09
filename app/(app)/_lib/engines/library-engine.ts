@@ -1,4 +1,3 @@
-import type { GoalNode, GoalTree } from "../types/goal-tree";
 import type { MediaItem, MediaStatus, MediaType } from "../types/media-item";
 import { MEDIA_STATUSES, MEDIA_TYPES } from "../types/media-item";
 
@@ -143,12 +142,3 @@ export function sortMediaItems(items: ReadonlyArray<MediaItem>, sortKey: MediaSo
   }
 }
 
-// Every node in the Goal Tree, flattened - the Library's "Linked Goals"
-// picker offers any of them (Dreams through Weekly Milestones), not just
-// progress_goal nodes the way Quest's single linkedProgressGoalId does,
-// since a book like "The Psychology of Money" more naturally maps to a
-// broad Dream ("Financial Discipline") than a numeric progress goal. Reuses
-// the existing GoalTree - no new Goal model.
-export function flattenGoalNodes(nodes: GoalTree): GoalNode[] {
-  return nodes.flatMap((node) => [node, ...flattenGoalNodes(node.children)]);
-}

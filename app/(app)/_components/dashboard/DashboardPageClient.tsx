@@ -24,7 +24,7 @@ import { getTodayQuests } from "../../_lib/daily-system";
 import { duplicateItemAfter, normalizeOrder, orderByPosition, removeItemById, toggleItemVisibility } from "../../_lib/widgets/layout-list";
 import type { DailyQuest, Quest } from "../../_lib/types/quest";
 import type { DashboardGridLayout, DashboardLayout, DashboardRow, DashboardWidget } from "../../_lib/types/dashboard-widget";
-import { WIDGET_LAYOUT_VERSION, createDefaultDashboardGridLayout, createDefaultDashboardLayout, createWidgetFromType, getWidgetDefinition, normalizeWidget } from "../../_lib/widgets/widget-registry";
+import { DEPRECATED_WIDGET_TYPES, WIDGET_LAYOUT_VERSION, createDefaultDashboardGridLayout, createDefaultDashboardLayout, createWidgetFromType, getWidgetDefinition, normalizeWidget } from "../../_lib/widgets/widget-registry";
 import { getCatalogWidget, getCatalogWidgetsForPage } from "../../_lib/widgets/catalog-registry";
 import { dashboardNativeCatalogWidgets } from "../../_lib/widgets/dashboard-native-previews";
 import WidgetCatalogModal from "../widgets/WidgetCatalogModal";
@@ -388,14 +388,29 @@ export default function DashboardPageClient() {
     }),
   );
 
-  const normalizedWidgets = useMemo(() => layout.widgets.map((widget) => normalizeWidget(widget)), [layout.widgets]);
+  // Widgets removed from the app entirely (e.g. "Weekly Overview") are
+  // pruned here rather than just hidden - this runs on every render (cheap,
+  // idempotent), but what actually persists the removal is the existing
+  // layoutVersion-mismatch effect below writing this filtered set back to
+  // storage the first time a user with an old saved layout loads Dashboard.
+  const normalizedWidgets = useMemo(
+    () => layout.widgets.filter((widget) => !DEPRECATED_WIDGET_TYPES.has(widget.type)).map((widget) => normalizeWidget(widget)),
+    [layout.widgets],
+  );
 
   const dashboardCatalogWidgets = useMemo(() => [...dashboardNativeCatalogWidgets, ...getCatalogWidgetsForPage("dashboard")], []);
 
   const normalizedLayout = useMemo(
     () => ({
       ...layout,
-      layoutVersion: layout.layoutVersion ?? WIDGET_LAYOUT_VERSION,
+      // Always the CURRENT version, not `layout.layoutVersion ?? ...` - that
+      // only substitutes when the field is missing entirely, so a layout
+      // saved under an older-but-defined version number (e.g. a pre-existing
+      // user's saved layout) would keep that stale number forever: the
+      // migration effect below re-triggers on every render (it never stops
+      // seeing a mismatch) without ever actually converging, which is an
+      // infinite setState loop, not just a missed bump.
+      layoutVersion: WIDGET_LAYOUT_VERSION,
       widgets: normalizedWidgets,
     }),
     [layout, normalizedWidgets],

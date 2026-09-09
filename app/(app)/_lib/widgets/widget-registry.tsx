@@ -17,8 +17,11 @@ import NightReviewModal from "../../_components/dashboard/NightReviewModal";
 import RecentMilestonesCard from "../../_components/dashboard/RecentMilestonesCard";
 import TodayProgressFeed from "../../_components/dashboard/TodayProgressFeed";
 import TomorrowPreviewCard from "../../_components/dashboard/TomorrowPreviewCard";
-import XPOverviewCard from "../../_components/dashboard/XPOverviewCard";
-import { getLiveDreamProgress, getRecentGoalMilestones, getWeeklyXpSeries } from "../../_components/dashboard/dashboard-overview.utils";
+import { getLiveDreamProgress, getRecentGoalMilestones } from "../../_components/dashboard/dashboard-overview.utils";
+import LevelXpBar from "../../_components/dashboard/LevelXpBar";
+import StreaksWidget from "../../_components/dashboard/StreaksWidget";
+import AchievementsWidget from "../../_components/dashboard/AchievementsWidget";
+import GoalProgressWidget from "../../_components/dashboard/GoalProgressWidget";
 import DailyQuestsCard from "../../_components/DailyQuestsCard";
 import Progress from "../../_components/Progress";
 import SectionTitle from "../../_components/SectionTitle";
@@ -52,7 +55,16 @@ import type {
 } from "../types/dashboard-widget";
 import type { DailyQuest, Quest } from "../types/quest";
 
-export const WIDGET_LAYOUT_VERSION = 2;
+export const WIDGET_LAYOUT_VERSION = 3;
+
+// Widget types no longer offered on Dashboard - "XP Overview" (aka "Weekly
+// Overview") was removed outright per an explicit product decision, not
+// replaced by another statistics widget. Any instance of a deprecated type
+// already sitting in a user's saved layout is pruned the next time their
+// layout is normalized (see the `layout.layoutVersion !== WIDGET_LAYOUT_VERSION`
+// migration in DashboardPageClient.tsx) - this is what makes the removal
+// permanent for existing users, not just for new default layouts.
+export const DEPRECATED_WIDGET_TYPES = new Set<DashboardWidgetType>(["xp-overview"]);
 
 export const widgetCategories: WidgetCategory[] = [
   "Character",
@@ -70,6 +82,10 @@ export const widgetCategories: WidgetCategory[] = [
 // with Daily Review, which is naturally an end-of-day action rather than
 // something to look at first thing in the morning.
 const defaultDashboardWidgetIds: DashboardWidgetType[] = [
+  "level-xp-summary",
+  "streaks",
+  "achievements",
+  "goal-progress",
   "command-center-header",
   "minimum-successful-day",
   "bonus-missions",
@@ -79,7 +95,6 @@ const defaultDashboardWidgetIds: DashboardWidgetType[] = [
   "today-progress-feed",
   "tomorrow-preview",
   "recent-milestones",
-  "xp-overview",
   "night-review",
 ];
 
@@ -788,10 +803,20 @@ function renderRecentMilestonesWidget() {
   return <RecentMilestonesCard milestones={recentMilestones} />;
 }
 
-function renderXpOverviewWidget() {
-  const { questCompletions, goalXpEvents } = useProgression();
-  const weeklyXpSeries = useMemo(() => getWeeklyXpSeries(questCompletions, goalXpEvents), [goalXpEvents, questCompletions]);
-  return <XPOverviewCard series={weeklyXpSeries} />;
+function renderLevelXpSummaryWidget() {
+  return <LevelXpBar />;
+}
+
+function renderStreaksWidget() {
+  return <StreaksWidget />;
+}
+
+function renderAchievementsWidget() {
+  return <AchievementsWidget />;
+}
+
+function renderGoalProgressWidget() {
+  return <GoalProgressWidget />;
 }
 
 export const widgetRegistry: WidgetDefinition[] = [
@@ -1177,18 +1202,60 @@ export const widgetRegistry: WidgetDefinition[] = [
     component: renderRecentMilestonesWidget,
   },
   {
-    id: "xp-overview",
-    title: "XP Overview",
-    description: "Weekly XP output chart across quests and goal XP.",
-    icon: "XO",
+    id: "level-xp-summary",
+    title: "Level & XP",
+    description: "Current level and XP progress toward the next level.",
+    icon: "LV",
+    category: "Today",
+    defaultSize: "xl",
+    defaultRow: "row-level-xp",
+    canDuplicate: false,
+    canDelete: true,
+    canHide: true,
+    defaultSettings: createDefaultWidgetSettings({ accentColor: "purple", padding: "compact" }),
+    component: renderLevelXpSummaryWidget,
+  },
+  {
+    id: "streaks",
+    title: "Streaks",
+    description: "Your current active streaks, real or manually tracked - pick which ones show here.",
+    icon: "ST",
     category: "Today",
     defaultSize: "lg",
-    defaultRow: "row-milestones-xp",
-    canDuplicate: true,
+    defaultRow: "row-streaks-achievements",
+    canDuplicate: false,
+    canDelete: true,
+    canHide: true,
+    defaultSettings: createDefaultWidgetSettings({ accentColor: "amber" }),
+    component: renderStreaksWidget,
+  },
+  {
+    id: "achievements",
+    title: "Achievements",
+    description: "Real unlocked Atlas achievements plus any you add yourself - pick which ones show here.",
+    icon: "AC",
+    category: "Today",
+    defaultSize: "lg",
+    defaultRow: "row-streaks-achievements",
+    canDuplicate: false,
+    canDelete: true,
+    canHide: true,
+    defaultSettings: createDefaultWidgetSettings({ accentColor: "amber" }),
+    component: renderAchievementsWidget,
+  },
+  {
+    id: "goal-progress",
+    title: "Goal Progress",
+    description: "Live progress bars for the Goals you choose from the Goal Tree.",
+    icon: "GP",
+    category: "Today",
+    defaultSize: "xl",
+    defaultRow: "row-goal-progress",
+    canDuplicate: false,
     canDelete: true,
     canHide: true,
     defaultSettings: createDefaultWidgetSettings({ accentColor: "cyan" }),
-    component: renderXpOverviewWidget,
+    component: renderGoalProgressWidget,
   },
 ];
 
@@ -1213,7 +1280,10 @@ const dashboardCatalogWidgetTypes = new Set<DashboardWidgetType>([
   "today-progress-feed",
   "tomorrow-preview",
   "recent-milestones",
-  "xp-overview",
+  "level-xp-summary",
+  "streaks",
+  "achievements",
+  "goal-progress",
 ]);
 
 export const dashboardWidgetCatalog = widgetRegistry.filter((definition) => dashboardCatalogWidgetTypes.has(definition.id));

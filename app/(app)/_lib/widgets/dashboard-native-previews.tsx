@@ -3,7 +3,6 @@
 import ChartWidget from "../../_components/dashboard/ChartWidget";
 import {
   MiniActivityFeed,
-  MiniBars,
   MiniChecklist,
   MiniProgressList,
   StatValue,
@@ -396,16 +395,68 @@ export const dashboardNativeCatalogWidgets: CatalogWidgetDefinition[] = [
     ),
   }),
   nativePreview({
-    id: "xp-overview",
-    title: "XP Overview",
-    description: "Weekly XP output chart across quests and goal XP.",
+    id: "level-xp-summary",
+    title: "Level & XP",
+    description: "Current level and XP progress toward the next level.",
     category: "Today",
-    icon: "XO",
-    defaultSize: "lg",
-    searchKeywords: ["xp", "overview", "weekly"],
+    icon: "LV",
+    defaultSize: "xl",
+    searchKeywords: ["level", "xp", "progress"],
     preview: (
-      <WidgetShell eyebrow="Today" title="XP Overview">
-        <MiniBars values={[20, 45, 30, 60, 25, 70, 40]} labels={["M", "T", "W", "T", "F", "S", "S"]} />
+      <WidgetShell eyebrow="Today" title="Level & XP">
+        <StatValue label="Level 24" value="2,340 / 3,000 XP" />
+      </WidgetShell>
+    ),
+  }),
+  nativePreview({
+    id: "streaks",
+    title: "Streaks",
+    description: "Your current active streaks, real or manually tracked - pick which ones show here.",
+    category: "Today",
+    icon: "ST",
+    defaultSize: "lg",
+    searchKeywords: ["streak", "streaks", "habit"],
+    preview: (
+      <WidgetShell eyebrow="Today" title="Streaks">
+        <MiniProgressList
+          items={[
+            { id: "p-streak-1", title: "Learn English vocabulary", subtitle: "streak", progress: 100 },
+            { id: "p-streak-2", title: "Write diary in English", subtitle: "streak", progress: 100 },
+          ]}
+        />
+      </WidgetShell>
+    ),
+  }),
+  nativePreview({
+    id: "achievements",
+    title: "Achievements",
+    description: "Real unlocked Atlas achievements plus any you add yourself - pick which ones show here.",
+    category: "Today",
+    icon: "AC",
+    defaultSize: "lg",
+    searchKeywords: ["achievement", "achievements", "trophy"],
+    preview: (
+      <WidgetShell eyebrow="Today" title="Achievements">
+        <MiniChecklist items={[{ id: "p-ach-1", title: "100 Quests Completed", completed: true }, { id: "p-ach-2", title: "First Goal Completed", completed: true }]} />
+      </WidgetShell>
+    ),
+  }),
+  nativePreview({
+    id: "goal-progress",
+    title: "Goal Progress",
+    description: "Live progress bars for the Goals you choose from the Goal Tree.",
+    category: "Today",
+    icon: "GP",
+    defaultSize: "xl",
+    searchKeywords: ["goal", "goals", "progress"],
+    preview: (
+      <WidgetShell eyebrow="Today" title="Goal Progress">
+        <MiniProgressList
+          items={[
+            { id: "p-goal-1", title: "Career Growth", subtitle: "goal", progress: 70 },
+            { id: "p-goal-2", title: "Financial Freedom", subtitle: "goal", progress: 45 },
+          ]}
+        />
       </WidgetShell>
     ),
   }),

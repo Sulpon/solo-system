@@ -384,6 +384,14 @@ function getInheritedDream(nodes: GoalTree, nodeId: string): GoalNode | null {
   return null;
 }
 
+// Every node in the tree, flattened - shared by any feature that lets the
+// user pick "a Goal" from the full tree rather than one specific slice of
+// it (Library's Linked Goals, Dashboard's Goal Progress widget), so there is
+// exactly one flattening implementation to keep in sync with the tree shape.
+export function flattenGoalTree(nodes: GoalTree): GoalNode[] {
+  return nodes.flatMap((node) => [node, ...flattenGoalTree(node.children)]);
+}
+
 export function findGoalNode(nodes: GoalTree, nodeId: string): GoalNode | null {
   for (const node of nodes) {
     if (node.id === nodeId) {

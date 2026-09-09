@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { flattenGoalNodes } from "../../_lib/engines/library-engine";
+import { flattenGoalTree } from "../../_lib/goal-tree-storage";
 import type { GoalTree } from "../../_lib/types/goal-tree";
 
 type LibraryLinkedGoalsProps = Readonly<{
@@ -20,7 +20,7 @@ type LibraryLinkedGoalsProps = Readonly<{
 // broad Dreams/Long-term Goals rather than numeric progress targets.
 export default function LibraryLinkedGoals({ goalTree, linkedGoalIds, onLink, onUnlink }: LibraryLinkedGoalsProps) {
   const [picking, setPicking] = useState(false);
-  const allNodes = useMemo(() => flattenGoalNodes(goalTree), [goalTree]);
+  const allNodes = useMemo(() => flattenGoalTree(goalTree), [goalTree]);
   const linkedNodes = linkedGoalIds.map((id) => allNodes.find((node) => node.id === id)).filter((node) => Boolean(node));
   const availableNodes = allNodes.filter((node) => !linkedGoalIds.includes(node.id));
 
