@@ -77,6 +77,11 @@ export const STORAGE_KEYS = {
   // single flat collection, not split like Challenges - Notes has no
   // sub-entities to cross-reference.
   notes: "menace-notes",
+  // Books/movies/series - one flat collection for all three, see
+  // types/media-item.ts. Cover images live in document-store.ts (IndexedDB)
+  // like every other photo in this app - only the small coverImageId lives
+  // here.
+  libraryItems: "menace-library",
 } as const;
 
 export const MENACE_STORAGE_EVENT = "menace-local-storage-change";
