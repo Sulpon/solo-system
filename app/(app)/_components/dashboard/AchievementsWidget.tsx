@@ -26,34 +26,39 @@ export default function AchievementsWidget() {
   const visible = selectedIds.map((id) => candidatesById.get(id)).filter((candidate): candidate is NonNullable<typeof candidate> => Boolean(candidate));
 
   return (
-    <Card className="p-5" testId="dashboard-achievements-widget">
-      <div className="flex items-center justify-between gap-2">
-        <p className="flex items-center gap-2 text-sm font-black uppercase tracking-[0.1em] text-white">🏆 Achievements</p>
-        <button type="button" onClick={() => setManaging(true)} className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:border-amber-400/60 hover:text-white">
-          ⚙ Manage
+    // Modal is a sibling of Card, not a child - see StreaksWidget.tsx for
+    // why (Card's backdrop-blur-xl traps position:fixed descendants inside
+    // the card's own box instead of the viewport).
+    <>
+      <Card className="p-5" testId="dashboard-achievements-widget">
+        <div className="flex items-center justify-between gap-2">
+          <p className="flex items-center gap-2 text-sm font-black uppercase tracking-[0.1em] text-white">🏆 Achievements</p>
+          <button type="button" onClick={() => setManaging(true)} className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:border-amber-400/60 hover:text-white">
+            ⚙ Manage
+          </button>
+        </div>
+
+        <div className="mt-4 space-y-2">
+          {visible.length === 0 ? (
+            <p className="text-sm text-slate-500">No achievements selected yet. Manage to pin your unlocks here.</p>
+          ) : (
+            visible.map((achievement) => (
+              <div key={achievement.id} className="flex items-center gap-2.5 rounded-xl border border-slate-800 bg-slate-950/45 px-3 py-2">
+                <span>{achievement.source === "manual" ? ICON_GLYPHS[achievement.icon ?? "trophy"] : "🏆"}</span>
+                <span className="min-w-0 flex-1 truncate text-sm text-slate-300">{achievement.title}</span>
+              </div>
+            ))
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setManaging(true)}
+          className="mt-3 w-full rounded-lg border border-dashed border-slate-700 px-3 py-2 text-xs font-semibold text-slate-400 transition hover:border-amber-400/50 hover:text-white"
+        >
+          + Add Achievement
         </button>
-      </div>
-
-      <div className="mt-4 space-y-2">
-        {visible.length === 0 ? (
-          <p className="text-sm text-slate-500">No achievements selected yet. Manage to pin your unlocks here.</p>
-        ) : (
-          visible.map((achievement) => (
-            <div key={achievement.id} className="flex items-center gap-2.5 rounded-xl border border-slate-800 bg-slate-950/45 px-3 py-2">
-              <span>{achievement.source === "manual" ? ICON_GLYPHS[achievement.icon ?? "trophy"] : "🏆"}</span>
-              <span className="min-w-0 flex-1 truncate text-sm text-slate-300">{achievement.title}</span>
-            </div>
-          ))
-        )}
-      </div>
-
-      <button
-        type="button"
-        onClick={() => setManaging(true)}
-        className="mt-3 w-full rounded-lg border border-dashed border-slate-700 px-3 py-2 text-xs font-semibold text-slate-400 transition hover:border-amber-400/50 hover:text-white"
-      >
-        + Add Achievement
-      </button>
+      </Card>
 
       {managing ? (
         <ManageAchievementsModal
@@ -65,6 +70,6 @@ export default function AchievementsWidget() {
           onClose={() => setManaging(false)}
         />
       ) : null}
-    </Card>
+    </>
   );
 }

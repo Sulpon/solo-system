@@ -24,36 +24,46 @@ export default function StreaksWidget() {
   const visible = selectedIds.map((id) => candidatesById.get(id)).filter((candidate): candidate is NonNullable<typeof candidate> => Boolean(candidate));
 
   return (
-    <Card className="p-5" testId="dashboard-streaks-widget">
-      <div className="flex items-center justify-between gap-2">
-        <p className="flex items-center gap-2 text-sm font-black uppercase tracking-[0.1em] text-white">🔥 Streaks</p>
-        <button type="button" onClick={() => setManaging(true)} className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:border-orange-400/60 hover:text-white">
-          ⚙ Manage
+    // The Manage modal is rendered as a SIBLING of Card, not a child of it -
+    // Card uses backdrop-blur-xl (a CSS backdrop-filter), and any non-"none"
+    // backdrop-filter establishes a new containing block for position:fixed
+    // descendants (same rule as transform/filter/will-change). A modal
+    // nested inside the Card would get trapped within the card's own box
+    // instead of covering the viewport - confirmed by comparing against the
+    // pre-existing WidgetSettingsModal, which renders outside any Card and
+    // is unaffected.
+    <>
+      <Card className="p-5" testId="dashboard-streaks-widget">
+        <div className="flex items-center justify-between gap-2">
+          <p className="flex items-center gap-2 text-sm font-black uppercase tracking-[0.1em] text-white">🔥 Streaks</p>
+          <button type="button" onClick={() => setManaging(true)} className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:border-orange-400/60 hover:text-white">
+            ⚙ Manage
+          </button>
+        </div>
+
+        <div className="mt-4 space-y-2">
+          {visible.length === 0 ? (
+            <p className="text-sm text-slate-500">No streaks selected yet. Manage to pin your current streaks here.</p>
+          ) : (
+            visible.map((streak) => (
+              <div key={streak.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/45 px-3 py-2">
+                <span className="min-w-0 truncate text-sm text-slate-300">{streak.title}</span>
+                <span className="shrink-0 text-sm font-bold text-orange-300">
+                  🔥 {streak.currentStreak.toLocaleString()} {streak.currentStreak === 1 ? "day" : "days"}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setManaging(true)}
+          className="mt-3 w-full rounded-lg border border-dashed border-slate-700 px-3 py-2 text-xs font-semibold text-slate-400 transition hover:border-orange-400/50 hover:text-white"
+        >
+          + Add Streak
         </button>
-      </div>
-
-      <div className="mt-4 space-y-2">
-        {visible.length === 0 ? (
-          <p className="text-sm text-slate-500">No streaks selected yet. Manage to pin your current streaks here.</p>
-        ) : (
-          visible.map((streak) => (
-            <div key={streak.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/45 px-3 py-2">
-              <span className="min-w-0 truncate text-sm text-slate-300">{streak.title}</span>
-              <span className="shrink-0 text-sm font-bold text-orange-300">
-                🔥 {streak.currentStreak.toLocaleString()} {streak.currentStreak === 1 ? "day" : "days"}
-              </span>
-            </div>
-          ))
-        )}
-      </div>
-
-      <button
-        type="button"
-        onClick={() => setManaging(true)}
-        className="mt-3 w-full rounded-lg border border-dashed border-slate-700 px-3 py-2 text-xs font-semibold text-slate-400 transition hover:border-orange-400/50 hover:text-white"
-      >
-        + Add Streak
-      </button>
+      </Card>
 
       {managing ? (
         <ManageStreaksModal
@@ -66,6 +76,6 @@ export default function StreaksWidget() {
           onClose={() => setManaging(false)}
         />
       ) : null}
-    </Card>
+    </>
   );
 }

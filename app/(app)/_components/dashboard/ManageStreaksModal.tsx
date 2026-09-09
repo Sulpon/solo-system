@@ -50,7 +50,10 @@ export default function ManageStreaksModal({ candidates, selectedIds, onSave, on
       <div className="space-y-4">
         <div>
           <p className={labelClass}>Streaks</p>
-          <div className="mt-2 space-y-1.5">
+          {/* Capped and independently scrollable - a long list (many real
+              Quest streaks) must never push "+ Create Manual Streak" or the
+              Save/Cancel footer below what's reachable without scrolling. */}
+          <div className="mt-2 max-h-[40vh] space-y-1.5 overflow-y-auto pr-1">
             {candidates.length === 0 ? (
               <p className="text-sm text-slate-500">No active streaks yet - complete a recurring Quest a few days in a row, or add one manually below.</p>
             ) : (
