@@ -4,6 +4,7 @@ import { getQuestIconKey } from "../quests/QuestIcon";
 import QuestIcon from "../quests/QuestIcon";
 import type { CalendarDayCell, CalendarQuestItem } from "../../_lib/engines/quest-calendar-engine";
 import type { Quest } from "../../_lib/types/quest";
+import { formatTimeLabel } from "../../_lib/calendar-time";
 import MiniCalendar from "./MiniCalendar";
 import AssignExistingQuestPicker from "./AssignExistingQuestPicker";
 
@@ -23,7 +24,7 @@ type DayPanelProps = Readonly<{
   onAddQuest: () => void;
   availableQuests: ReadonlyArray<Quest>;
   onAssignQuest: (questId: string) => void;
-  onRemovePlacement: (placementId: string) => void;
+  onClearSchedule: (questId: string) => void;
 }>;
 
 export default function DayPanel({
@@ -40,7 +41,7 @@ export default function DayPanel({
   onAddQuest,
   availableQuests,
   onAssignQuest,
-  onRemovePlacement,
+  onClearSchedule,
 }: DayPanelProps) {
   const dateLabel = selectedCell.date.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" });
 
@@ -68,7 +69,12 @@ export default function DayPanel({
           ) : (
             selectedCell.items.map((item) => {
               const iconKey = getQuestIconKey(item.quest.title);
-              const time = item.completion ? new Date(item.completion.completedAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) : null;
+              const time = item.startTime
+                ? formatTimeLabel(item.startTime)
+                : item.completion
+                  ? new Date(item.completion.completedAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
+                  : null;
+              const canClearSchedule = !item.isRecurring && item.status !== "completed" && item.quest.scheduledDate === selectedCell.dayKey;
 
               return (
                 <div key={item.quest.id} className="flex items-start gap-2 rounded-lg border border-slate-800 bg-slate-950/50 px-2.5 py-2">
@@ -92,10 +98,10 @@ export default function DayPanel({
                     </span>
                     {time ? <span className="mt-0.5 block text-[11px] text-slate-500">{time}</span> : null}
                   </button>
-                  {item.placementId ? (
+                  {canClearSchedule ? (
                     <button
                       type="button"
-                      onClick={() => onRemovePlacement(item.placementId as string)}
+                      onClick={() => onClearSchedule(item.quest.id)}
                       aria-label="Remove from calendar"
                       title="Remove from this day"
                       className="mt-0.5 shrink-0 text-xs text-slate-600 transition hover:text-rose-300"

@@ -1,6 +1,6 @@
 import { calculateQuestConsistency, calculateQuestStreak, getQuestCompletionCounts, isQuestScheduledForDate } from "../daily-system";
 import { getLocalDayKey } from "../local-day";
-import type { CalendarPlacement } from "../types/calendar-placement";
+import { timeToMinutes } from "../calendar-time";
 import type { Quest, QuestCompletion } from "../types/quest";
 
 export type QuestDayState = "completed" | "missed" | "future";
@@ -303,31 +303,50 @@ export function getQuestDetailStats(quest: Quest, completions: ReadonlyArray<Que
 // quest, as opposed to everything above which asks about one quest at a
 // time. Still built entirely from Quest + QuestCompletion - no new
 // persistence, no events derived from Planning nodes (Dreams/Goals/
-// Milestones never appear here, only real Quests).
+// Milestones never appear here, only real Quests). Real Calendar scheduling
+// (scheduledDate / scheduledDays + start/end time) lives directly on Quest -
+// see types/quest.ts - there is no separate calendar-event collection.
 // ---------------------------------------------------------------------------
 
 export type CalendarQuestStatus = "completed" | "missed" | "scheduled";
 
-export type CalendarQuestItem = Readonly<{ quest: Quest; status: CalendarQuestStatus; completion: QuestCompletion | null; placementId: string | null }>;
+export type CalendarQuestItem = Readonly<{
+  quest: Quest;
+  status: CalendarQuestStatus;
+  completion: QuestCompletion | null;
+  // "HH:MM" or null (all-day). Always the quest's own scheduled time, even
+  // when completed - a completed quest stays at its scheduled slot rather
+  // than jumping to whenever it was actually checked off (matches a real
+  // calendar's "event has a fixed time, completing a task doesn't move it").
+  startTime: string | null;
+  endTime: string | null;
+  // True when this occurrence comes from the quest's recurring scheduledDays
+  // (no scheduledDate) rather than a one-time scheduledDate - the Calendar
+  // UI uses this to restrict drag-move to retiming only (see section 15 of
+  // the scheduling spec: occurrence-level exceptions aren't implemented, so
+  // a recurring block's day is never silently changed by a drag).
+  isRecurring: boolean;
+}>;
 
-// Calendar never auto-populates from a quest's recurrence (isQuestScheduledForDate
-// is deliberately not consulted here) - only two things put a quest on a
-// day: a real completion (historical fact, always shown), or the user
-// explicitly placing it there via a CalendarPlacement. One-time quests
-// still have no date field, so before completion they can only appear via
-// an explicit placement, same as any other quest.
-export function getQuestsForDate(
-  quests: ReadonlyArray<Quest>,
-  completions: ReadonlyArray<QuestCompletion>,
-  placements: ReadonlyArray<CalendarPlacement>,
-  date: Date,
-  referenceDate = new Date(),
-): CalendarQuestItem[] {
+// A quest only appears on a given day for one of three reasons: (1) it was
+// actually completed that day - historical fact, always shown regardless of
+// scheduling; (2) scheduledDate matches - a one-time scheduled occurrence;
+// (3) it has no scheduledDate but a non-empty scheduledDays that includes
+// this weekday - an explicit recurring occurrence. A "daily" quest with an
+// empty scheduledDays (the Dashboard's "every day" convention - see
+// daily-system.ts's isQuestScheduledForDate) is deliberately NOT covered by
+// (3): an unscheduled quest should not flood every day on the Calendar (this
+// was an explicit product decision - see the manual-placement change this
+// replaces). scheduledDate and non-empty scheduledDays are mutually
+// exclusive on a saved Quest (see quest-form.utils.ts), so (2)/(3) never
+// both match.
+export function getQuestsForDate(quests: ReadonlyArray<Quest>, completions: ReadonlyArray<QuestCompletion>, date: Date, referenceDate = new Date()): CalendarQuestItem[] {
   const dayKey = getLocalDayKey(date);
   const today = new Date(referenceDate);
   today.setHours(0, 0, 0, 0);
   const target = new Date(date);
   target.setHours(0, 0, 0, 0);
+  const weekday = date.getDay();
 
   const items: CalendarQuestItem[] = [];
 
@@ -337,48 +356,73 @@ export function getQuestsForDate(
     }
 
     const completion = completions.find((entry) => entry.questId === quest.id && getLocalDayKey(entry.completedAt) === dayKey) ?? null;
+    const startTime = quest.scheduledStartTime ?? null;
+    const endTime = quest.scheduledEndTime ?? null;
 
     if (completion) {
-      items.push({ quest, status: "completed", completion, placementId: null });
+      const isRecurring = !quest.scheduledDate && (quest.scheduledDays?.length ?? 0) > 0;
+      items.push({ quest, status: "completed", completion, startTime, endTime, isRecurring });
       continue;
     }
 
-    const placement = placements.find((entry) => entry.questId === quest.id && entry.date === dayKey) ?? null;
+    const isOneTimeMatch = quest.scheduledDate === dayKey;
+    const isRecurringMatch = !quest.scheduledDate && (quest.scheduledDays?.length ?? 0) > 0 && (quest.scheduledDays as ReadonlyArray<number>).includes(weekday);
 
-    if (!placement) {
+    if (!isOneTimeMatch && !isRecurringMatch) {
       continue;
     }
 
-    items.push({ quest, status: target < today ? "missed" : "scheduled", completion: null, placementId: placement.id });
+    items.push({ quest, status: target < today ? "missed" : "scheduled", completion: null, startTime, endTime, isRecurring: isRecurringMatch });
   }
 
   return items;
 }
 
+// True when a quest has no Calendar scheduling of its own yet - the set
+// "Assign Existing Quest" is allowed to offer (assigning gives it a
+// scheduledDate, see CalendarPageClient.tsx).
+export function isQuestUnscheduled(quest: Quest): boolean {
+  return !quest.scheduledDate && (quest.scheduledDays?.length ?? 0) === 0;
+}
+
+export function getQuestScheduledDurationMinutes(quest: Quest): number | null {
+  if (!quest.scheduledStartTime || !quest.scheduledEndTime) {
+    return null;
+  }
+  const minutes = timeToMinutes(quest.scheduledEndTime) - timeToMinutes(quest.scheduledStartTime);
+  return minutes > 0 ? minutes : null;
+}
+
+export type QuestSchedulePatch = Readonly<{
+  scheduledDate?: string | null;
+  scheduledStartTime?: string | null;
+  scheduledEndTime?: string | null;
+}>;
+
+// The single write path every Calendar interaction (assign, drag-create,
+// drag-move, resize) goes through - always an update to the real Quest,
+// never a second "calendar event" record. `null` clears a field, `undefined`
+// (an omitted key) leaves it untouched.
+export function applyQuestSchedule(quest: Quest, patch: QuestSchedulePatch, now = new Date().toISOString()): Quest {
+  return {
+    ...quest,
+    scheduledDate: patch.scheduledDate === null ? undefined : (patch.scheduledDate ?? quest.scheduledDate),
+    scheduledStartTime: patch.scheduledStartTime === null ? undefined : (patch.scheduledStartTime ?? quest.scheduledStartTime),
+    scheduledEndTime: patch.scheduledEndTime === null ? undefined : (patch.scheduledEndTime ?? quest.scheduledEndTime),
+    updatedAt: now,
+  };
+}
+
 export type CalendarDayCell = Readonly<{ date: Date; dayKey: string; inCurrentPeriod: boolean; items: CalendarQuestItem[] }>;
 
-function buildCalendarDayCell(
-  quests: ReadonlyArray<Quest>,
-  completions: ReadonlyArray<QuestCompletion>,
-  placements: ReadonlyArray<CalendarPlacement>,
-  date: Date,
-  referenceDate: Date,
-  inCurrentPeriod: boolean,
-): CalendarDayCell {
-  return { date: new Date(date), dayKey: getLocalDayKey(date), inCurrentPeriod, items: getQuestsForDate(quests, completions, placements, date, referenceDate) };
+function buildCalendarDayCell(quests: ReadonlyArray<Quest>, completions: ReadonlyArray<QuestCompletion>, date: Date, referenceDate: Date, inCurrentPeriod: boolean): CalendarDayCell {
+  return { date: new Date(date), dayKey: getLocalDayKey(date), inCurrentPeriod, items: getQuestsForDate(quests, completions, date, referenceDate) };
 }
 
 // Full 6-row (42-day) Monday-first month grid, matching the per-quest month
 // grid's exact convention above (buildQuestCalendarMonth) for visual
 // consistency between the Quest Detail Panel and the global Calendar.
-export function buildCalendarMonth(
-  quests: ReadonlyArray<Quest>,
-  completions: ReadonlyArray<QuestCompletion>,
-  placements: ReadonlyArray<CalendarPlacement>,
-  year: number,
-  month: number,
-  referenceDate = new Date(),
-): CalendarDayCell[][] {
+export function buildCalendarMonth(quests: ReadonlyArray<Quest>, completions: ReadonlyArray<QuestCompletion>, year: number, month: number, referenceDate = new Date()): CalendarDayCell[][] {
   const firstOfMonth = new Date(year, month, 1);
   const gridStart = startOfWeekMonday(firstOfMonth);
 
@@ -388,7 +432,7 @@ export function buildCalendarMonth(
   for (let week = 0; week < 6; week += 1) {
     const days: CalendarDayCell[] = [];
     for (let day = 0; day < 7; day += 1) {
-      days.push(buildCalendarDayCell(quests, completions, placements, cursor, referenceDate, cursor.getMonth() === month));
+      days.push(buildCalendarDayCell(quests, completions, cursor, referenceDate, cursor.getMonth() === month));
       cursor.setDate(cursor.getDate() + 1);
     }
     weeks.push(days);
@@ -397,19 +441,13 @@ export function buildCalendarMonth(
   return weeks;
 }
 
-export function buildCalendarWeek(
-  quests: ReadonlyArray<Quest>,
-  completions: ReadonlyArray<QuestCompletion>,
-  placements: ReadonlyArray<CalendarPlacement>,
-  anyDateInWeek: Date,
-  referenceDate = new Date(),
-): CalendarDayCell[] {
+export function buildCalendarWeek(quests: ReadonlyArray<Quest>, completions: ReadonlyArray<QuestCompletion>, anyDateInWeek: Date, referenceDate = new Date()): CalendarDayCell[] {
   const weekStart = startOfWeekMonday(anyDateInWeek);
   const days: CalendarDayCell[] = [];
   const cursor = new Date(weekStart);
 
   for (let day = 0; day < 7; day += 1) {
-    days.push(buildCalendarDayCell(quests, completions, placements, cursor, referenceDate, true));
+    days.push(buildCalendarDayCell(quests, completions, cursor, referenceDate, true));
     cursor.setDate(cursor.getDate() + 1);
   }
 

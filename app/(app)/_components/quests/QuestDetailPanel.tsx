@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useAttributes } from "../../_lib/hooks/useAttributes";
 import { calculateQuestStreak } from "../../_lib/daily-system";
 import { getQuestDetailStats } from "../../_lib/engines/quest-calendar-engine";
+import { formatTimeLabel } from "../../_lib/calendar-time";
+import { parseLocalDayKey } from "../../_lib/local-day";
 import { formatSchedule } from "./QuestList";
 import QuestDetailHeader from "./QuestDetailHeader";
 import QuestPlanningPath from "./QuestPlanningPath";
@@ -67,6 +69,15 @@ function OverviewTab({ quest, completions }: Readonly<{ quest: Quest; completion
           <p className={labelClass}>Total Completions</p>
           <p className="mt-1 text-sm font-semibold text-cyan-300">{stats.totalCompletions}</p>
         </div>
+        {quest.scheduledDate || (quest.scheduledDays && quest.scheduledDays.length > 0 && quest.scheduledStartTime) ? (
+          <div>
+            <p className={labelClass}>Calendar</p>
+            <p className="mt-1 text-sm font-semibold text-white">
+              {quest.scheduledDate ? parseLocalDayKey(quest.scheduledDate).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "Recurring"}
+              {quest.scheduledStartTime ? ` · ${formatTimeLabel(quest.scheduledStartTime)}${quest.scheduledEndTime ? `–${formatTimeLabel(quest.scheduledEndTime)}` : ""}` : ""}
+            </p>
+          </div>
+        ) : null}
       </div>
 
       <div>

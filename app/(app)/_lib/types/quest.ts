@@ -63,6 +63,17 @@ export type Quest = Readonly<{
   cadence: QuestCadence;
   importance?: QuestImportance;
   scheduledDays?: ReadonlyArray<number>;
+  // Real Calendar scheduling - independent of the scheduledDays recurrence
+  // picker above. scheduledDate is a one-time occurrence on that exact local
+  // day (YYYY-MM-DD, see local-day.ts); mutually exclusive with a non-empty
+  // scheduledDays in practice (the Calendar engine checks scheduledDate
+  // first - see getQuestsForDate in quest-calendar-engine.ts). Start/end are
+  // "HH:MM" 24h local time and apply to every occurrence, one-time or
+  // recurring; absent means an all-day item. All optional and additive - a
+  // Quest saved before these fields existed is simply unscheduled.
+  scheduledDate?: string;
+  scheduledStartTime?: string;
+  scheduledEndTime?: string;
   status: QuestStatus;
   linkedProgressGoalId?: string | null;
   linkedWorkoutTemplateId?: string | null;

@@ -3,6 +3,7 @@
 import { useAttributes } from "../../_lib/hooks/useAttributes";
 import QuestIcon, { getQuestIconKey } from "../quests/QuestIcon";
 import type { CalendarQuestItem } from "../../_lib/engines/quest-calendar-engine";
+import { formatTimeLabel } from "../../_lib/calendar-time";
 
 const STATUS_STYLE: Record<CalendarQuestItem["status"], string> = {
   completed: "border-emerald-400/40 bg-emerald-500/10 text-emerald-100",
@@ -24,7 +25,15 @@ export default function QuestChip({ item, onClick, compact = false, iconOnlyBelo
   const { attributes: categories } = useAttributes();
   const category = categories.find((entry) => entry.id === item.quest.categoryId);
   const iconKey = getQuestIconKey(item.quest.title);
-  const time = item.completion ? new Date(item.completion.completedAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) : null;
+  // A quest's own scheduled start time always wins (a completed quest stays
+  // at its scheduled slot); fall back to the real completion time only for
+  // an all-day item with no schedule of its own, where it's still useful
+  // info.
+  const time = item.startTime
+    ? formatTimeLabel(item.startTime)
+    : item.completion
+      ? new Date(item.completion.completedAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
+      : null;
 
   return (
     <button

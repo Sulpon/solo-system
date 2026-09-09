@@ -13,6 +13,9 @@ export const emptyQuestForm: QuestFormModel = {
   cadence: "daily",
   importance: "core",
   scheduledDays: [],
+  scheduledDate: "",
+  scheduledStartTime: "",
+  scheduledEndTime: "",
   active: true,
   linkedProgressGoalId: null,
   linkedWorkoutTemplateId: null,
@@ -83,6 +86,9 @@ export function toQuestForm(quest: Quest): QuestFormModel {
     cadence: quest.cadence,
     importance: quest.importance ?? "core",
     scheduledDays: [...(quest.scheduledDays ?? [])],
+    scheduledDate: quest.scheduledDate ?? "",
+    scheduledStartTime: quest.scheduledStartTime ?? "",
+    scheduledEndTime: quest.scheduledEndTime ?? "",
     active: quest.status === "active",
     linkedProgressGoalId: quest.linkedProgressGoalId ?? null,
     linkedWorkoutTemplateId: quest.linkedWorkoutTemplateId ?? null,
@@ -140,6 +146,12 @@ export function upsertQuestFromForm(quests: ReadonlyArray<Quest>, form: QuestFor
   const resolvedAttributeIds = form.inheritedAttributeIds.length > 0 ? form.inheritedAttributeIds : form.attributeXPOverride.map((reward) => reward.attributeId);
   const categoryId = resolvedAttributeIds[0] ?? form.categoryId;
   const scheduledDays = [...new Set(form.scheduledDays.filter((day) => Number.isInteger(day) && day >= 0 && day <= 6))].sort((first, second) => first - second);
+  // scheduledDate (one-time) and a non-empty scheduledDays (recurring) are
+  // mutually exclusive Calendar-scheduling modes (see types/quest.ts) - a
+  // recurring quest's date field is meaningless, so recurrence always wins.
+  const scheduledDate = scheduledDays.length === 0 ? form.scheduledDate.trim() || undefined : undefined;
+  const scheduledStartTime = form.scheduledStartTime.trim() || undefined;
+  const scheduledEndTime = form.scheduledEndTime.trim() || undefined;
   const completionMetric = buildCompletionMetric(form);
   const challenge = buildChallenge(form);
   const streakMilestones = buildStreakMilestones(form);
@@ -167,6 +179,9 @@ export function upsertQuestFromForm(quests: ReadonlyArray<Quest>, form: QuestFor
             cadence: form.cadence,
             importance: form.importance,
             scheduledDays,
+            scheduledDate,
+            scheduledStartTime,
+            scheduledEndTime,
             status,
             linkedProgressGoalId: form.linkedProgressGoalId || undefined,
             linkedWorkoutTemplateId: form.linkedWorkoutTemplateId || undefined,
@@ -195,6 +210,9 @@ export function upsertQuestFromForm(quests: ReadonlyArray<Quest>, form: QuestFor
       cadence: form.cadence,
       importance: form.importance,
       scheduledDays,
+      scheduledDate,
+      scheduledStartTime,
+      scheduledEndTime,
       status,
       linkedProgressGoalId: form.linkedProgressGoalId || undefined,
       linkedWorkoutTemplateId: form.linkedWorkoutTemplateId || undefined,

@@ -23,6 +23,9 @@ type QuestFormModel = Readonly<{
   cadence: QuestCadence;
   importance: QuestImportance;
   scheduledDays: number[];
+  scheduledDate: string;
+  scheduledStartTime: string;
+  scheduledEndTime: string;
   active: boolean;
   linkedProgressGoalId: string | null;
   linkedWorkoutTemplateId: string | null;
@@ -243,6 +246,41 @@ export default function QuestForm({ form, isEditing, onChange, onCancel, onSave 
             </div>
           ) : null}
         </div>
+
+        <div className="space-y-3 rounded-2xl border border-slate-800 bg-slate-950/45 p-4 sm:col-span-2">
+          <div>
+            <p className={labelClass}>Calendar Time</p>
+            <p className="mt-1 text-sm text-slate-400">
+              {usesCustomSchedule ? "Time of day this quest occurs on each of its scheduled days above." : "Optionally put this quest on the Calendar at a specific date and time."}
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {!usesCustomSchedule ? (
+              <label className="space-y-2">
+                <span className={labelClass}>Date</span>
+                <input type="date" value={form.scheduledDate} onChange={(event) => onChange({ ...form, scheduledDate: event.target.value })} className={inputClass} />
+              </label>
+            ) : null}
+            <label className="space-y-2">
+              <span className={labelClass}>Start Time</span>
+              <input type="time" value={form.scheduledStartTime} onChange={(event) => onChange({ ...form, scheduledStartTime: event.target.value })} className={inputClass} />
+            </label>
+            <label className="space-y-2">
+              <span className={labelClass}>End Time</span>
+              <input type="time" value={form.scheduledEndTime} onChange={(event) => onChange({ ...form, scheduledEndTime: event.target.value })} className={inputClass} />
+            </label>
+          </div>
+          {form.scheduledDate || form.scheduledStartTime ? (
+            <button
+              type="button"
+              onClick={() => onChange({ ...form, scheduledDate: "", scheduledStartTime: "", scheduledEndTime: "" })}
+              className="text-xs font-semibold text-slate-500 transition hover:text-white"
+            >
+              Clear Calendar schedule
+            </button>
+          ) : null}
+        </div>
+
         <label className="space-y-2 sm:col-span-2">
           <span className={labelClass}>Goal Link (optional)</span>
           <select
