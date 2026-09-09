@@ -24,7 +24,17 @@ import { getTodayQuests } from "../../_lib/daily-system";
 import { duplicateItemAfter, normalizeOrder, orderByPosition, removeItemById, toggleItemVisibility } from "../../_lib/widgets/layout-list";
 import type { DailyQuest, Quest } from "../../_lib/types/quest";
 import type { DashboardGridLayout, DashboardLayout, DashboardRow, DashboardWidget } from "../../_lib/types/dashboard-widget";
-import { DEPRECATED_WIDGET_TYPES, WIDGET_LAYOUT_VERSION, createDefaultDashboardGridLayout, createDefaultDashboardLayout, createWidgetFromType, getWidgetDefinition, normalizeWidget } from "../../_lib/widgets/widget-registry";
+import {
+  DEPRECATED_WIDGET_TYPES,
+  WIDGET_LAYOUT_VERSION,
+  backfillMissingDefaultRows,
+  backfillMissingDefaultWidgets,
+  createDefaultDashboardGridLayout,
+  createDefaultDashboardLayout,
+  createWidgetFromType,
+  getWidgetDefinition,
+  normalizeWidget,
+} from "../../_lib/widgets/widget-registry";
 import { getCatalogWidget, getCatalogWidgetsForPage } from "../../_lib/widgets/catalog-registry";
 import { dashboardNativeCatalogWidgets } from "../../_lib/widgets/dashboard-native-previews";
 import WidgetCatalogModal from "../widgets/WidgetCatalogModal";
@@ -389,14 +399,22 @@ export default function DashboardPageClient() {
   );
 
   // Widgets removed from the app entirely (e.g. "Weekly Overview") are
-  // pruned here rather than just hidden - this runs on every render (cheap,
-  // idempotent), but what actually persists the removal is the existing
-  // layoutVersion-mismatch effect below writing this filtered set back to
-  // storage the first time a user with an old saved layout loads Dashboard.
-  const normalizedWidgets = useMemo(
+  // pruned here rather than just hidden, and widgets introduced after a
+  // user's layout was already saved (e.g. Streaks) are backfilled in -
+  // both run on every render (cheap, idempotent: once a type is pruned or
+  // added, the next pass is a no-op for it), but what actually persists
+  // either change is the existing layoutVersion-mismatch effect below
+  // writing this set back to storage the first time an out-of-date saved
+  // layout loads. backfilledWidgets (the ones actually inserted, not the
+  // full list) is what the grid step below needs to know where to place.
+  const prunedWidgets = useMemo(
     () => layout.widgets.filter((widget) => !DEPRECATED_WIDGET_TYPES.has(widget.type)).map((widget) => normalizeWidget(widget)),
     [layout.widgets],
   );
+
+  const widgetBackfill = useMemo(() => backfillMissingDefaultWidgets(prunedWidgets), [prunedWidgets]);
+  const normalizedWidgets = widgetBackfill.widgets;
+  const backfilledWidgets = widgetBackfill.added;
 
   const dashboardCatalogWidgets = useMemo(() => [...dashboardNativeCatalogWidgets, ...getCatalogWidgetsForPage("dashboard")], []);
 
@@ -420,11 +438,11 @@ export default function DashboardPageClient() {
     () =>
       reconcileGrid(
         gridLayout.rows.length > 0
-          ? { ...gridLayout, layoutVersion: gridLayout.layoutVersion ?? WIDGET_LAYOUT_VERSION }
+          ? { ...gridLayout, rows: backfillMissingDefaultRows(gridLayout.rows, backfilledWidgets), layoutVersion: gridLayout.layoutVersion ?? WIDGET_LAYOUT_VERSION }
           : createFallbackGrid(normalizedWidgets),
         normalizedWidgets,
       ),
-    [gridLayout, normalizedWidgets],
+    [gridLayout, normalizedWidgets, backfilledWidgets],
   );
 
   useEffect(() => {

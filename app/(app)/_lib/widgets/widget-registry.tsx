@@ -55,7 +55,12 @@ import type {
 } from "../types/dashboard-widget";
 import type { DailyQuest, Quest } from "../types/quest";
 
-export const WIDGET_LAYOUT_VERSION = 3;
+// Bumped to 4: version 3 shipped the xp-overview removal (DEPRECATED_WIDGET_TYPES)
+// and has already been persisted for existing users, so it no longer
+// triggers a migration for them. The widget-backfill migration below
+// (NEW_DEFAULT_WIDGET_TYPES) is new work that those same already-migrated
+// users still need to run once, hence the second bump rather than reusing 3.
+export const WIDGET_LAYOUT_VERSION = 4;
 
 // Widget types no longer offered on Dashboard - "XP Overview" (aka "Weekly
 // Overview") was removed outright per an explicit product decision, not
@@ -65,6 +70,13 @@ export const WIDGET_LAYOUT_VERSION = 3;
 // migration in DashboardPageClient.tsx) - this is what makes the removal
 // permanent for existing users, not just for new default layouts.
 export const DEPRECATED_WIDGET_TYPES = new Set<DashboardWidgetType>(["xp-overview"]);
+
+// Widget types introduced after some users already had a saved layout, that
+// should still end up on every Dashboard - not just a brand-new one built
+// from createDefaultDashboardLayout(). Order here is the order they're
+// prepended in (see backfillMissingDefaultWidgets), matching the fresh-
+// layout position from defaultDashboardWidgetIds above.
+export const NEW_DEFAULT_WIDGET_TYPES: ReadonlyArray<DashboardWidgetType> = ["level-xp-summary", "streaks", "achievements", "goal-progress"];
 
 export const widgetCategories: WidgetCategory[] = [
   "Character",
@@ -166,6 +178,73 @@ export function createWidgetInstance(
 
 function createDefaultWidgetRow(widgetId: string): DashboardRow {
   return { id: `row-${widgetId}`, widgetIds: [widgetId] };
+}
+
+export type WidgetBackfillResult = Readonly<{ widgets: DashboardWidget[]; added: DashboardWidget[] }>;
+
+// The other half of the deprecated-widget migration: a widget type
+// introduced after a user already had a saved layout never appears for them
+// otherwise, since createDefaultDashboardLayout() only ever applies to a
+// layout that doesn't exist yet. Matches by `type` (not id), so a widget the
+// user already added by hand - via the Add Widget catalog, before this
+// migration ever ran - is correctly recognized as already present and never
+// duplicated (this must hold even if they only added some of the new
+// widgets, or all of them, or none). Missing ones are inserted with an
+// `order` lower than every existing widget's, so they sort first without
+// needing to touch any existing widget's own order/size/visibility/config.
+export function backfillMissingDefaultWidgets(widgets: ReadonlyArray<DashboardWidget>): WidgetBackfillResult {
+  const existingTypes = new Set(widgets.map((widget) => widget.type));
+  const missingTypes = NEW_DEFAULT_WIDGET_TYPES.filter((type) => !existingTypes.has(type));
+
+  if (missingTypes.length === 0) {
+    return { widgets: [...widgets], added: [] };
+  }
+
+  const lowestExistingOrder = widgets.reduce((min, widget) => Math.min(min, widget.order), 0);
+  const baseOrder = lowestExistingOrder - missingTypes.length * 10;
+
+  const added: DashboardWidget[] = [];
+
+  missingTypes.forEach((type, index) => {
+    const definition = getWidgetDefinition(type);
+    if (!definition) {
+      return;
+    }
+    added.push(createWidgetInstance(definition, { id: definition.id, order: baseOrder + index * 10 }));
+  });
+
+  return { widgets: [...added, ...widgets], added };
+}
+
+// Grid counterpart of backfillMissingDefaultWidgets - without this, a newly
+// backfilled widget would fall through to reconcileGrid's generic "widget
+// with no row yet" fallback, which gives it its own row APPENDED at the
+// end. That's the right behavior for an ad-hoc catalog addition, but wrong
+// here: the new defaults belong grouped by their real defaultRow (so
+// Streaks/Achievements land side by side, matching the fresh layout) and
+// PREPENDED at the top. Only ever called with the widgets this migration
+// itself just added, so it never reorganizes anything the user placed.
+export function backfillMissingDefaultRows(rows: ReadonlyArray<DashboardRow>, addedWidgets: ReadonlyArray<DashboardWidget>): DashboardRow[] {
+  if (addedWidgets.length === 0) {
+    return [...rows];
+  }
+
+  const rowOrder: string[] = [];
+  const widgetIdsByRow = new Map<string, string[]>();
+
+  for (const widget of addedWidgets) {
+    const rowId = getWidgetDefinition(widget.type)?.defaultRow ?? `row-${widget.id}`;
+
+    if (!widgetIdsByRow.has(rowId)) {
+      widgetIdsByRow.set(rowId, []);
+      rowOrder.push(rowId);
+    }
+
+    widgetIdsByRow.get(rowId)!.push(widget.id);
+  }
+
+  const newRows = rowOrder.map((rowId) => ({ id: rowId, widgetIds: widgetIdsByRow.get(rowId)! }));
+  return [...newRows, ...rows];
 }
 
 function createDefaultWidgetOrder(): DashboardWidget[] {
