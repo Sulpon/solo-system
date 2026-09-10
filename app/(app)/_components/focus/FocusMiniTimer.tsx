@@ -4,11 +4,13 @@ import { useFocus } from "../../_lib/focus-store";
 import { formatFocusDuration } from "./focus-format";
 
 export default function FocusMiniTimer() {
-  const { activeSession, remainingSeconds, isRunning, isMinimized, showCompletionPrompt, expand } = useFocus();
+  const { activeSession, remainingSeconds, elapsedSeconds, isRunning, isMinimized, showCompletionPrompt, expand } = useFocus();
 
   if (!activeSession || !isMinimized) {
     return null;
   }
+
+  const displaySeconds = activeSession.mode === "quest-execution" ? elapsedSeconds : remainingSeconds;
 
   return (
     <button
@@ -23,7 +25,7 @@ export default function FocusMiniTimer() {
       }
     >
       <span className={"h-2 w-2 rounded-full " + (isRunning ? "bg-purple-400 motion-safe:animate-pulse" : "bg-slate-500")} aria-hidden="true" />
-      <span className="tabular-nums">{showCompletionPrompt ? "Done" : formatFocusDuration(remainingSeconds)}</span>
+      <span className="tabular-nums">{showCompletionPrompt ? "Done" : formatFocusDuration(displaySeconds)}</span>
     </button>
   );
 }

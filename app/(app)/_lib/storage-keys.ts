@@ -100,6 +100,15 @@ export const STORAGE_KEYS = {
   // quadrant (that's Quest.eisenhowerQuadrant, part of questList) - purely
   // the label text per stable quadrant id.
   eisenhowerQuadrantNames: "menace-eisenhower-quadrant-names",
+  // Reusable named checklists a Fixed-mode Quest can be seeded from - see
+  // types/checklist-template.ts. A Quest's own checklist (Quest.checklist,
+  // part of questList) is always an independent copy, never a live
+  // reference into this collection.
+  checklistTemplates: "menace-checklist-templates",
+  // Evening Plan / Morning Priority Gate - one DailyPlan per local day key,
+  // see types/daily-plan.ts. Only ever stores lock state + a
+  // questId->quadrant snapshot + override log - never a copy of Quest data.
+  dailyPlans: "menace-daily-plans",
 } as const;
 
 export const MENACE_STORAGE_EVENT = "menace-local-storage-change";

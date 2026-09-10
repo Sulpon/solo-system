@@ -16,7 +16,7 @@ import { getAncestorChainForQuest } from "../../_lib/engines/planning-engine";
 import { applyQuestSchedule, buildCalendarMonth, buildCalendarWeek, getQuestsForDate, isQuestUnscheduled } from "../../_lib/engines/quest-calendar-engine";
 import type { CalendarDayCell, CalendarQuestItem, QuestSchedulePatch } from "../../_lib/engines/quest-calendar-engine";
 import { getLocalDayKey, parseLocalDayKey } from "../../_lib/local-day";
-import type { Quest, QuestStatus } from "../../_lib/types/quest";
+import type { ChecklistItem, ChecklistMode, Quest, QuestStatus } from "../../_lib/types/quest";
 import CalendarHeader, { type CalendarView } from "./CalendarHeader";
 import CalendarFilters, { type CalendarStatusFilter } from "./CalendarFilters";
 import MonthView from "./MonthView";
@@ -233,6 +233,10 @@ export default function CalendarPageClient() {
     setQuestDefinitions(quests.map((item) => (item.id === questId ? { ...item, linkedProgressGoalId: goalId, updatedAt: new Date().toISOString() } : item)));
   }
 
+  function updateQuestChecklist(questId: string, patch: Readonly<{ checklistMode?: ChecklistMode; checklist?: ReadonlyArray<ChecklistItem>; checklistTemplateId?: string | null }>) {
+    setQuestDefinitions(quests.map((item) => (item.id === questId ? { ...item, ...patch, updatedAt: new Date().toISOString() } : item)));
+  }
+
   if (!isReady) {
     return (
       <Card className="p-5">
@@ -327,6 +331,7 @@ export default function CalendarPageClient() {
               onToggleStatus={(quest) => setQuestStatus(quest, quest.status === "active" ? "archived" : "active")}
               onDelete={deleteQuest}
               onLinkGoal={linkQuestGoal}
+              onUpdateChecklist={updateQuestChecklist}
             />
           </div>
         ) : null}

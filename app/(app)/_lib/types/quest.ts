@@ -43,6 +43,34 @@ export const EISENHOWER_QUADRANTS: ReadonlyArray<EisenhowerQuadrant> = [
   "not_urgent_not_important",
 ];
 
+// Per-Quest execution checklist. "minimum" items are the user's explicitly
+// chosen critical subset (Minimum Success); "full" items are the remaining
+// work required on top of that subset for Full Completion. Deliberately a
+// single flat structure (not two independent lists) so an item keeps a
+// stable id and completion state as it moves between tiers - see
+// checklist-engine.ts, which derives progress/ordering from this shape.
+// Never calculated as a percentage of the list - the user decides
+// membership explicitly.
+export type ChecklistTier = "minimum" | "full";
+
+export type ChecklistItem = Readonly<{
+  id: string;
+  title: string;
+  completed: boolean;
+  tier: ChecklistTier;
+}>;
+
+// "none" is recorded (rather than just leaving checklistMode undefined)
+// once a Quest has ever had checklist UI touched, so the UI can distinguish
+// "never set up" from "user explicitly turned it off" - both render
+// identically (no checklist shown), so this distinction has no behavioral
+// effect today. "fixed" checklists start from a reusable ChecklistTemplate
+// (see types/checklist-template.ts) but are then a fully independent,
+// freely-editable copy; "modifiable" checklists are one-off and never
+// linked to a template. Both use the exact same ChecklistItem list/editing
+// UI - the only difference is where the initial items came from.
+export type ChecklistMode = "none" | "fixed" | "modifiable";
+
 // How a completion's quantity is captured. "boolean" never prompts (a
 // single completion = 1 unit of progress); "numeric" prompts for a value
 // (or, when autoSource is set, derives it from real data elsewhere - e.g.
@@ -111,6 +139,25 @@ export type Quest = Readonly<{
   // "task", so a Habit can never carry a stale quadrant. Absent means no
   // priority chosen yet, never guessed at.
   eisenhowerQuadrant?: EisenhowerQuadrant;
+  // Optional execution checklist - see ChecklistMode/ChecklistItem above.
+  // Entirely additive; a Quest saved before this existed simply has no
+  // checklist and behaves exactly as before (checklist-engine.ts treats an
+  // absent/empty checklist as "no checklist, use normal completion
+  // semantics" - nothing here ever feeds into the real completion/XP path
+  // in useQuestCompletionFlow.ts). Primarily meaningful for Tasks, but not
+  // restricted to kind === "task" at the type level - a Habit's period-based
+  // Done/Not Done completion is computed entirely separately and never
+  // reads these fields, so Habit completion semantics can never be affected
+  // even if a Habit happens to carry checklist data.
+  checklistMode?: ChecklistMode;
+  checklist?: ReadonlyArray<ChecklistItem>;
+  // Soft reference to the ChecklistTemplate this checklist was last copied
+  // from - kept only so the UI can offer "update the template" later.
+  // Editing `checklist` above never writes back to the template
+  // automatically, and deleting the template leaves this Quest's own
+  // checklist completely untouched (mirrors linkedWorkoutTemplateId's
+  // template/instance relationship).
+  checklistTemplateId?: string | null;
   status: QuestStatus;
   linkedProgressGoalId?: string | null;
   linkedWorkoutTemplateId?: string | null;

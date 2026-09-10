@@ -1,9 +1,10 @@
 "use client";
 
-export type QuestDetailTab = "overview" | "calendar" | "statistics" | "notes";
+export type QuestDetailTab = "overview" | "checklist" | "calendar" | "statistics" | "notes";
 
 const TABS: ReadonlyArray<{ id: QuestDetailTab; label: string }> = [
   { id: "overview", label: "Overview" },
+  { id: "checklist", label: "Checklist" },
   { id: "calendar", label: "Calendar" },
   { id: "statistics", label: "Statistics" },
   { id: "notes", label: "Notes" },

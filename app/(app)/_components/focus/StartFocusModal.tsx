@@ -11,7 +11,10 @@ type StartFocusModalProps = Readonly<{
   onClose: () => void;
 }>;
 
-const presetModes: ReadonlyArray<Exclude<FocusMode, "custom">> = ["pomodoro", "deep-work", "90-min"];
+// "quest-execution" is deliberately excluded - it has no meaningful preset
+// duration and is only ever started programmatically via TAKE QUEST (see
+// QuestExecutionControl.tsx), never picked manually here.
+const presetModes: ReadonlyArray<Exclude<FocusMode, "custom" | "quest-execution">> = ["pomodoro", "deep-work", "90-min"];
 const inputClass = "w-full rounded-xl border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none transition focus:border-purple-400";
 
 export default function StartFocusModal({ questTitle, onStart, onClose }: StartFocusModalProps) {

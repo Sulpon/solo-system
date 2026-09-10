@@ -14,8 +14,10 @@ import QuestCalendar from "./QuestCalendar";
 import QuestStatistics from "./QuestStatistics";
 import QuestLinkedGoals from "./QuestLinkedGoals";
 import QuestRecentActivity from "./QuestRecentActivity";
+import QuestChecklistTab from "./QuestChecklistTab";
+import QuestExecutionControl from "./QuestExecutionControl";
 import type { GoalNode, GoalTree } from "../../_lib/types/goal-tree";
-import type { Quest, QuestCompletion } from "../../_lib/types/quest";
+import type { ChecklistItem, ChecklistMode, Quest, QuestCompletion } from "../../_lib/types/quest";
 
 type QuestDetailPanelProps = Readonly<{
   quest: Quest;
@@ -27,6 +29,7 @@ type QuestDetailPanelProps = Readonly<{
   onToggleStatus: (quest: Quest) => void;
   onDelete: (questId: string) => void;
   onLinkGoal: (questId: string, goalId: string | null) => void;
+  onUpdateChecklist: (questId: string, patch: Readonly<{ checklistMode?: ChecklistMode; checklist?: ReadonlyArray<ChecklistItem>; checklistTemplateId?: string | null }>) => void;
 }>;
 
 const labelClass = "text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500";
@@ -88,17 +91,21 @@ function OverviewTab({ quest, completions }: Readonly<{ quest: Quest; completion
   );
 }
 
-export default function QuestDetailPanel({ quest, completions, goalTree, progressGoals, onClose, onEdit, onToggleStatus, onDelete, onLinkGoal }: QuestDetailPanelProps) {
+export default function QuestDetailPanel({ quest, completions, goalTree, progressGoals, onClose, onEdit, onToggleStatus, onDelete, onLinkGoal, onUpdateChecklist }: QuestDetailPanelProps) {
   const [activeTab, setActiveTab] = useState<QuestDetailTab>("calendar");
 
   return (
     <div className="overflow-hidden rounded-2xl border border-purple-500/20 bg-slate-950/70">
       <QuestDetailHeader quest={quest} completions={completions} onClose={onClose} onEdit={onEdit} onToggleStatus={onToggleStatus} onDelete={onDelete} />
+      <div className="px-5 pt-4">
+        <QuestExecutionControl quest={quest} />
+      </div>
       <QuestPlanningPath quest={quest} goalTree={goalTree} />
       <QuestDetailTabs activeTab={activeTab} onChange={setActiveTab} />
 
       <div className="p-5">
         {activeTab === "overview" ? <OverviewTab quest={quest} completions={completions} /> : null}
+        {activeTab === "checklist" ? <QuestChecklistTab quest={quest} onUpdate={onUpdateChecklist} /> : null}
         {activeTab === "calendar" ? <QuestCalendar quest={quest} completions={completions} /> : null}
         {activeTab === "statistics" ? <QuestStatistics quest={quest} completions={completions} /> : null}
         {activeTab === "notes" ? (

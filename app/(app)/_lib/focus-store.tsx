@@ -4,9 +4,31 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { useLocalStorageState } from "./hooks/use-local-storage-state";
 import { useFocusHistory } from "./hooks/useFocusHistory";
 import { FOCUS_ACTIVE_SESSION_KEY, FOCUS_MINIMIZED_KEY } from "./storage-keys";
-import { getRemainingSeconds } from "./focus-stats";
+import { getElapsedMs, getRemainingSeconds } from "./focus-stats";
 import { FOCUS_MODE_MINUTES } from "./types/focus";
 import type { FocusHistoryEntry, FocusMode, FocusSession } from "./types/focus";
+
+// The subset of FocusHistoryEntry that a caller may supply on top of what
+// finishSession already computes itself (duration/mode/linked ids/etc) -
+// currently only the TAKE QUEST feedback flow uses this (see
+// FocusOverlay.tsx); every existing finishSession(completedQuest) call site
+// keeps working unchanged since this defaults to {}.
+export type FocusFinishExtra = Partial<
+  Pick<
+    FocusHistoryEntry,
+    | "notes"
+    | "energyBefore"
+    | "energyAfter"
+    | "focusDifficulty"
+    | "taskDifficulty"
+    | "checklistMinimumSuccessReached"
+    | "checklistFullCompletionReached"
+    | "checklistMinimumTotal"
+    | "checklistMinimumCompleted"
+    | "checklistFullTotal"
+    | "checklistFullCompleted"
+  >
+>;
 
 export type StartFocusOptions = Readonly<{
   mode: FocusMode;
@@ -20,6 +42,12 @@ export type FocusStoreValue = Readonly<{
   activeSession: FocusSession | null;
   history: ReadonlyArray<FocusHistoryEntry>;
   remainingSeconds: number;
+  // Timestamp-derived elapsed time (see getElapsedMs in focus-stats.ts) -
+  // always available alongside remainingSeconds. Only "quest-execution"
+  // mode's UI reads this for its main display (an indefinite session has
+  // nothing meaningful to count down from); every other mode continues to
+  // display remainingSeconds exactly as before.
+  elapsedSeconds: number;
   isRunning: boolean;
   isMinimized: boolean;
   showCompletionPrompt: boolean;
@@ -29,7 +57,7 @@ export type FocusStoreValue = Readonly<{
   resumeSession: () => void;
   requestEndSession: () => void;
   extendSession: () => void;
-  finishSession: (completedQuest: boolean) => void;
+  finishSession: (completedQuest: boolean, extra?: FocusFinishExtra) => void;
   minimize: () => void;
   expand: () => void;
 }>;
@@ -96,6 +124,7 @@ export function FocusProvider({ children }: Readonly<{ children: React.ReactNode
   const hasFiredCompletionRef = useRef<string | null>(null);
 
   const remainingSeconds = activeSession ? getRemainingSeconds(activeSession) : 0;
+  const elapsedSeconds = activeSession ? Math.floor(getElapsedMs(activeSession) / 1000) : 0;
   const isRunning = Boolean(activeSession && !activeSession.pausedAt);
   const timedOut = Boolean(activeSession) && remainingSeconds <= 0;
   const showCompletionPrompt = Boolean(activeSession) && (timedOut || Boolean(activeSession?.manuallyEnded));
@@ -194,14 +223,14 @@ export function FocusProvider({ children }: Readonly<{ children: React.ReactNode
         return current;
       }
 
-      const extensionSeconds = (current.mode === "custom" ? 25 : FOCUS_MODE_MINUTES[current.mode]) * 60;
+      const extensionSeconds = (current.mode === "custom" || current.mode === "quest-execution" ? 25 : FOCUS_MODE_MINUTES[current.mode]) * 60;
       hasFiredCompletionRef.current = null;
       return { ...current, durationSeconds: current.durationSeconds + extensionSeconds };
     });
   }, [setActiveSession]);
 
   const finishSession = useCallback(
-    (completedQuest: boolean) => {
+    (completedQuest: boolean, extra: FocusFinishExtra = {}) => {
       if (!activeSession) {
         return;
       }
@@ -209,7 +238,12 @@ export function FocusProvider({ children }: Readonly<{ children: React.ReactNode
       const endIso = new Date().toISOString();
       // If time already ran out, count the full prescribed duration (not
       // however long the user lingered on the completion prompt). Otherwise
-      // this was ended early, so count only the time actually spent.
+      // this was ended early, so count only the time actually spent. For
+      // quest-execution sessions (no real target duration - see
+      // QUEST_EXECUTION_DURATION_SECONDS), remainingSeconds is effectively
+      // always positive for any realistic session length, so this already
+      // reduces to the correct "durationSeconds - remainingSeconds ==
+      // actual elapsed time" without any special-casing here.
       const actualDurationSeconds = remainingSeconds > 0 ? activeSession.durationSeconds - remainingSeconds : activeSession.durationSeconds;
 
       addHistoryEntry({
@@ -223,6 +257,7 @@ export function FocusProvider({ children }: Readonly<{ children: React.ReactNode
         linkedDreamId: activeSession.linkedDreamId,
         completedQuest,
         interrupted: activeSession.manuallyEnded,
+        ...extra,
       });
       hasFiredCompletionRef.current = null;
       setActiveSession(null);
@@ -238,6 +273,7 @@ export function FocusProvider({ children }: Readonly<{ children: React.ReactNode
     activeSession,
     history,
     remainingSeconds,
+    elapsedSeconds,
     isRunning,
     isMinimized,
     showCompletionPrompt,

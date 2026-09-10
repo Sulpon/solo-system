@@ -14,7 +14,7 @@ import { useGoalTree } from "../../_lib/hooks/useGoalTree";
 import { useWorkout } from "../../_lib/workout-store";
 import { useEisenhowerSettings } from "../../_lib/hooks/useEisenhowerSettings";
 import { EISENHOWER_QUADRANTS } from "../../_lib/types/quest";
-import type { EisenhowerQuadrant, Quest, QuestKind, QuestStatus } from "../../_lib/types/quest";
+import type { ChecklistItem, ChecklistMode, EisenhowerQuadrant, Quest, QuestKind, QuestStatus } from "../../_lib/types/quest";
 import QuestForm, { type QuestFormModel } from "./QuestForm";
 import QuestBottomBar from "./QuestBottomBar";
 import QuestCommandBar from "./QuestCommandBar";
@@ -24,6 +24,8 @@ import UndoCompletionModal from "./UndoCompletionModal";
 import QuestList from "./QuestList";
 import QuestKindSection from "./QuestKindSection";
 import QuestDetailPanel from "./QuestDetailPanel";
+import TodaysPriorityGate from "./TodaysPriorityGate";
+import TomorrowPlanPanel from "./TomorrowPlanPanel";
 import { useQuestCompletionFlow } from "./useQuestCompletionFlow";
 import { createQuestFormModel, toQuestForm, upsertQuestFromForm } from "./quest-form.utils";
 import type { EditablePageSection } from "../page-edit/types";
@@ -152,6 +154,12 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
   }, [taskQuests]);
   const unassignedTaskQuests = useMemo(() => taskQuests.filter((quest) => !quest.eisenhowerQuadrant), [taskQuests]);
 
+  // The Priority Gate and evening planning operate on every active Task
+  // regardless of the "all/today/core/bonus" filter above (that filter is
+  // a display concern for the regular board below, unrelated to gating) -
+  // computed straight from the raw, unfiltered quest list.
+  const activeGateTasks = useMemo(() => quests.filter((quest) => quest.kind === "task" && quest.status === "active"), [quests]);
+
   const [activeDragQuestId, setActiveDragQuestId] = useState<string | null>(null);
   const dragSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const activeDragQuest = quests.find((quest) => quest.id === activeDragQuestId) ?? null;
@@ -246,6 +254,16 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
     setQuestDefinitions(nextQuests);
   }
 
+  // Same thin-mutation shape as setQuestStatus/setQuestClassification above -
+  // a plain patch on the one matching Quest, through the same
+  // setQuestDefinitions every other mutation on this page uses. Never
+  // touches completions/XP/schedule/kind/eisenhowerQuadrant, so editing a
+  // checklist can never affect the rest of a Quest's data.
+  function updateQuestChecklist(questId: string, patch: Readonly<{ checklistMode?: ChecklistMode; checklist?: ReadonlyArray<ChecklistItem>; checklistTemplateId?: string | null }>) {
+    const nextQuests = quests.map((item) => (item.id === questId ? { ...item, ...patch, updatedAt: new Date().toISOString() } : item));
+    setQuestDefinitions(nextQuests);
+  }
+
   const selectedQuest = quests.find((quest) => quest.id === selectedQuestId) ?? null;
 
   if (!isReady) {
@@ -314,6 +332,11 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
             {filter}
           </button>
         ))}
+      </div>
+
+      <div className="mt-5 space-y-4">
+        <TodaysPriorityGate tasks={activeGateTasks} completions={questCompletions} onSelect={(quest) => setSelectedQuestId(quest.id)} />
+        <TomorrowPlanPanel tasks={activeGateTasks} />
       </div>
 
       {sortedQuests.length === 0 ? (
@@ -507,6 +530,7 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
             onToggleStatus={(quest) => setQuestStatus(quest, quest.status === "active" ? "archived" : "active")}
             onDelete={deleteQuest}
             onLinkGoal={linkQuestGoal}
+            onUpdateChecklist={updateQuestChecklist}
           />
         </div>
       ) : null}
