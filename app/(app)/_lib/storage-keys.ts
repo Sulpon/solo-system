@@ -95,6 +95,11 @@ export const STORAGE_KEYS = {
   // since these are source data, not a display preference.
   manualStreaks: "menace-manual-streaks",
   manualAchievements: "menace-manual-achievements",
+  // User-customizable display names for the 4 Eisenhower quadrants - see
+  // types/eisenhower-settings.ts. Never stores which Task is in which
+  // quadrant (that's Quest.eisenhowerQuadrant, part of questList) - purely
+  // the label text per stable quadrant id.
+  eisenhowerQuadrantNames: "menace-eisenhower-quadrant-names",
 } as const;
 
 export const MENACE_STORAGE_EVENT = "menace-local-storage-change";

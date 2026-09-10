@@ -16,6 +16,33 @@ export type QuestCadence = "daily" | "weekly" | "one-time";
 export type QuestStatus = "active" | "archived";
 export type QuestImportance = "core" | "bonus";
 
+// A pure classification of the existing Quest, orthogonal to cadence/
+// scheduling - "is this a Task or a Habit," not "how often does it recur."
+// Named `kind` rather than `category` deliberately: Quest already has
+// `categoryId` (an Attribute, e.g. "discipline") and DailyQuest has
+// `category` for the same concept - reusing that word for Task/Habit would
+// collide with an already-established, unrelated meaning. Absent means
+// uncategorized (a legacy quest, or one the user hasn't sorted yet) - never
+// inferred from cadence or any other field (see quest-storage.ts).
+export type QuestKind = "task" | "habit";
+export const QUEST_KINDS: ReadonlyArray<QuestKind> = ["task", "habit"];
+
+// Eisenhower priority classification - applies ONLY to Tasks (kind ===
+// "task"), never to Habits. Orthogonal to scheduling: a Task's quadrant
+// says nothing about when/how often it runs (see scheduledDate/
+// scheduledDays/cadence above) - it is purely a priority label. IDs are
+// stable and never renamed; user-facing display names live separately in
+// types/eisenhower-settings.ts so relabeling never touches stored Tasks or
+// this id. Order here is the natural priority ranking (index 0 = highest),
+// which a future Priority Gate can read directly without another type.
+export type EisenhowerQuadrant = "urgent_important" | "urgent_not_important" | "not_urgent_important" | "not_urgent_not_important";
+export const EISENHOWER_QUADRANTS: ReadonlyArray<EisenhowerQuadrant> = [
+  "urgent_important",
+  "urgent_not_important",
+  "not_urgent_important",
+  "not_urgent_not_important",
+];
+
 // How a completion's quantity is captured. "boolean" never prompts (a
 // single completion = 1 unit of progress); "numeric" prompts for a value
 // (or, when autoSource is set, derives it from real data elsewhere - e.g.
@@ -74,6 +101,16 @@ export type Quest = Readonly<{
   scheduledDate?: string;
   scheduledStartTime?: string;
   scheduledEndTime?: string;
+  // Task vs Habit classification - see QuestKind above. Optional and
+  // additive; a Quest saved before this field existed is simply
+  // uncategorized, never guessed at.
+  kind?: QuestKind;
+  // Eisenhower priority quadrant - see EisenhowerQuadrant above. Only
+  // meaningful when kind === "task"; every write path (QuestManagerPage's
+  // drag handler, upsertQuestFromForm) clears this whenever kind isn't
+  // "task", so a Habit can never carry a stale quadrant. Absent means no
+  // priority chosen yet, never guessed at.
+  eisenhowerQuadrant?: EisenhowerQuadrant;
   status: QuestStatus;
   linkedProgressGoalId?: string | null;
   linkedWorkoutTemplateId?: string | null;
