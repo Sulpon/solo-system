@@ -4,11 +4,18 @@ import { useMemo, useState } from "react";
 import Card from "../Card";
 import Modal from "../Modal";
 import { useNotes } from "../../_lib/hooks/useNotes";
+import { useGoalTree } from "../../_lib/hooks/useGoalTree";
+import { useAttributes } from "../../_lib/hooks/useAttributes";
+import { useProgression } from "../../_lib/hooks/useProgression";
+import { useLibrary } from "../../_lib/hooks/useLibrary";
 import { searchNotes, getAllTags } from "../../_lib/engines/note-search-engine";
+import { getNoteRelationships } from "../../_lib/relationships";
 import { NOTE_CATEGORIES } from "../../_lib/types/note";
 import type { Note, NoteCategory } from "../../_lib/types/note";
 import NoteCard from "./NoteCard";
 import NoteEditor from "./NoteEditor";
+import NoteLinkPicker from "./NoteLinkPicker";
+import RelatedEntitiesPanel from "../relationships/RelatedEntitiesPanel";
 
 type StatusFilter = "all" | "pinned" | "archived";
 
@@ -23,7 +30,11 @@ const STATUS_TABS: ReadonlyArray<{ id: StatusFilter; label: string }> = [
 type EditorState = { mode: "closed" } | { mode: "create" } | { mode: "edit"; note: Note };
 
 export default function NotesPageClient() {
-  const { notes, addNote, updateNote, deleteNote, setPinned, setArchived, hasLoaded } = useNotes();
+  const { notes, addNote, updateNote, deleteNote, setPinned, setArchived, addLink, removeLink, hasLoaded } = useNotes();
+  const { goalTree } = useGoalTree();
+  const { attributes } = useAttributes();
+  const { questDefinitions } = useProgression();
+  const { items: libraryItems } = useLibrary();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState<NoteCategory | "all">("all");
   const [tagFilter, setTagFilter] = useState<string | "all">("all");
@@ -71,8 +82,8 @@ export default function NotesPageClient() {
       <Card className="p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-300">Notes</p>
-            <h1 className="mt-1 text-2xl font-black text-white">Write it down before it&apos;s gone</h1>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-300">Knowledge System</p>
+            <h1 className="mt-1 text-2xl font-black text-white">Notes</h1>
           </div>
           <button
             type="button"
@@ -187,6 +198,18 @@ export default function NotesPageClient() {
               setEditorState({ mode: "closed" });
             }}
           />
+
+          {editorState.mode === "edit" ? (
+            <div className="mt-5 space-y-4">
+              <NoteLinkPicker
+                note={editorState.note}
+                allNotes={notes}
+                onAddLink={(link) => addLink(editorState.note.id, link)}
+                onRemoveLink={(linkId) => removeLink(editorState.note.id, linkId)}
+              />
+              <RelatedEntitiesPanel groups={getNoteRelationships(editorState.note, goalTree, questDefinitions, attributes, notes, libraryItems)} />
+            </div>
+          ) : null}
         </Modal>
       ) : null}
     </div>

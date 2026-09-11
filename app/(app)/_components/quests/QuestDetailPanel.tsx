@@ -13,6 +13,7 @@ import QuestDetailTabs, { type QuestDetailTab } from "./QuestDetailTabs";
 import QuestCalendar from "./QuestCalendar";
 import QuestStatistics from "./QuestStatistics";
 import QuestLinkedGoals from "./QuestLinkedGoals";
+import QuestRelationshipsPanel from "./QuestRelationshipsPanel";
 import QuestRecentActivity from "./QuestRecentActivity";
 import QuestChecklistTab from "./QuestChecklistTab";
 import QuestExecutionControl from "./QuestExecutionControl";
@@ -101,6 +102,7 @@ export default function QuestDetailPanel({ quest, completions, goalTree, progres
         <QuestExecutionControl quest={quest} />
       </div>
       <QuestPlanningPath quest={quest} goalTree={goalTree} />
+      <QuestRelationshipsPanel quest={quest} goalTree={goalTree} />
       <QuestDetailTabs activeTab={activeTab} onChange={setActiveTab} />
 
       <div className="p-5">

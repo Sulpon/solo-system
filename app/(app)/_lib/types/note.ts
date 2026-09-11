@@ -5,11 +5,13 @@ export type NoteCategory = "idea" | "thought" | "research" | "project" | "tradin
 
 export const NOTE_CATEGORIES: ReadonlyArray<NoteCategory> = ["idea", "thought", "research", "project", "trading", "career", "learning", "life", "content", "other"];
 
-// Polymorphic link to any other Atlas entity - architecture-only for now.
-// Nothing reads or writes this field yet (no picker UI, per the Phase 1
-// scope); it exists purely so the Note shape doesn't need to change when
-// entity linking is built later.
-export type NoteLinkEntityType = "goal" | "quest" | "challenge" | "country" | "city" | "dungeon" | "note";
+// Polymorphic link to any other Atlas entity. Now a real, working
+// relationship (see _lib/relationships.ts and NoteLinkPicker) - Atlas OS
+// Phase 4 built the first reader/writer for this field. "attribute" (a
+// Skill) was added alongside that work specifically so Note<->Skill, one of
+// Phase 4's explicitly-requested relationships, is representable the same
+// way as Note<->Goal/Quest rather than needing a second link mechanism.
+export type NoteLinkEntityType = "goal" | "quest" | "attribute" | "challenge" | "country" | "city" | "dungeon" | "note";
 
 export type NoteLink = Readonly<{
   id: string;

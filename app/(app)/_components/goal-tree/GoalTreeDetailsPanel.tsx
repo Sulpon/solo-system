@@ -5,15 +5,23 @@ import Card from "../Card";
 import Progress from "../Progress";
 import { useAttributes } from "../../_lib/hooks/useAttributes";
 import GoalTypeBadge from "./GoalTypeBadge";
+import RelatedEntitiesPanel from "../relationships/RelatedEntitiesPanel";
+import AskJarvisLink from "../jarvis/AskJarvisLink";
 import type { GoalNodeView } from "../../_lib/goal-tree-progress";
 import type { AttributeWeight } from "../../_lib/types/goal-tree";
 import type { Quest } from "../../_lib/types/quest";
+import type { RelatedEntityGroup } from "../../_lib/relationships";
 
 type GoalTreeDetailsPanelProps = Readonly<{
   node: GoalNodeView | null;
   parentTitle?: string;
   dreamTitle?: string;
   linkedQuests: Quest[];
+  // The fuller cross-app picture (Skills/Notes/Library/Chronicle, plus
+  // descendant-aware Quests) - see _lib/relationships.ts. linkedQuests above
+  // stays untouched (it's this exact node's direct quest links, already
+  // used elsewhere in this panel) - this is additive, not a replacement.
+  relationshipGroups: ReadonlyArray<RelatedEntityGroup>;
   overview: Readonly<{
     title: string;
     count: number;
@@ -165,6 +173,7 @@ export default function GoalTreeDetailsPanel({
   parentTitle,
   dreamTitle,
   linkedQuests,
+  relationshipGroups,
   overview,
   onEdit,
   onAddChild,
@@ -261,6 +270,23 @@ export default function GoalTreeDetailsPanel({
 
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
+              {node.type !== "dream" && (dreamTitle || parentTitle) ? (
+                <p className="mb-2 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  {dreamTitle && dreamTitle !== parentTitle ? (
+                    <>
+                      <span className="truncate text-slate-600">{dreamTitle}</span>
+                      <span aria-hidden="true">→</span>
+                    </>
+                  ) : null}
+                  {parentTitle ? (
+                    <>
+                      <span className="truncate text-slate-400">{parentTitle}</span>
+                      <span aria-hidden="true">→</span>
+                    </>
+                  ) : null}
+                  <span className="truncate text-slate-200">{node.title}</span>
+                </p>
+              ) : null}
               <GoalTypeBadge type={node.type} />
               <h2 className="mt-3 text-3xl font-black leading-tight text-white">{node.title}</h2>
               {node.description ? <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-400">{node.description}</p> : null}
@@ -278,6 +304,8 @@ export default function GoalTreeDetailsPanel({
             <PanelField label="Created" value={formatDate(node.createdAt)} />
           </div>
         </div>
+
+        <RelatedEntitiesPanel groups={relationshipGroups} />
 
         <div className="rounded-2xl border border-slate-800 bg-slate-950/55 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -531,6 +559,11 @@ export default function GoalTreeDetailsPanel({
         </div>
 
         <div className="flex flex-wrap gap-2">
+          <AskJarvisLink
+            label="Ask JARVIS about this Goal"
+            seed={{ type: "goal", id: node.id, label: node.title }}
+            className="rounded-xl border border-cyan-400/40 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-200 transition hover:bg-cyan-500/20"
+          />
           <button
             type="button"
             onClick={() => onEdit(node.id)}

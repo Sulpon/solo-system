@@ -3,7 +3,7 @@
 import { useCallback } from "react";
 import { useLocalStorageState } from "./use-local-storage-state";
 import { STORAGE_KEYS } from "../storage-keys";
-import type { Note, NoteCategory } from "../types/note";
+import type { Note, NoteCategory, NoteLink } from "../types/note";
 
 function generateNoteId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -76,5 +76,36 @@ export function useNotes() {
     [setNotes],
   );
 
-  return { notes, addNote, updateNote, deleteNote, setPinned, setArchived, hasLoaded } as const;
+  // A separate mutation, same shape as setPinned/setArchived above - kept
+  // out of NoteDraft/updateNote deliberately, so the create/edit form's
+  // contract stays simple and link management (Atlas OS Phase 4) is its own
+  // action, exactly like Library's linkedGoalIds/linkedSkillIds/
+  // linkedNoteIds are managed outside MediaDraft too (see
+  // LibraryLinkedGoals.tsx and its siblings).
+  const addLink = useCallback(
+    (id: string, link: Omit<NoteLink, "id">) => {
+      setNotes((current) =>
+        current.map((note) => {
+          if (note.id !== id) {
+            return note;
+          }
+
+          const nextLink: NoteLink = { ...link, id: generateNoteId() };
+          return { ...note, links: [...(note.links ?? []), nextLink], updatedAt: new Date().toISOString() };
+        }),
+      );
+    },
+    [setNotes],
+  );
+
+  const removeLink = useCallback(
+    (id: string, linkId: string) => {
+      setNotes((current) =>
+        current.map((note) => (note.id === id ? { ...note, links: (note.links ?? []).filter((link) => link.id !== linkId), updatedAt: new Date().toISOString() } : note)),
+      );
+    },
+    [setNotes],
+  );
+
+  return { notes, addNote, updateNote, deleteNote, setPinned, setArchived, addLink, removeLink, hasLoaded } as const;
 }
