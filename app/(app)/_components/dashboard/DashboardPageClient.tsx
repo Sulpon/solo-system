@@ -39,6 +39,10 @@ import { getCatalogWidget, getCatalogWidgetsForPage } from "../../_lib/widgets/c
 import { dashboardNativeCatalogWidgets } from "../../_lib/widgets/dashboard-native-previews";
 import WidgetCatalogModal from "../widgets/WidgetCatalogModal";
 import DashboardWidgetRenderer from "./DashboardWidgetRenderer";
+import MissionControlPanel from "./MissionControlPanel";
+import AtlasIntelligencePanel from "./AtlasIntelligencePanel";
+import RecentAchievementsPanel from "./RecentAchievementsPanel";
+import RelevantContextPanel from "./RelevantContextPanel";
 import SortableWidgetFrame from "./SortableWidgetFrame";
 import WidgetSettingsModal from "./WidgetSettingsModal";
 
@@ -806,6 +810,11 @@ export default function DashboardPageClient() {
           Edit mode is active. Drag a widget by its handle to preview the final placement before release.
         </div>
       ) : null}
+
+      <MissionControlPanel />
+      <AtlasIntelligencePanel />
+      <RecentAchievementsPanel />
+      <RelevantContextPanel />
 
       <DndContext
         sensors={sensors}

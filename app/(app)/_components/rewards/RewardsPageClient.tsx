@@ -33,7 +33,8 @@ export default function RewardsPageClient() {
     <div className="space-y-6">
       <Card className="overflow-hidden border-purple-500/25 bg-[radial-gradient(circle_at_12%_0%,rgba(126,34,206,0.18),transparent_24%),linear-gradient(135deg,rgba(15,23,42,0.7),rgba(2,6,23,0.9))] p-5">
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-purple-400/60 to-transparent" />
-        <h1 className="text-xl font-black uppercase tracking-[0.08em] text-purple-300">Reward Collection</h1>
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-300">Reward Economy</p>
+        <h1 className="mt-1 text-xl font-black uppercase tracking-[0.08em] text-white">Reward Collection</h1>
         <p className="mt-1 text-sm text-slate-400">Badges, titles, Mystery Rewards, achievements, and real-life rewards earned along the way.</p>
         <p className="mt-3 text-sm text-slate-500">{rewardCollection.length} unlocked so far</p>
       </Card>

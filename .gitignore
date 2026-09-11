@@ -43,3 +43,8 @@ next-env.d.ts
 
 .vercel
 .env*
+
+# Tauri desktop shell (src-tauri/) - Rust build artifacts and generated
+# schemas, not source. See src-tauri/tauri.conf.json.
+/src-tauri/target/
+/src-tauri/gen/

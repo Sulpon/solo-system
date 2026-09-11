@@ -88,8 +88,8 @@ export default function LibraryPageClient() {
       <Card className="p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">Library</p>
-            <h1 className="mt-1 text-2xl font-black text-white">Your books, movies and series.</h1>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">Media / Knowledge</p>
+            <h1 className="mt-1 text-2xl font-black text-white">Library</h1>
           </div>
           <button
             type="button"

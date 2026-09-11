@@ -1,61 +1,36 @@
 "use client";
 
-import { useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useAttributes } from "../_lib/hooks/useAttributes";
 import { useProgression } from "../_lib/hooks/useProgression";
 import { getRankLabel } from "../_lib/engines/level-engine";
-
-const leadingNavItems = [
-  { name: "Dashboard", href: "/" },
-  { name: "Quests", href: "/quests" },
-  { name: "Calendar", href: "/calendar" },
-  { name: "Challenges", href: "/challenges" },
-  { name: "Goal Tree", href: "/goals" },
-  { name: "Planning", href: "/planning" },
-  { name: "Rewards", href: "/rewards" },
-];
-
-const preSettingsNavItems = [
-  { name: "Character", href: "/character" },
-  { name: "World Map", href: "/world-map" },
-  { name: "Chronicle", href: "/chronicle" },
-  { name: "Notes", href: "/notes" },
-  { name: "Library", href: "/library" },
-];
-
-const trailingNavItems = [{ name: "Settings", href: "/settings" }];
+import { isNavItemActive, useAppNavItems } from "../_lib/icons/app-icon-map";
 
 type SidebarProps = Readonly<{
   isOpen?: boolean;
   onClose?: () => void;
 }>;
 
+// Mobile-only navigation drawer - desktop navigation moved to the System
+// Bar's Launcher + Dock (see app-icon-map.ts, the single shared source of
+// nav items all three now read from). There is no desktop-visible trigger
+// for this component anymore (TopBar's hamburger button is md:hidden), so
+// it simply never renders on wide viewports.
 export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { isReady, progressionSummary } = useProgression();
-  const { attributes } = useAttributes();
+  const navItems = useAppNavItems();
   const currentLevel = isReady ? progressionSummary.currentLevel : 1;
   const currentRank = getRankLabel(currentLevel);
   const currentProgress = isReady ? progressionSummary.progress : 0;
   const currentXP = isReady ? progressionSummary.totalXP : 0;
   const dailyXP = isReady ? progressionSummary.dailyXP : 0;
 
-  const navItems = useMemo(() => {
-    const attributeNavItems = attributes.map((attribute) => ({
-      name: attribute.name,
-      href: `/attributes/${attribute.id}`,
-    }));
-
-    return [...leadingNavItems, ...attributeNavItems, ...preSettingsNavItems, ...trailingNavItems];
-  }, [attributes]);
-
   return (
     <>
       {isOpen ? (
         <div
-          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
           onClick={onClose}
           aria-hidden="true"
         />
@@ -63,7 +38,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
 
       <aside
         className={
-          "fixed inset-y-0 left-0 z-50 flex h-screen w-[260px] shrink-0 basis-[260px] flex-col border-r border-purple-500/20 bg-slate-950/95 p-5 shadow-[18px_0_45px_rgba(2,6,23,0.55)] backdrop-blur-xl transition-transform duration-300 ease-out motion-reduce:transition-none md:sticky md:top-0 md:h-screen md:translate-x-0 md:bg-slate-950/70 " +
+          "fixed inset-y-0 left-0 z-50 flex h-screen w-[260px] shrink-0 basis-[260px] flex-col border-r border-purple-500/20 bg-slate-950/95 p-5 shadow-[18px_0_45px_rgba(2,6,23,0.55)] backdrop-blur-xl transition-transform duration-300 ease-out motion-reduce:transition-none " +
           (isOpen ? "translate-x-0" : "-translate-x-full")
         }
       >
@@ -79,29 +54,31 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
             type="button"
             onClick={onClose}
             aria-label="Close navigation menu"
-            className="ml-auto flex h-9 w-9 items-center justify-center rounded-lg border border-slate-700 text-slate-400 transition hover:border-purple-400/60 hover:text-white md:hidden"
+            className="ml-auto flex h-9 w-9 items-center justify-center rounded-lg border border-slate-700 text-slate-400 transition hover:border-purple-400/60 hover:text-white"
           >
             ×
           </button>
         </div>
 
-        <nav className="flex flex-col space-y-2">
+        <nav className="flex flex-col space-y-2 overflow-y-auto">
           {navItems.map((item) => {
-            const isActive = item.href === "/" ? pathname === "/" : pathname === item.href || pathname.startsWith(item.href + "/");
+            const isActive = isNavItemActive(pathname, item.href);
+            const Icon = item.icon;
 
             return (
               <Link
-                key={item.name}
+                key={item.key}
                 href={item.href}
                 onClick={onClose}
                 className={
-                  "block w-full whitespace-nowrap rounded-xl border px-4 py-3 text-left text-sm transition " +
+                  "flex w-full items-center gap-3 whitespace-nowrap rounded-xl border px-4 py-3 text-left text-sm transition " +
                   (isActive
                     ? "border-purple-500/40 bg-purple-500/15 text-white shadow-[0_0_24px_rgba(168,85,247,0.18)]"
                     : "border-transparent text-slate-400 hover:border-slate-700 hover:bg-slate-900/70 hover:text-white")
                 }
               >
-                {item.name}
+                <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span className="truncate">{item.name}</span>
               </Link>
             );
           })}

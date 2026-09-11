@@ -155,7 +155,7 @@ export default function WorldMapPageClient() {
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-purple-400/60 to-transparent" />
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-300">World Map</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-300">World Explorer</p>
             <h1 className="mt-1 text-2xl font-black text-white">Your life, as a world</h1>
           </div>
           <div className="flex gap-2">
@@ -219,7 +219,7 @@ export default function WorldMapPageClient() {
             <Card className="p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2 text-sm">
-                  <span className="animate-pulse">🧍</span>
+                  <span className="h-1.5 w-1.5 rounded-full bg-cyan-300 motion-safe:animate-pulse" aria-hidden="true" />
                   <span className="text-slate-400">Active journey:</span>
                   <span className="font-semibold text-white">{characterPosition.goalTitle}</span>
                   {characterPosition.checkpointTitle ? (
@@ -245,7 +245,7 @@ export default function WorldMapPageClient() {
                         onClick={() => setSelectedRivalId(state.identityId)}
                         className="rounded-full border border-rose-400/40 bg-rose-400/10 px-3 py-1 text-xs font-semibold text-rose-200 transition hover:bg-rose-400/20"
                       >
-                        {distance === 0 ? "⚔️" : "⚠️"} {identity.name} {distance === 0 ? "- encounter" : "- 1 country away"}
+                        {identity.name} {distance === 0 ? "- encounter" : "- 1 country away"}
                       </button>
                     );
                   })}

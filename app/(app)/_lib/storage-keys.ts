@@ -129,3 +129,19 @@ export const FOCUS_MINIMIZED_KEY = "atlas-focus-minimized";
 // STORAGE_KEYS.workoutSessions are meant to travel to the cloud.
 export const WORKOUT_ACTIVE_SESSION_KEY = "atlas-workout-active-session";
 export const WORKOUT_MINIMIZED_KEY = "atlas-workout-minimized";
+
+// The Notification Center's "unread" state is derived from real
+// activityEvents (see useProgression), but which of those are "unread" is
+// purely a per-device UI concern - same non-synced reasoning as the keys
+// above, not real Atlas data.
+export const NOTIFICATIONS_LAST_SEEN_KEY = "atlas-notifications-last-seen";
+
+// Achievement Moments (see _lib/achievements/) are computed fresh every
+// render from real history via deterministic ids tied to immutable
+// QuestCompletion/FocusHistoryEntry/ActivityEvent ids - re-evaluating never
+// produces a different id for the same underlying evidence. The ONLY thing
+// that needs to persist is "has this device already shown this moment,"
+// exactly the same per-device acknowledgment concern as
+// NOTIFICATIONS_LAST_SEEN_KEY above - a plain array of already-seen moment
+// ids, not a second achievement database.
+export const ACHIEVEMENT_MOMENTS_SEEN_KEY = "atlas-achievement-moments-seen";

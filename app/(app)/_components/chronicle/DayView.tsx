@@ -5,13 +5,16 @@ import { getDaySummary } from "../../_lib/engines/chronicle-engine";
 import { getLocalDayKey, parseLocalDayKey } from "../../_lib/local-day";
 import { useDocumentPhotoUrl } from "../../_lib/hooks/useDocumentPhotoUrl";
 import JournalEntryEditor from "./JournalEntryEditor";
+import AchievementMomentCard from "../achievements/AchievementMomentCard";
 import type { ChronicleContext } from "../../_lib/engines/chronicle-engine";
 import type { DailyJournalEntry } from "../../_lib/types/journal";
 import type { JournalEntryDraft } from "../../_lib/hooks/useJournalEntries";
+import type { AchievementMoment } from "../../_lib/achievements/types";
 
 type DayViewProps = Readonly<{
   date: string;
   context: ChronicleContext;
+  achievementMoments: ReadonlyArray<AchievementMoment>;
   journalEntry: DailyJournalEntry | null;
   onSelectDate: (date: string) => void;
   onSaveEntry: (date: string, draft: JournalEntryDraft) => void;
@@ -72,10 +75,14 @@ function PhotoThumbnail({ photoId, fileName }: { photoId: string; fileName: stri
   return <img src={url} alt={fileName} className="max-h-[32rem] w-full rounded-xl border border-slate-800 bg-slate-950/40 object-contain" />;
 }
 
-export default function DayView({ date, context, journalEntry, onSelectDate, onSaveEntry }: DayViewProps) {
+export default function DayView({ date, context, achievementMoments, journalEntry, onSelectDate, onSaveEntry }: DayViewProps) {
   const [editing, setEditing] = useState(false);
   const summary = getDaySummary(date, context);
   const todayKey = getLocalDayKey();
+  // Achievement Intelligence enriches a day's story rather than replacing
+  // Chronicle's own Highlights - only this day's moments, matching how
+  // summary.highlights is already scoped per-day.
+  const dayMoments = achievementMoments.filter((moment) => getLocalDayKey(moment.timestamp) === date);
 
   function handleSave(draft: JournalEntryDraft) {
     onSaveEntry(date, draft);
@@ -191,6 +198,15 @@ export default function DayView({ date, context, journalEntry, onSelectDate, onS
               </ul>
             )}
           </div>
+
+          {dayMoments.length > 0 ? (
+            <div className="space-y-3">
+              <p className="px-1 text-xs font-semibold uppercase tracking-[0.18em] text-purple-300">Meaningful Moments</p>
+              {dayMoments.map((moment) => (
+                <AchievementMomentCard key={moment.id} moment={moment} />
+              ))}
+            </div>
+          ) : null}
 
           <div className="rounded-2xl border border-purple-500/25 bg-slate-950/55 p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-purple-300">Highlights</p>

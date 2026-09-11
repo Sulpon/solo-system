@@ -2,6 +2,7 @@ import AppShell from "./_components/AppShell";
 import AppearanceProvider from "./_components/AppearanceProvider";
 import CelebrationHost from "./_components/celebrations/CelebrationHost";
 import CloudSyncUploadPrompt from "./_components/CloudSyncUploadPrompt";
+import BrowserFocusCompanion from "./_components/focus/BrowserFocusCompanion";
 import FocusOverlay from "./_components/focus/FocusOverlay";
 import ActiveWorkoutOverlay from "./_components/workouts/ActiveWorkoutOverlay";
 import GoalMetricSyncEffect from "./_components/goal-tree/GoalMetricSyncEffect";
@@ -29,6 +30,7 @@ export default function MenaceLayout({
                   <AppShell>{children}</AppShell>
                   <CloudSyncUploadPrompt />
                   <FocusOverlay />
+                  <BrowserFocusCompanion />
                   <ActiveWorkoutOverlay />
                   <GoalMetricSyncEffect />
                   <ProgressionEventSyncEffect />

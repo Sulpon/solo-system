@@ -39,6 +39,25 @@ export default function CharacterPageClient() {
   return (
     <div className="space-y-5">
       <Card className="p-5">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-300">Personal Profile</p>
+            <h1 className="mt-2 text-2xl font-black text-white">Character</h1>
+          </div>
+          <div className="flex items-center gap-4 text-right">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Level</p>
+              <p className="text-xl font-black text-white">{progressionSummary.currentLevel}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Rank</p>
+              <p className="text-xl font-black text-purple-300">{rank}</p>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="p-5">
         <div className="flex flex-wrap gap-2">
           {TABS.map((entry) => (
             <button

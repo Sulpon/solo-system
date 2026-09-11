@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Card from "../Card";
 import { useChronicleContext } from "../../_lib/hooks/useChronicleContext";
+import { useAchievementMoments } from "../../_lib/hooks/useAchievementMoments";
 import { getLocalDayKey } from "../../_lib/local-day";
 import HabitMatrixView from "./HabitMatrixView";
 import DayView from "./DayView";
@@ -22,6 +23,7 @@ const VIEW_TABS: ReadonlyArray<{ mode: ChronicleViewMode; label: string }> = [
 
 export default function ChroniclePageClient() {
   const { isReady, context, upsertEntryForDate, getEntryForDate } = useChronicleContext();
+  const { moments: achievementMoments } = useAchievementMoments();
   const today = new Date();
   const [viewMode, setViewMode] = useState<ChronicleViewMode>("month");
   const [selectedDate, setSelectedDate] = useState(() => getLocalDayKey(today));
@@ -47,8 +49,8 @@ export default function ChroniclePageClient() {
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-purple-400/60 to-transparent" />
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-300">Chronicle</p>
-            <h1 className="mt-1 text-2xl font-black text-white">The record of your progress</h1>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-300">Personal Archive</p>
+            <h1 className="mt-1 text-2xl font-black text-white">Chronicle</h1>
           </div>
           <div className="flex flex-wrap gap-2">
             {VIEW_TABS.map((tab) => (
@@ -72,6 +74,7 @@ export default function ChroniclePageClient() {
         <DayView
           date={selectedDate}
           context={context}
+          achievementMoments={achievementMoments}
           journalEntry={getEntryForDate(selectedDate)}
           onSelectDate={setSelectedDate}
           onSaveEntry={(date, draft) => upsertEntryForDate(date, draft)}

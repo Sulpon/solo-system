@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAttributes } from "../../_lib/hooks/useAttributes";
 import { calculateQuestStreak } from "../../_lib/daily-system";
+import AskJarvisLink from "../jarvis/AskJarvisLink";
 import QuestIcon, { getQuestIconKey } from "./QuestIcon";
 import { formatSchedule } from "./QuestList";
 import type { Quest, QuestCompletion } from "../../_lib/types/quest";
@@ -76,6 +77,11 @@ export default function QuestDetailHeader({ quest, completions, onClose, onEdit,
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
+          <AskJarvisLink
+            label="Ask JARVIS about this Quest"
+            seed={{ type: "quest", id: quest.id, label: quest.title }}
+            className="hidden items-center gap-1.5 rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-2.5 py-1.5 text-xs font-semibold text-cyan-200 transition hover:bg-cyan-500/20 sm:flex"
+          />
           <div className="relative">
             <button type="button" onClick={() => setMenuOpen((current) => !current)} aria-label="More options" className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-800/60 hover:text-white">
               <KebabIcon />

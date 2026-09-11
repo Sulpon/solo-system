@@ -5,13 +5,17 @@ import Card from "./Card";
 import AttributeActivityCard from "./AttributeActivityCard";
 import AttributeListCard from "./AttributeListCard";
 import CustomizablePage from "./page-edit/CustomizablePage";
+import RelatedEntitiesPanel from "./relationships/RelatedEntitiesPanel";
 import { getCatalogWidgetsForPage } from "../_lib/widgets/catalog-registry";
 import PageHeader from "./PageHeader";
 import { getAttributePortfolio } from "../_lib/attribute-portfolio";
+import { getSkillRelationships } from "../_lib/relationships";
 import { useAttributes } from "../_lib/hooks/useAttributes";
 import { useGoalTree } from "../_lib/hooks/useGoalTree";
 import { useCategoryProgression } from "../_lib/hooks/use-category-progression";
 import { useProgression } from "../_lib/hooks/useProgression";
+import { useNotes } from "../_lib/hooks/useNotes";
+import { useLibrary } from "../_lib/hooks/useLibrary";
 import type { EditablePageSection } from "./page-edit/types";
 
 function toAccentTextClass(accentBgClass: string) {
@@ -23,12 +27,21 @@ export default function AttributePage({ attributeId }: Readonly<{ attributeId: s
   const { isReady, progression } = useCategoryProgression(attributeId);
   const { goalTree } = useGoalTree();
   const { questDefinitions, activityEvents } = useProgression();
+  const { notes } = useNotes();
+  const { items: libraryItems } = useLibrary();
 
   const attribute = attributes.find((item) => item.id === attributeId);
   const displayName = attribute?.name ?? progression?.name ?? attributeId;
   const accentClass = attribute ? toAccentTextClass(attribute.accent) : "text-purple-300";
 
   const portfolio = useMemo(() => getAttributePortfolio(goalTree, questDefinitions, attributeId), [goalTree, questDefinitions, attributeId]);
+  // Only Notes/Library here (not Goals/Quests) - this page already has
+  // dedicated, richer cards for those two via `portfolio` above; showing
+  // them again in a second, plainer list would be redundant, not additive.
+  const noteLibraryRelationships = useMemo(
+    () => getSkillRelationships(attributeId, goalTree, questDefinitions, notes, libraryItems).filter((group) => group.label === "Notes" || group.label === "Library"),
+    [attributeId, goalTree, questDefinitions, notes, libraryItems],
+  );
   const availableWidgets = useMemo(() => getCatalogWidgetsForPage(attributeId), [attributeId]);
   const categoryProgress = progression ?? null;
 
@@ -41,6 +54,7 @@ export default function AttributePage({ attributeId }: Readonly<{ attributeId: s
         content: (
           <PageHeader
             title={displayName}
+            eyebrow="Skill Intelligence"
             level={isReady ? categoryProgress?.level ?? 1 : 1}
             xp={isReady ? categoryProgress?.xp ?? 0 : 0}
             maxXp={isReady ? categoryProgress?.xpNeededForNextLevel ?? 1 : 1}
@@ -129,8 +143,14 @@ export default function AttributePage({ attributeId }: Readonly<{ attributeId: s
         size: "lg",
         content: <AttributeActivityCard categoryId={attributeId} accentClass={accentClass} events={activityEvents} />,
       },
+      {
+        id: `${attributeId}-connected`,
+        title: "Connected",
+        size: "lg",
+        content: <RelatedEntitiesPanel groups={noteLibraryRelationships} />,
+      },
     ],
-    [accentClass, activityEvents, attributeId, categoryProgress?.level, categoryProgress?.xp, categoryProgress?.xpNeededForNextLevel, displayName, isReady, portfolio],
+    [accentClass, activityEvents, attributeId, categoryProgress?.level, categoryProgress?.xp, categoryProgress?.xpNeededForNextLevel, displayName, isReady, portfolio, noteLibraryRelationships],
   );
 
   if (!isReady || !hasLoadedAttributes) {

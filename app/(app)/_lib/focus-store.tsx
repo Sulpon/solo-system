@@ -40,6 +40,11 @@ export type StartFocusOptions = Readonly<{
 
 export type FocusStoreValue = Readonly<{
   activeSession: FocusSession | null;
+  // False only for the first render, before the active session has been
+  // read from localStorage - lets a consumer that reacts to "no session"
+  // (e.g. the Focus Companion window hiding itself) avoid treating that
+  // brief pre-read null as a real "session ended" signal.
+  hasLoadedSession: boolean;
   history: ReadonlyArray<FocusHistoryEntry>;
   remainingSeconds: number;
   // Timestamp-derived elapsed time (see getElapsedMs in focus-stats.ts) -
@@ -117,7 +122,7 @@ function notifySessionComplete(session: FocusSession) {
 }
 
 export function FocusProvider({ children }: Readonly<{ children: React.ReactNode }>) {
-  const [activeSession, setActiveSession] = useLocalStorageState<FocusSession | null>(FOCUS_ACTIVE_SESSION_KEY, null);
+  const [activeSession, setActiveSession, hasLoadedSession] = useLocalStorageState<FocusSession | null>(FOCUS_ACTIVE_SESSION_KEY, null);
   const { history, addHistoryEntry } = useFocusHistory();
   const [isMinimized, setIsMinimized] = useLocalStorageState<boolean>(FOCUS_MINIMIZED_KEY, false);
   const [, forceTick] = useState(0);
@@ -271,6 +276,7 @@ export function FocusProvider({ children }: Readonly<{ children: React.ReactNode
 
   const value: FocusStoreValue = {
     activeSession,
+    hasLoadedSession,
     history,
     remainingSeconds,
     elapsedSeconds,

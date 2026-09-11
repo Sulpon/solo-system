@@ -85,7 +85,7 @@ export default function QuestKindSection({
       className={"rounded-2xl border-2 border-dashed p-3 transition-colors duration-150 " + (isOver ? accentBorderClass + " bg-slate-900/60" : "border-slate-800/80 bg-slate-950/20")}
     >
       <div className="flex items-center gap-2 px-1">
-        <span className="text-base leading-none">{icon}</span>
+        <span className={"text-xs leading-none " + accentTextClass}>{icon}</span>
         {isRenaming ? (
           <input
             autoFocus

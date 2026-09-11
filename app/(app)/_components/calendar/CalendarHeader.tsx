@@ -15,7 +15,7 @@ export default function CalendarHeader({ view, onViewChange, periodLabel, onPrev
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-300">Calendar</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-300">Time Operations</p>
         <h1 className="mt-1 text-2xl font-black text-white">{periodLabel}</h1>
       </div>
 

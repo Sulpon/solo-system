@@ -56,13 +56,16 @@ const ZONE_DROP_TARGETS: Record<string, QuestDropTarget> = {
   ...Object.fromEntries(EISENHOWER_QUADRANTS.map((quadrant) => [eisenhowerZoneId(quadrant), { kind: "task", eisenhowerQuadrant: quadrant }])),
 };
 
-// Icon + accent per quadrant, in the same order as EISENHOWER_QUADRANTS
-// (urgency/importance ranking) - purely presentational, never persisted.
+// Rank glyph + accent per quadrant, in the same order as
+// EISENHOWER_QUADRANTS (urgency/importance ranking) - purely presentational,
+// never persisted. Plain squares rather than colored emoji circles - the
+// accent color (applied to this glyph via QuestKindSection's accentTextClass)
+// already carries the urgency signal, so the glyph itself stays restrained.
 const QUADRANT_ICONS: Record<EisenhowerQuadrant, string> = {
-  urgent_important: "🔴",
-  urgent_not_important: "🟠",
-  not_urgent_important: "🟡",
-  not_urgent_not_important: "⚪",
+  urgent_important: "◆ I",
+  urgent_not_important: "◆ II",
+  not_urgent_important: "◆ III",
+  not_urgent_not_important: "◆ IV",
 };
 const QUADRANT_ACCENTS: Record<EisenhowerQuadrant, { border: string; text: string }> = {
   urgent_important: { border: "border-rose-400/60", text: "text-rose-200" },
@@ -286,12 +289,12 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
       <Card className="p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-300">Quest Manager</p>
-          <h2 className="mt-2 text-2xl font-black text-white">Create, edit, archive, delete, and complete quests</h2>
-          <p className="mt-2 text-sm text-slate-400">Quest definitions and completions are stored locally for now. Active daily quests feed the Dashboard automatically.</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-300">Mission Operations</p>
+          <h2 className="mt-2 text-2xl font-black text-white">Active missions and execution</h2>
+          <p className="mt-2 text-sm text-slate-400">Define, prioritize, and execute Quests. Active daily missions feed Mission Control automatically.</p>
         </div>
         <button type="button" onClick={() => setForm(createQuestFormModel())} className="rounded-xl border border-purple-400/50 bg-purple-500/15 px-4 py-2 text-sm font-semibold text-purple-100 transition hover:bg-purple-500/25">
-          Create Quest
+          New Quest
         </button>
       </div>
 
@@ -362,7 +365,7 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
           <div className="mt-5 space-y-4">
             <div>
               <div className="flex items-center gap-2 px-1">
-                <span className="text-base leading-none">✅</span>
+                <span className="h-1.5 w-1.5 rounded-full bg-cyan-300" aria-hidden="true" />
                 <h3 className="text-sm font-black uppercase tracking-[0.14em] text-white">Tasks</h3>
                 <span className="text-xs text-slate-500">{taskQuests.length}</span>
               </div>
@@ -397,7 +400,7 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
                   <QuestKindSection
                     id={UNASSIGNED_TASK_ZONE_ID}
                     title="Unassigned"
-                    icon="⬜"
+                    icon="—"
                     accentBorderClass="border-slate-500/60"
                     accentTextClass="text-slate-300"
                     emptyHint="Drag a Task here to clear its priority."
@@ -421,7 +424,7 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
             <QuestKindSection
               id={HABIT_ZONE_ID}
               title="Habits"
-              icon="🔁"
+              icon="↻"
               accentBorderClass="border-amber-400/60"
               accentTextClass="text-amber-200"
               emptyHint="Drag a quest here to classify it as a Habit."
@@ -442,7 +445,7 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
             {uncategorizedQuests.length > 0 ? (
               <div>
                 <div className="flex items-center gap-2 px-1">
-                  <span className="text-base leading-none">❔</span>
+                  <span className="h-1.5 w-1.5 rounded-full bg-slate-500" aria-hidden="true" />
                   <h3 className="text-sm font-black uppercase tracking-[0.14em] text-slate-400">Uncategorized</h3>
                   <span className="text-xs text-slate-500">{uncategorizedQuests.length}</span>
                 </div>

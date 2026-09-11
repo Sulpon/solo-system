@@ -10,6 +10,10 @@ import { calculateGoalTree, summarizeGoalTree } from "../../_lib/goal-tree-progr
 import { getInheritedAttributeWeights, getSequentialMilestoneProgress, type GoalNodeDraft } from "../../_lib/goal-tree-storage";
 import { useGoalTree } from "../../_lib/hooks/useGoalTree";
 import { useProgression } from "../../_lib/hooks/useProgression";
+import { useNotes } from "../../_lib/hooks/useNotes";
+import { useLibrary } from "../../_lib/hooks/useLibrary";
+import { useAttributes } from "../../_lib/hooks/useAttributes";
+import { getGoalRelationships } from "../../_lib/relationships";
 import type { Quest } from "../../_lib/types/quest";
 import type { GoalNode, GoalNodeType, SequentialMilestoneStep } from "../../_lib/types/goal-tree";
 import type { EditablePageSection } from "../page-edit/types";
@@ -131,9 +135,9 @@ function EmptyState({ onCreateDream }: Readonly<{ onCreateDream: () => void }>) 
   return (
     <Card className="overflow-hidden border-purple-500/25 bg-[radial-gradient(circle_at_12%_0%,rgba(126,34,206,0.18),transparent_24%),linear-gradient(135deg,rgba(15,23,42,0.72),rgba(2,6,23,0.92))] p-6">
       <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/45 p-8 text-center">
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-300">Goal Tree</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-300">Strategy Command</p>
         <h2 className="mt-3 text-2xl font-black text-white">Create your first dream</h2>
-        <p className="mt-3 text-sm text-slate-400">Break long-term goals into milestones and daily quests.</p>
+        <p className="mt-3 text-sm text-slate-400">Dream → Quarterly Goal → Monthly Milestone → Weekly Milestone → Quest → Execution.</p>
         <button
           type="button"
           onClick={onCreateDream}
@@ -182,6 +186,9 @@ function TipBanner() {
 export default function GoalTreePage() {
   const { goalTree, hasLoaded, createRootNode, createChildNode, saveNode, deleteNode, completeSequentialStep, undoSequentialStep } = useGoalTree();
   const { questDefinitions, setQuestDefinitions, activityEvents } = useProgression();
+  const { notes } = useNotes();
+  const { items: libraryItems } = useLibrary();
+  const { attributes } = useAttributes();
   const availableWidgets = useMemo(() => getCatalogWidgetsForPage("goal-tree"), []);
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(() => new Set());
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -205,6 +212,10 @@ export default function GoalTreePage() {
   );
   const visibleSelectedNodeId = selectedNodeId && outlineRows.some((row) => row.node.id === selectedNodeId) ? selectedNodeId : outlineRows[0]?.node.id ?? null;
   const selectedNode = useMemo(() => (visibleSelectedNodeId ? findOutlineNode(visualTree, visibleSelectedNodeId) : null), [visibleSelectedNodeId, visualTree]);
+  const relationshipGroups = useMemo(
+    () => (selectedNode ? getGoalRelationships(selectedNode.id, goalTree, questDefinitions, notes, libraryItems, attributes, activityEvents) : []),
+    [selectedNode, goalTree, questDefinitions, notes, libraryItems, attributes, activityEvents],
+  );
   const selectedNodePath = useMemo(() => findOutlinePath(visualTree, visibleSelectedNodeId), [visibleSelectedNodeId, visualTree]);
   const parentTitle = useMemo(() => findOutlineParentTitle(visualTree, selectedNode?.parentId), [selectedNode?.parentId, visualTree]);
   const dreamTitle = selectedNodePath[0]?.title;
@@ -591,6 +602,7 @@ export default function GoalTreePage() {
               parentTitle={parentTitle}
               dreamTitle={dreamTitle}
               linkedQuests={linkedQuests}
+              relationshipGroups={relationshipGroups}
               overview={activeFilterOverview}
               onEdit={openEdit}
               onAddChild={openAddChild}

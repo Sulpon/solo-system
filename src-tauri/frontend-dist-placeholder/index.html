@@ -1,0 +1,22 @@
+<!doctype html>
+<!--
+  This file is never actually shown. Atlas is a Next.js application that
+  needs a real Node.js server (Route Handlers, the Supabase auth proxy,
+  cookie-based session refresh) rather than static assets - see
+  src-tauri/src/lib.rs, which always points the window at the real Next.js
+  server (either `next dev` in development, or a bundled standalone server
+  spawned as a sidecar in release builds).
+
+  Tauri's config schema still requires `build.frontendDist` to point at an
+  existing directory even though nothing here is ever loaded - this file
+  exists only to satisfy that validation.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Atlas</title>
+  </head>
+  <body>
+    <p>Atlas is starting…</p>
+  </body>
+</html>

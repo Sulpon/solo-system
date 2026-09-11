@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Capabilities for Atlas's windows. Milestone 1's main window only needed core window chrome (minimize/maximize/close/resize). Milestone 2 adds the focus-companion window plus the permissions both windows need to create/show/hide/focus it from JS (see _lib/desktop/focus-companion-window.ts). Milestone 3 adds autostart:default for the Settings page's 'Launch Atlas when Windows starts' toggle (see _lib/desktop/autostart.ts) - the tray, global shortcut, and window-state persistence added in Milestone 3 are all native Rust (tray menu clicks, shortcut presses, window-state's own hooks), which the ACL system doesn't gate, so they need no capability entries here.",
+  "windows": ["main", "focus-companion"],
+  "permissions": [
+    "core:default",
+    "core:webview:allow-create-webview-window",
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-set-focus",
+    "autostart:default"
+  ]
+}
