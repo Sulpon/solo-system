@@ -15,7 +15,7 @@ import type { ActivityEvent } from "../types/activity-event";
 import type { CalendarQuestItem } from "../engines/quest-calendar-engine";
 import type { PriorityGateState } from "../engines/priority-gate-engine";
 import type { PresentMomentState } from "../engines/present-moment-engine";
-import type { PersonalState, PersonalInsight, NextAction } from "../intelligence/types";
+import type { PersonalState, PersonalInsight, PersonalSignal, PersonalRecommendation, NextAction } from "../intelligence/types";
 import type { AchievementMoment } from "../achievements/types";
 import type { MemoryFreshness, MemoryType, PersonalMemory } from "../memory/types";
 
@@ -65,6 +65,16 @@ export type StructuredAtlasContext = Readonly<{
   upcomingDeadlines: PersonalState["upcomingDeadlines"];
   relevantRelationships: ReadonlyArray<RelatedEntityGroup>;
   importantInsights: ReadonlyArray<PersonalInsight>;
+  // Phase 17 - the FULL, uncapped signal/recommendation sets Phase 11
+  // already computes (computePersonalIntelligence's own `signals`/
+  // `recommendations`, not the top-5-across-all-types `importantInsights`
+  // projection above). Adaptive planning across an entire goal portfolio
+  // (e.g. "plan my week", "what should I cut") needs every goal's
+  // momentum/friction/neglect/goal_risk signal, not just whichever few
+  // made the general-purpose top-5 - exposing what's already computed
+  // costs nothing extra and duplicates no scoring logic.
+  allSignals: ReadonlyArray<PersonalSignal>;
+  allRecommendations: ReadonlyArray<PersonalRecommendation>;
   currentApp: AppNavItem | null;
   now: Date;
 }>;
@@ -157,6 +167,8 @@ export function computeAtlasIntelligenceContext(input: ContextEngineInput): Stru
     upcomingDeadlines: intelligence.state.upcomingDeadlines,
     relevantRelationships,
     importantInsights: intelligence.insights.slice(0, MAX_INSIGHTS),
+    allSignals: intelligence.signals,
+    allRecommendations: intelligence.recommendations,
     currentApp: input.currentApp,
     now: input.now,
   };

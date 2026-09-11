@@ -15,15 +15,25 @@ const SLICE_PATTERNS: ReadonlyArray<Readonly<{ slice: ContextSlice; pattern: Reg
   // calendar together (Step 13's own worked example) - "now" alone also
   // triggers calendar, not just priority.
   { slice: "priority", pattern: /what should i do|priority|next best action|right now|what am i (working|doing)/i },
-  { slice: "calendar", pattern: /today|now\b|calendar|schedule|tomorrow|this week|deadline/i },
+  { slice: "calendar", pattern: /today|now\b|calendar|schedule|tomorrow|this week|deadline|\bweek\b/i },
   { slice: "goals", pattern: /goal|on track|thesis|dream|milestone/i },
-  { slice: "intelligence", pattern: /pattern|friction|momentum|stuck|avoid|risk|signal|behavior/i },
+  { slice: "intelligence", pattern: /pattern|friction|momentum|stuck|avoid|risk|signal|behavior|balance/i },
   // "happened" covers "what happened today?" (Step 7's reflection example) -
   // reflection questions like this need both achievements and calendar.
   { slice: "achievements", pattern: /achiev|accomplish|progress|underestimat|proud|win|happened/i },
   { slice: "memory", pattern: /know about|how i work|learned|remember|preference|focus best|working style/i },
   { slice: "relationships", pattern: /connect|relat|linked|project|associated/i },
 ];
+
+// Phase 17 - adaptive, multi-Goal/period planning requests ("plan my
+// week", "how should I structure tomorrow", "help me get back on track",
+// "what should I cut", "build me a realistic plan") need the full planning
+// picture together - priority, calendar, goals, AND intelligence at once -
+// not whatever subset the narrower single-topic patterns above happen to
+// catch individually. This is additive to SLICE_PATTERNS, never a
+// replacement.
+const ADAPTIVE_PLANNING_PATTERN = /\bplan\b|structure (my|tomorrow|today|this)|organi[sz]e|what should i cut|too much to do|realistic|back on track|get back|balance/i;
+const ADAPTIVE_PLANNING_SLICES: ReadonlyArray<ContextSlice> = ["priority", "calendar", "goals", "intelligence"];
 
 // Fallback set when nothing specific matched - a sensible general-purpose
 // default rather than an empty, useless context.
@@ -36,6 +46,10 @@ export function selectContextSlices(userMessage: string): ReadonlySet<ContextSli
     if (pattern.test(userMessage)) {
       slices.add(slice);
     }
+  }
+
+  if (ADAPTIVE_PLANNING_PATTERN.test(userMessage)) {
+    for (const slice of ADAPTIVE_PLANNING_SLICES) slices.add(slice);
   }
 
   if (slices.size === 0) {

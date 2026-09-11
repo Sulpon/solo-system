@@ -1,6 +1,6 @@
 import { getGoalRelationships, getQuestRelationships } from "../relationships";
 import { flattenGoalTree } from "../goal-tree-storage";
-import { getQuestsForDate } from "../engines/quest-calendar-engine";
+import { getQuestsForDate, buildCalendarWeek, getQuestScheduledDurationMinutes } from "../engines/quest-calendar-engine";
 import type { StructuredAtlasContext } from "../context/context-engine";
 import type { CalendarQuestItem } from "../engines/quest-calendar-engine";
 import type { GoalTree } from "../types/goal-tree";
@@ -73,6 +73,18 @@ export const JARVIS_TOOLS: ReadonlyArray<LLMToolDefinition> = [
   { name: "search_memory", description: "Search Atlas's derived Personal Memory (facts, patterns, preferences, experiences, lessons) for a keyword.", inputSchema: { type: "object", properties: { query: { type: "string" } }, required: ["query"] } },
   { name: "get_relationships", description: "Get the real connected entities (Quests, Skills, Notes, Library, World, Chronicle) for a Goal or Quest.", inputSchema: { type: "object", properties: { entityType: { type: "string", enum: ["goal", "quest"] }, idOrTitle: { type: "string" } }, required: ["entityType", "idOrTitle"] } },
   { name: "get_focus_patterns", description: "Get Atlas's derived behavioral patterns and preferences about how the user focuses/works (working-time clustering, abandonment tendencies, consistent habits).", inputSchema: { type: "object", properties: {} } },
+  {
+    name: "get_goal_portfolio_status",
+    description:
+      "Get every active Goal's real progress, deadline, and ALL of its momentum/friction/neglect/risk signals (not just the top few overall) - use this for adaptive, multi-goal planning ('plan my week', 'what should I cut', 'help me balance X and Y').",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "get_week_calendar",
+    description:
+      "Get the real Quest schedule for a whole week ('this_week' or 'next_week'), with each day's already-scheduled Quest count and minutes. Does NOT report a computed 'available time' budget for future days - Atlas only tracks what's actually scheduled, not total daily work hours.",
+    inputSchema: { type: "object", properties: { when: { type: "string", enum: ["this_week", "next_week"] } } },
+  },
 ];
 
 // ---- Tool execution (real Atlas data, no invention) ------------------------
@@ -152,6 +164,55 @@ function executeGetFocusPatterns(context: ToolExecutionContext): ToolResult {
   return { ok: true, data: patterns.map((memory) => ({ type: memory.type, content: memory.content, confidence: memory.confidence })) };
 }
 
+// Phase 17 - adaptive planning across the WHOLE goal portfolio, not one
+// goal at a time. Reuses Phase 11's full, uncapped signal set (see
+// context-engine.ts's allSignals) - computes nothing new, just filters to
+// each goal's own real signals (never re-scores or re-derives them).
+function executeGetGoalPortfolioStatus(context: ToolExecutionContext): ToolResult {
+  const topLevelGoals = context.goalTree.filter((node) => (node.type === "dream" || node.type === "long_term_goal") && node.status !== "completed");
+  if (topLevelGoals.length === 0) return { ok: true, data: { available: false, reason: "No active Goals to report on." } };
+
+  const portfolio = topLevelGoals.map((node) => {
+    const signals = context.structured.allSignals.filter((signal) => signal.entityType === "goal" && signal.entityId === node.id);
+    const daysRemaining = node.periodEnd ? Math.ceil((new Date(node.periodEnd).getTime() - context.now.getTime()) / 86_400_000) : null;
+    return {
+      title: node.title,
+      progress: Math.round(node.progress),
+      deadline: node.periodEnd ?? null,
+      daysRemaining,
+      signals: signals.map((signal) => ({ type: signal.type, polarity: signal.polarity, explanation: signal.explanation, evidence: signal.evidence })),
+    };
+  });
+
+  return { ok: true, data: portfolio };
+}
+
+// Reuses buildCalendarWeek/getQuestScheduledDurationMinutes - the exact
+// engine the Calendar page itself renders from. Deliberately does NOT
+// report a computed "available time" figure for future days - Atlas has
+// no concept of total daily work-hour capacity, only what's actually
+// scheduled, and inventing one would be exactly the false-precision the
+// system prompt forbids.
+function executeGetWeekCalendar(context: ToolExecutionContext, args: Readonly<{ when?: string }>): ToolResult {
+  const anchor = new Date(context.now);
+  if (args.when === "next_week") anchor.setDate(anchor.getDate() + 7);
+  const days = buildCalendarWeek(context.quests, context.completions, anchor, context.now);
+
+  const summary = days.map((day) => {
+    const scheduledMinutes = day.items.reduce((sum, item) => sum + (getQuestScheduledDurationMinutes(item.quest) ?? 0), 0);
+    return { date: day.dayKey, scheduledQuestCount: day.items.length, scheduledMinutes, items: day.items.map((item) => ({ title: item.quest.title, status: item.status, time: item.startTime })) };
+  });
+
+  return {
+    ok: true,
+    data: {
+      when: args.when === "next_week" ? "next_week" : "this_week",
+      days: summary,
+      note: "scheduledMinutes is what's already on the Calendar, not a computed available-time budget - Atlas doesn't track total daily work hours.",
+    },
+  };
+}
+
 export function executeTool(name: string, rawArgs: Readonly<Record<string, unknown>>, context: ToolExecutionContext): ToolResult {
   switch (name) {
     case "get_current_state":
@@ -172,6 +233,10 @@ export function executeTool(name: string, rawArgs: Readonly<Record<string, unkno
       return executeGetRelationships(context, rawArgs as { entityType?: string; idOrTitle?: string });
     case "get_focus_patterns":
       return executeGetFocusPatterns(context);
+    case "get_goal_portfolio_status":
+      return executeGetGoalPortfolioStatus(context);
+    case "get_week_calendar":
+      return executeGetWeekCalendar(context, rawArgs as { when?: string });
     default:
       return { ok: false, data: { error: `Unknown tool: ${name}` } };
   }
