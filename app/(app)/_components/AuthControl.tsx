@@ -26,7 +26,15 @@ export default function AuthControl() {
   }
 
   const statusLabel =
-    syncStatus === "syncing" ? "Syncing…" : syncStatus === "error" ? "Sync error" : syncStatus === "synced" ? "Synced" : "Local only";
+    syncStatus === "syncing"
+      ? "Syncing…"
+      : syncStatus === "error"
+        ? "Sync error"
+        : syncStatus === "offline"
+          ? "Offline"
+          : syncStatus === "synced"
+            ? "Synced"
+            : "Local only";
 
   return (
     <div className="flex items-center gap-2">
@@ -35,7 +43,9 @@ export default function AuthControl() {
           "rounded-full border px-3 py-1 text-xs " +
           (syncStatus === "error"
             ? "border-rose-500/40 bg-rose-500/10 text-rose-200"
-            : "border-emerald-500/30 bg-emerald-500/10 text-emerald-200")
+            : syncStatus === "offline"
+              ? "border-amber-500/30 bg-amber-500/10 text-amber-200"
+              : "border-emerald-500/30 bg-emerald-500/10 text-emerald-200")
         }
       >
         {statusLabel}

@@ -85,6 +85,7 @@ function CloudSyncPanel() {
             <div>
               <p className="font-bold text-white">{user.email}</p>
               <p className="mt-1 text-sm text-slate-500">Last synced: {formatSyncedAt(lastSyncedAt)}</p>
+              {syncStatus === "offline" && <p className="mt-1 text-sm text-amber-300">Offline - changes will sync once you&apos;re back online.</p>}
               {syncStatus === "error" && syncError && <p className="mt-1 text-sm text-rose-300">Sync error: {syncError}</p>}
             </div>
             <button
