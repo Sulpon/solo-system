@@ -44,8 +44,20 @@ export async function showFocusCompanionWindow(): Promise<void> {
 
   const { x, y } = await computeDefaultPosition();
 
+  // Milestone 5 (Floating Widgets enable/show bug) - a bare relative route
+  // string here resolves against the dev SERVER URL in development, but
+  // against Tauri's OWN local bundled-asset protocol in a RELEASE build
+  // (confirmed via Tauri's own documented WebviewOptions.url behavior,
+  // and directly reproduced live: it rendered
+  // src-tauri/frontend-dist-placeholder's "Atlas is starting..." stub
+  // instead of the real Companion). Atlas never uses that local protocol -
+  // every window always loads the real, external Next.js server (see
+  // lib.rs's own architecture note) - so this must be an explicit,
+  // absolute URL. `window.location.origin` is exactly that real server's
+  // origin, since this code only ever runs from within an already-loaded
+  // Atlas page.
   const companion = new WebviewWindow(FOCUS_COMPANION_LABEL, {
-    url: "/focus-companion",
+    url: `${window.location.origin}/focus-companion`,
     title: "Atlas Focus",
     width: FOCUS_COMPANION_WIDTH,
     height: FOCUS_COMPANION_HEIGHT,
@@ -68,6 +80,17 @@ export async function showFocusCompanionWindow(): Promise<void> {
     void companion.once("tauri://created", () => resolve());
     void companion.once("tauri://error", (event) => reject(new Error(String(event.payload))));
   });
+
+  // Milestone 6 (white-screen-after-enable bug) - see the identical fix and
+  // comment in widgets/widget-manager.ts: `visible: true`/`focus: true` in
+  // the constructor options above do NOT reliably result in an actually-
+  // visible native window on Windows - confirmed live via real Win32
+  // EnumWindows/IsWindowVisible inspection of the compiled app, which
+  // showed "Atlas Focus" with IsWindowVisible=False despite fully-loaded,
+  // correct content. An explicit .show()/.setFocus() here reliably fixes
+  // it, confirmed the same way.
+  await companion.show();
+  await companion.setFocus();
 }
 
 export async function hideFocusCompanionWindow(): Promise<void> {

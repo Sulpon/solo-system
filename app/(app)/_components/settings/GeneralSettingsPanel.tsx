@@ -6,6 +6,9 @@ import { useLocalStorageState } from "../../_lib/hooks/use-local-storage-state";
 import { STORAGE_KEYS } from "../../_lib/storage-keys";
 import { isDesktopApp } from "../../_lib/desktop/is-desktop";
 import { isAutostartEnabled, setAutostartEnabled } from "../../_lib/desktop/autostart";
+import { FLOATING_WIDGET_IDS, getWidgetDefinition } from "../../_lib/desktop/widgets/registry";
+import { createOrShowWidgetWindow, hideWidgetWindow, isWidgetWindowVisible } from "../../_lib/desktop/widgets/widget-manager";
+import type { FloatingWidgetId } from "../../_lib/desktop/widgets/types";
 
 export default function GeneralSettingsPanel() {
   const [, setOnboardingCompleted] = useLocalStorageState<boolean>(STORAGE_KEYS.onboardingCompleted, false);
@@ -53,7 +56,78 @@ export default function GeneralSettingsPanel() {
       </Card>
 
       {isDesktopApp() ? <StartupSettingsCard /> : null}
+      {isDesktopApp() ? <WidgetSettingsCard /> : null}
     </div>
+  );
+}
+
+// Restorable "from the main Atlas UI" (Section 3) - the tray's own
+// "Floating Widgets" submenu (src-tauri/src/lib.rs) offers the same show/
+// hide actions natively; this is the in-app equivalent, reading the real
+// per-window visibility (isWidgetWindowVisible queries the actual Tauri
+// window, never a second/possibly-stale copy of it) rather than trusting
+// only the persisted-visibility flag widget-state.ts uses for restart
+// restoration.
+function WidgetSettingsCard() {
+  const [visibility, setVisibility] = useState<Partial<Record<FloatingWidgetId, boolean>>>({});
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [pendingId, setPendingId] = useState<FloatingWidgetId | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void Promise.all(FLOATING_WIDGET_IDS.map(async (id) => [id, await isWidgetWindowVisible(id)] as const)).then((entries) => {
+      if (cancelled) return;
+      setVisibility(Object.fromEntries(entries));
+      setIsLoaded(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function toggleWidget(id: FloatingWidgetId) {
+    setPendingId(id);
+    const next = !visibility[id];
+
+    try {
+      await (next ? createOrShowWidgetWindow(id) : hideWidgetWindow(id));
+      setVisibility((current) => ({ ...current, [id]: next }));
+    } finally {
+      setPendingId(null);
+    }
+  }
+
+  return (
+    <Card className="p-5">
+      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-300">Desktop</p>
+      <h2 className="mt-2 text-xl font-black text-white">Floating Widgets</h2>
+      <p className="mt-2 max-w-xl text-sm text-slate-400">Small always-on-top windows that float above other applications. Also available from the tray.</p>
+
+      <div className="mt-4 space-y-2">
+        {FLOATING_WIDGET_IDS.map((id) => {
+          const definition = getWidgetDefinition(id);
+          const enabled = Boolean(visibility[id]);
+
+          return (
+            <div key={id} className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/45 px-4 py-3">
+              <span className="text-sm font-semibold text-slate-200">{definition.menuLabel}</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={enabled}
+                disabled={!isLoaded || pendingId === id}
+                onClick={() => void toggleWidget(id)}
+                className={"relative h-6 w-11 shrink-0 rounded-full border transition disabled:opacity-50 " + (enabled ? "border-purple-400/60 bg-purple-500/40" : "border-slate-700 bg-slate-800")}
+              >
+                <span className={"absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all " + (enabled ? "left-6" : "left-0.5")} />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
   );
 }
 

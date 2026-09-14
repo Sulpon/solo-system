@@ -25,7 +25,8 @@
       "icons/icon.ico"
     ],
     "resources": {
-      "../.next/standalone": ".next/standalone"
+      "../.next/standalone": ".next/standalone",
+      "binaries/node.exe": "node.exe"
     }
   }
 }

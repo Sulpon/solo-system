@@ -7,6 +7,7 @@ import FocusOverlay from "./_components/focus/FocusOverlay";
 import ActiveWorkoutOverlay from "./_components/workouts/ActiveWorkoutOverlay";
 import GoalMetricSyncEffect from "./_components/goal-tree/GoalMetricSyncEffect";
 import ProgressionEventSyncEffect from "./_components/progression/ProgressionEventSyncEffect";
+import DesktopWidgetsBootstrap from "./_components/desktop/DesktopWidgetsBootstrap";
 import OnboardingGate from "./_components/onboarding/OnboardingGate";
 import { CelebrationProvider } from "./_lib/celebration-store";
 import { CloudSyncProvider } from "./_lib/cloud-sync-store";
@@ -34,6 +35,7 @@ export default function MenaceLayout({
                   <ActiveWorkoutOverlay />
                   <GoalMetricSyncEffect />
                   <ProgressionEventSyncEffect />
+                  <DesktopWidgetsBootstrap />
                   <CelebrationHost />
                 </OnboardingGate>
               </WorkoutProvider>
