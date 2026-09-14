@@ -10,6 +10,15 @@ import { useQuestCompletionFlow } from "../quests/useQuestCompletionFlow";
 import type { QuestFeedbackDraft } from "./QuestFinishFeedback";
 import type { ChecklistItem, ChecklistMode } from "../../_lib/types/quest";
 
+// TEMPORARY diagnostic instrumentation - investigating a "Save & Complete
+// doesn't work" report for a goal-linked Quest's Focus session finish flow.
+// Console logging (inspectable via DevTools or the CDP technique already
+// used throughout this investigation) - see cloud-sync-store.tsx's authDiag
+// for the same pattern used earlier this project.
+function questDiag(message: string) {
+  console.log(`[Atlas][QuestExecution] ${message}`);
+}
+
 // Shared TAKE QUEST -> ... -> FINISH QUEST/Abandon orchestration for every
 // UI that drives the existing Focus Session's quest-execution mode -
 // currently FocusOverlay.tsx (the main window's full-screen view) and the
@@ -63,23 +72,34 @@ export function useQuestExecutionSession() {
 
   function handleCompleteQuest() {
     if (!linkedQuest) {
+      questDiag("handleCompleteQuest: no linkedQuest - finishing session directly");
       finishSession(true, consumePendingFeedbackExtra());
       return;
     }
 
     const willOpenModal = Boolean(linkedQuest.linkedProgressGoalId) && Boolean(findGoalNode(goalTree, linkedQuest.linkedProgressGoalId as string));
     const accepted = beginQuestCompletion(linkedQuest);
+    questDiag(
+      `handleCompleteQuest: quest=${linkedQuest.id} linkedProgressGoalId=${linkedQuest.linkedProgressGoalId ?? "none"} ` +
+        `willOpenModal=${willOpenModal} accepted=${accepted}`,
+    );
 
     if (!accepted || !willOpenModal) {
+      questDiag("handleCompleteQuest: finishing session directly (no modal / not accepted)");
       finishSession(true, consumePendingFeedbackExtra());
+    } else {
+      questDiag("handleCompleteQuest: awaiting QuestCompletionModal confirmation");
     }
   }
 
   function handleConfirmFromModal() {
     const completed = confirmQuestCompletion();
+    questDiag(`handleConfirmFromModal: completed=${completed}`);
 
     if (completed) {
       finishSession(true, consumePendingFeedbackExtra());
+    } else {
+      questDiag("handleConfirmFromModal: completion was rejected - session NOT finished, modal closes with nothing recorded");
     }
   }
 
@@ -102,6 +122,7 @@ export function useQuestExecutionSession() {
   }
 
   function handleSubmitFeedback(draft: QuestFeedbackDraft) {
+    questDiag("handleSubmitFeedback: Save & Complete clicked");
     pendingFeedbackExtraRef.current = {
       notes: draft.note || undefined,
       energyBefore: draft.energyBefore,
@@ -115,7 +136,19 @@ export function useQuestExecutionSession() {
       checklistFullTotal: checklistProgress?.fullTotal,
       checklistFullCompleted: checklistProgress?.fullCompleted,
     };
-    handleCompleteQuest();
+
+    try {
+      handleCompleteQuest();
+    } catch (error) {
+      // TEMPORARY diagnostic safety net - an uncaught exception here would
+      // otherwise silently leave the feedback form stuck on screen with no
+      // visible error (the exact "Save & Complete doesn't work" report this
+      // is investigating): finishSession(false) at least gets the user
+      // unstuck (interrupted, not marked complete) instead of a frozen UI,
+      // while the log captures what actually went wrong.
+      questDiag(`handleSubmitFeedback: THREW - ${error instanceof Error ? error.stack ?? error.message : String(error)}`);
+      finishSession(false);
+    }
   }
 
   return {

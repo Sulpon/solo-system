@@ -97,7 +97,12 @@ export default function ActiveWorkoutOverlay() {
   }
 
   return (
-    <div className="fixed inset-0 z-[200] overflow-y-auto bg-slate-950 px-4 py-8 motion-reduce:transition-none sm:px-6">
+    // z-[49] - see the identical fix and comment in FocusOverlay.tsx: this
+    // used to be higher than Modal.tsx's z-50, which rendered
+    // QuestCompletionModal (opened from this overlay when finishing a
+    // goal-linked Quest) completely invisible and unclickable behind this
+    // overlay's opaque background.
+    <div className="fixed inset-0 z-[49] overflow-y-auto bg-slate-950 px-4 py-8 motion-reduce:transition-none sm:px-6">
       <button
         type="button"
         onClick={minimize}

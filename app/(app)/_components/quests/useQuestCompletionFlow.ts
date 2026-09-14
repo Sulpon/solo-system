@@ -14,6 +14,12 @@ import type { QuestAttributeReward, QuestCompletionMetricConfig, QuestGoalContri
 import type { ReflectionFeelingAfter, ReflectionHardest, ReflectionMood } from "../../_lib/types/reflection";
 import { useProgression } from "../../_lib/hooks/useProgression";
 
+// TEMPORARY diagnostic instrumentation - see useQuestExecutionSession.ts's
+// questDiag (same investigation: "Save & Complete doesn't work").
+function flowDiag(message: string) {
+  console.log(`[Atlas][QuestCompletionFlow] ${message}`);
+}
+
 type QuestCompletionTarget = Readonly<{
   id: string;
   title: string;
@@ -107,6 +113,7 @@ export function useQuestCompletionFlow() {
       }
 
       const completed = setQuestCompletionForToday(quest.id, true, completedAt, getAttributeRewardsForQuest(quest, goalTree), metricValue, goalContribution);
+      flowDiag(`completeImmediately: quest=${quest.id} metricValue=${metricValue} setQuestCompletionForToday returned=${completed}`);
 
       if (completed) {
         setPendingReflectionQuest({ id: quest.id, title: quest.title, completedAt });
@@ -120,10 +127,12 @@ export function useQuestCompletionFlow() {
   const beginQuestCompletion = useCallback(
     (quest: QuestCompletionTarget, completedAt = new Date().toISOString()) => {
       if (hasQuestCompletedToday(quest.id, new Date(completedAt))) {
+        flowDiag(`beginQuestCompletion: quest=${quest.id} already completed today - rejecting`);
         return false;
       }
 
       const metricType = resolveMetricType(quest);
+      flowDiag(`beginQuestCompletion: quest=${quest.id} metricType=${metricType} autoSource=${quest.completionMetric?.autoSource ?? "none"}`);
 
       if (metricType === "boolean") {
         return completeImmediately(quest, completedAt, 1);
@@ -137,6 +146,7 @@ export function useQuestCompletionFlow() {
       setPendingQuest(quest);
       setPendingCompletedAt(completedAt);
       setProgressValue("1");
+      flowDiag(`beginQuestCompletion: quest=${quest.id} opening completion modal (pendingQuest set)`);
       return true;
     },
     [completeImmediately, hasQuestCompletedToday, workoutSessions],
@@ -148,12 +158,15 @@ export function useQuestCompletionFlow() {
 
   const confirmQuestCompletion = useCallback(() => {
     if (!pendingQuest) {
+      flowDiag("confirmQuestCompletion: no pendingQuest - rejecting");
       return false;
     }
 
     const metricValue = Number(progressValue);
+    flowDiag(`confirmQuestCompletion: quest=${pendingQuest.id} progressValue="${progressValue}" -> metricValue=${metricValue}`);
 
     if (!Number.isFinite(metricValue) || metricValue < 0) {
+      flowDiag("confirmQuestCompletion: metricValue invalid - rejecting");
       return false;
     }
 

@@ -66,7 +66,17 @@ export default function FocusOverlay() {
   }
 
   return (
-    <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-slate-950 px-6 py-10 motion-reduce:transition-none">
+    // z-[49] (not the higher value this used to have) - deliberately kept
+    // just BELOW Modal.tsx's z-50: a goal-linked Quest's "Save & Complete"
+    // opens QuestCompletionModal (a real Modal, portaled to document.body)
+    // while this full-screen overlay is still showing underneath it. A
+    // higher z-index here rendered that modal completely invisible and
+    // unclickable behind this overlay's opaque background - the click
+    // appeared to do nothing, since QuestFinishFeedback stays mounted
+    // regardless (see showCompletionPrompt below, which doesn't depend on
+    // pendingQuest at all). See ActiveWorkoutOverlay.tsx for the identical
+    // fix to the identical bug.
+    <div className="fixed inset-0 z-[49] flex flex-col items-center justify-center bg-slate-950 px-6 py-10 motion-reduce:transition-none">
       <button
         type="button"
         onClick={minimize}

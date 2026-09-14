@@ -168,11 +168,14 @@ export function ProgressionProvider({ children }: Readonly<{ children: React.Rea
       const quest = questDefinitionsRef.current.find((item) => item.id === questId);
 
       if (!quest) {
+        // TEMPORARY diagnostic instrumentation (see useQuestExecutionSession.ts's questDiag).
+        console.log(`[Atlas][Progression] setQuestCompletionForToday: quest ${questId} not found in questDefinitions - rejecting`);
         return false;
       }
 
       const referenceDate = new Date(completedAt);
       if (completed && !isQuestScheduledForDate(quest, referenceDate)) {
+        console.log(`[Atlas][Progression] setQuestCompletionForToday: quest ${questId} not scheduled for ${referenceDate.toISOString()} (scheduledDays=${JSON.stringify(quest.scheduledDays)}) - rejecting`);
         return false;
       }
 
@@ -180,6 +183,7 @@ export function ProgressionProvider({ children }: Readonly<{ children: React.Rea
 
       if (completed) {
         if (hasCompletedToday(questId, currentCompletions, referenceDate)) {
+          console.log(`[Atlas][Progression] setQuestCompletionForToday: quest ${questId} already has a completion today - rejecting`);
           return false;
         }
 
