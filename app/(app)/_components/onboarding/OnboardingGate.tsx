@@ -18,6 +18,15 @@ function OnboardingLoadingScreen() {
   );
 }
 
+// TEMPORARY diagnostic instrumentation - see cloud-sync-store.tsx's
+// authDiag and this milestone's report. Console logging (inspectable via
+// DevTools or the CDP technique already used throughout this
+// investigation) is enough here; no file-based logging needed on the
+// frontend side.
+function gateDiag(message: string) {
+  console.log(`[Atlas][OnboardingGate] ${message}`);
+}
+
 export default function OnboardingGate({ children }: Readonly<{ children: React.ReactNode }>) {
   const { isCloudSyncAvailable, isAuthLoading, user, syncStatus } = useCloudSync();
   const [onboardingCompleted, setOnboardingCompleted, hasLoadedOnboardingFlag] = useLocalStorageState<boolean>(STORAGE_KEYS.onboardingCompleted, false);
@@ -30,6 +39,34 @@ export default function OnboardingGate({ children }: Readonly<{ children: React.
   const isWaitingForCloudHydration = isCloudSyncAvailable && !isAuthLoading && Boolean(user) && syncStatus === "syncing";
   const isLocalStateLoaded = hasLoadedOnboardingFlag && hasLoadedMigrationFlag && hasLoadedAttributes && hasLoadedGoalTree && isProgressionReady;
   const canReconcile = !isAuthLoading && !isWaitingForCloudHydration && isLocalStateLoaded;
+
+  // TEMPORARY diagnostic instrumentation (see gateDiag's own comment) -
+  // logs exactly which flag(s) are still keeping OnboardingLoadingScreen on
+  // screen, whenever that set changes, so a stuck "Loading Atlas..." report
+  // can be traced to a specific cause instead of guessed at.
+  useEffect(() => {
+    if (canReconcile && hasReconciled) {
+      gateDiag("gate cleared - rendering the real app");
+      return;
+    }
+
+    gateDiag(
+      `still blocked: isAuthLoading=${isAuthLoading} isWaitingForCloudHydration=${isWaitingForCloudHydration} ` +
+        `isLocalStateLoaded=${isLocalStateLoaded} (onboardingFlag=${hasLoadedOnboardingFlag} migrationFlag=${hasLoadedMigrationFlag} ` +
+        `attributes=${hasLoadedAttributes} goalTree=${hasLoadedGoalTree} progression=${isProgressionReady}) hasReconciled=${hasReconciled}`,
+    );
+  }, [
+    canReconcile,
+    hasReconciled,
+    isAuthLoading,
+    isWaitingForCloudHydration,
+    isLocalStateLoaded,
+    hasLoadedOnboardingFlag,
+    hasLoadedMigrationFlag,
+    hasLoadedAttributes,
+    hasLoadedGoalTree,
+    isProgressionReady,
+  ]);
 
   useEffect(() => {
     if (hasReconciled || !canReconcile) {

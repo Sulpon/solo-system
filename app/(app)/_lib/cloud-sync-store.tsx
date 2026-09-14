@@ -7,9 +7,31 @@ import { getSupabaseBrowserClient, isSupabaseConfigured } from "./supabase/clien
 import { FOCUS_ACTIVE_SESSION_KEY, MENACE_STORAGE_EVENT } from "./storage-keys";
 import { mergeAtlasSnapshots } from "./sync/merge-atlas-snapshot";
 import { pushActiveFocusSession, readLocalActiveFocusSession, reconcileActiveFocusSession as reconcileActiveFocusSessionRemote } from "./sync/active-focus-sync";
+import { TimeoutError, withTimeout } from "./async-timeout";
 
 const ATLAS_TABLE = "user_atlas_data";
 const SYNC_DEBOUNCE_MS = 800;
+
+// How long the initial auth.getSession() lookup, and a returning user's
+// cloud-hydration query, are each allowed to block the rest of the app
+// before Atlas gives up waiting and proceeds in local/offline mode - see
+// this milestone's diagnosis report ("stuck on Loading Atlas...", traced to
+// these two network calls having no timeout of their own). Neither call is
+// aborted when this fires - see withTimeout's own comment - a real result
+// that arrives late is still applied wherever that's safe to do (getSession
+// always; the cloud-hydration query is treated like any other
+// already-handled network failure, see isLikelyOffline below).
+const CLOUD_SYNC_TIMEOUT_MS = 8000;
+
+// TEMPORARY diagnostic instrumentation - see this milestone's report. Plain
+// console logging (not the file-based approach used on the Rust side) is
+// the right tool here: this is frontend code running inside the real
+// WebView2 page, directly inspectable via DevTools or the same CDP
+// technique already used throughout this investigation, and console.log
+// has no meaningful cost to leave in.
+function authDiag(message: string) {
+  console.log(`[Atlas][CloudSync] ${message}`);
+}
 
 // "offline" is distinct from "error": offline means "no network reached the
 // server at all" (nothing wrong with the data, will resolve itself the
@@ -42,6 +64,14 @@ export const CloudSyncContext = createContext<CloudSyncStoreValue | null>(null);
 
 function isLikelyOffline(error: unknown): boolean {
   if (typeof navigator !== "undefined" && !navigator.onLine) {
+    return true;
+  }
+
+  // A network call that never settled within CLOUD_SYNC_TIMEOUT_MS is
+  // treated the same as "offline" - from the user's perspective, "the
+  // server never answered in time" and "there is no network" both mean the
+  // same thing: proceed locally, no hard error to surface.
+  if (error instanceof TimeoutError) {
     return true;
   }
 
@@ -192,7 +222,18 @@ export function CloudSyncProvider({ children }: Readonly<{ children: React.React
     const supabase = getSupabaseBrowserClient();
 
     try {
-      const { data, error } = await supabase.from(ATLAS_TABLE).select("data, version, updated_at").eq("user_id", userId).maybeSingle();
+      authDiag(`hydrateFromCloud: requested for user ${userId}`);
+      // Explicit result shape (matching exactly how `data`/`error` are
+      // already used below - data.data is cast to AtlasSnapshot, error.message
+      // is read as a string) because passing a Supabase query builder (a
+      // thenable, not a real Promise) through withTimeout's generic
+      // boundary defeats TypeScript's usual structural inference here.
+      const { data, error } = (await withTimeout(
+        supabase.from(ATLAS_TABLE).select("data, version, updated_at").eq("user_id", userId).maybeSingle(),
+        CLOUD_SYNC_TIMEOUT_MS,
+        "cloud hydration query",
+      )) as { data: { data: unknown; version: number; updated_at: string | null } | null; error: { message: string } | null };
+      authDiag("hydrateFromCloud: resolved");
 
       if (error) {
         setSyncStatus(isLikelyOffline(error) ? "offline" : "error");
@@ -250,6 +291,7 @@ export function CloudSyncProvider({ children }: Readonly<{ children: React.React
       setSyncStatus("synced");
       setLastSyncedAt((data.updated_at as string | null) ?? new Date().toISOString());
     } catch (thrown) {
+      authDiag(`hydrateFromCloud: failed - ${thrown instanceof Error ? thrown.message : String(thrown)}`);
       setSyncStatus(isLikelyOffline(thrown) ? "offline" : "error");
       setSyncError(thrown instanceof Error ? thrown.message : "Unknown sync error");
     }
@@ -298,16 +340,47 @@ export function CloudSyncProvider({ children }: Readonly<{ children: React.React
       }
     }
 
-    supabase.auth.getSession().then(({ data }: { data: { session: Session | null } }) => {
-      if (!isActive) {
-        return;
-      }
+    authDiag("getSession: requested");
+    const sessionPromise = supabase.auth.getSession();
 
-      handleUser(data.session?.user ?? null);
-      setIsAuthLoading(false);
-    });
+    // Applies the REAL result whenever it arrives, no matter how long it
+    // takes - a slow-but-eventually-successful session lookup must still
+    // log a real user in, even after the timeout below has already let the
+    // rest of the app proceed without waiting. This is the only place
+    // handleUser is called for the initial session lookup (never from the
+    // timeout below), so a real sign-in is never silently dropped, and a
+    // late "no session" result correctly leaves `user` at its already-null
+    // initial value (a no-op).
+    sessionPromise
+      .then(({ data }: { data: { session: Session | null } }) => {
+        authDiag("getSession: resolved");
+        if (isActive) {
+          handleUser(data.session?.user ?? null);
+        }
+      })
+      .catch((error: unknown) => {
+        authDiag(`getSession: rejected - ${error instanceof Error ? error.message : String(error)}`);
+      });
 
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
+    // Bounds how long the initial "Loading Atlas..." screen can be blocked
+    // on this one network call - see this milestone's diagnosis report and
+    // async-timeout.ts. Settles (successfully or via timeout) independently
+    // of the real-result observer above; either way this only ever flips
+    // isAuthLoading to false, never touches `user` - so a genuine, merely
+    // slow sign-in is still honored by the observer above once it arrives.
+    withTimeout(sessionPromise, CLOUD_SYNC_TIMEOUT_MS, "auth.getSession")
+      .then(() => authDiag("getSession: settled within timeout budget"))
+      .catch((error: unknown) =>
+        authDiag(`getSession: did not settle in time (${error instanceof Error ? error.message : String(error)}) - proceeding in local/offline mode`),
+      )
+      .finally(() => {
+        if (isActive) {
+          setIsAuthLoading(false);
+        }
+      });
+
+    const { data: subscription } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
+      authDiag(`onAuthStateChange: ${event}`);
       handleUser(session?.user ?? null);
       setIsAuthLoading(false);
     });
