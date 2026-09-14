@@ -9,10 +9,11 @@ import { DEFAULT_QUEST_MASTERY_MULTIPLIER, getQuestMasteryLevel100Target } from 
 import { useGoalTree } from "../../_lib/hooks/useGoalTree";
 import { useWorkoutTemplates } from "../../_lib/hooks/useWorkoutTemplates";
 import { useEisenhowerSettings } from "../../_lib/hooks/useEisenhowerSettings";
+import ChecklistEditor from "./ChecklistEditor";
 import type { CategoryId } from "../../_lib/types/category";
 import type { AttributeWeight } from "../../_lib/types/goal-tree";
 import { EISENHOWER_QUADRANTS } from "../../_lib/types/quest";
-import type { EisenhowerQuadrant, QuestAttributeReward, QuestCadence, QuestCompletionMetricType, QuestImportance, QuestKind } from "../../_lib/types/quest";
+import type { ChecklistItem, ChecklistMode, EisenhowerQuadrant, QuestAttributeReward, QuestCadence, QuestCompletionMetricType, QuestImportance, QuestKind } from "../../_lib/types/quest";
 
 export const CHALLENGE_LEVEL_COUNT = 5;
 
@@ -43,6 +44,9 @@ type QuestFormModel = Readonly<{
   completionMetricType: QuestCompletionMetricType;
   completionMetricUnit: string;
   completionMetricAutoSource: boolean;
+  checklistMode: ChecklistMode;
+  checklist: ReadonlyArray<ChecklistItem>;
+  checklistTemplateId: string | null;
   challengeEnabled: boolean;
   challengeLevels: number[];
   challengeLevelXp: number[];
@@ -429,6 +433,15 @@ export default function QuestForm({ form, isEditing, onChange, onCancel, onSave 
               ) : null}
             </div>
           ) : null}
+        </div>
+
+        <div className="space-y-3 rounded-2xl border border-slate-800 bg-slate-950/45 p-4 sm:col-span-2">
+          <ChecklistEditor
+            mode={form.checklistMode}
+            checklist={form.checklist}
+            checklistTemplateId={form.checklistTemplateId}
+            onUpdate={(patch) => onChange({ ...form, ...patch })}
+          />
         </div>
 
         <div className="space-y-3 rounded-2xl border border-amber-400/20 bg-amber-400/5 p-4 sm:col-span-2">
