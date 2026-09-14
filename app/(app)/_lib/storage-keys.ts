@@ -109,6 +109,30 @@ export const STORAGE_KEYS = {
   // see types/daily-plan.ts. Only ever stores lock state + a
   // questId->quadrant snapshot + override log - never a copy of Quest data.
   dailyPlans: "menace-daily-plans",
+  // Phase 18 - persisted JARVIS plans (see _lib/jarvis/types.ts's
+  // JarvisPlan), survives navigation/refresh/restart and syncs like any
+  // other real collection here - each entry carries `id` + `updatedAt`, so
+  // it merges by id via the same generic id-entity-array rule every other
+  // collection already uses (see sync/merge-atlas-snapshot.ts), no special
+  // sync-side code needed.
+  jarvisPlans: "menace-jarvis-plans",
+  // Phase 20 - imported historical conversation records (e.g. a ChatGPT
+  // export) and the candidates deterministically extracted from them, see
+  // _lib/ai-core/conversation-history/types.ts. A SEPARATE collection from
+  // Notes/PersonalMemory on purpose (Objective D: source conversation vs
+  // extracted memory are distinct) - accepting a candidate creates a real
+  // Note through the existing Note persistence path rather than writing
+  // here again. Each entry carries `id`/`updatedAt` so it merges like any
+  // other collection via the existing generic sync rule.
+  conversationHistory: "menace-conversation-history",
+  conversationHistoryCandidates: "menace-conversation-history-candidates",
+  // Desktop Floating Widgets - which widget windows were visible when Atlas
+  // last closed, see _lib/desktop/widgets/widget-state.ts. Deliberately
+  // separate from tauri-plugin-window-state's own persistence (which
+  // already covers position/size for every window automatically, Rust-
+  // side, no ACL/JS involvement) - visibility is the one thing that plugin
+  // doesn't track, so it needs its own small, plain entry here.
+  desktopWidgetVisibility: "menace-desktop-widget-visibility",
 } as const;
 
 export const MENACE_STORAGE_EVENT = "menace-local-storage-change";

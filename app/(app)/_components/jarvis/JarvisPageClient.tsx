@@ -7,6 +7,7 @@ import { useAtlasContext } from "../../_lib/atlas-context";
 import { useOnlineStatus } from "../../_lib/hooks/useOnlineStatus";
 import { useJarvisConversation } from "../../_lib/hooks/useJarvisConversation";
 import JarvisMessageBubble from "./JarvisMessageBubble";
+import JarvisPlanCard from "./JarvisPlanCard";
 import JarvisComposer from "./JarvisComposer";
 import type { JarvisEntitySeed } from "../../_lib/jarvis/jarvis-context-engine";
 
@@ -28,7 +29,7 @@ export default function JarvisPageClient() {
   const { seed, label, question } = parseSeed(searchParams);
   const atlas = useAtlasContext();
   const isOnline = useOnlineStatus();
-  const { messages, status, send, stop, reset, confirmAction, cancelAction, confirmPlan, cancelPlan } = useJarvisConversation(seed);
+  const { messages, status, send, stop, reset, confirmAction, cancelAction, activePlan, confirmPlan, executeReadyPlanSteps, pausePlan, continuePlan, cancelPlan } = useJarvisConversation(seed);
   const scrollRef = useRef<HTMLDivElement>(null);
   const hasAutoSentRef = useRef(false);
 
@@ -56,7 +57,7 @@ export default function JarvisPageClient() {
         <div className="flex items-center gap-2.5">
           <Bot className="h-5 w-5 text-cyan-300" aria-hidden="true" />
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">JARVIS</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">Atlas</p>
             <p className="text-[11px] text-slate-500">{statusLabel}</p>
           </div>
         </div>
@@ -69,11 +70,17 @@ export default function JarvisPageClient() {
         </div>
       </div>
 
+      {activePlan ? (
+        <div className="border-b border-slate-800 px-5 py-4">
+          <JarvisPlanCard plan={activePlan} onConfirm={confirmPlan} onExecuteReady={executeReadyPlanSteps} onPause={pausePlan} onContinue={continuePlan} onCancel={cancelPlan} />
+        </div>
+      ) : null}
+
       <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto p-5">
         {messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
             <Bot className="h-10 w-10 text-cyan-400/40" aria-hidden="true" />
-            <p className="text-sm text-slate-500">Ask JARVIS about your current state, goals, patterns, or achievements - grounded in real Atlas data.</p>
+            <p className="text-sm text-slate-500">Ask Atlas about your current state, goals, patterns, or achievements - grounded in real Atlas data.</p>
             <div className="flex flex-wrap justify-center gap-2">
               {STARTER_QUESTIONS.map((question) => (
                 <button
@@ -88,9 +95,7 @@ export default function JarvisPageClient() {
             </div>
           </div>
         ) : (
-          messages.map((message) => (
-            <JarvisMessageBubble key={message.id} message={message} onConfirmAction={confirmAction} onCancelAction={cancelAction} onConfirmPlan={confirmPlan} onCancelPlan={cancelPlan} />
-          ))
+          messages.map((message) => <JarvisMessageBubble key={message.id} message={message} onConfirmAction={confirmAction} onCancelAction={cancelAction} />)
         )}
         {status === "sending" ? (
           <div className="flex justify-start">

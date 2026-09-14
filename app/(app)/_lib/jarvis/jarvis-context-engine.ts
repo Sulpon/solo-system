@@ -9,7 +9,7 @@ import type { Category } from "../types/category";
 import type { FocusHistoryEntry } from "../types/focus";
 import type { ActivityEvent } from "../types/activity-event";
 import type { ContextSlice } from "./context-selector";
-import type { JarvisContext, JarvisContextRelationshipGroup } from "./types";
+import type { JarvisContext, JarvisContextPlan, JarvisContextRelationshipGroup, JarvisPlan } from "./types";
 
 // Phase 14 Step 4 - projects Phase 13's StructuredAtlasContext (already a
 // real, deterministic composition of Personal Intelligence + Achievement
@@ -35,6 +35,11 @@ export type JarvisContextBuildInput = Readonly<{
   attributes: ReadonlyArray<Category>;
   activityEvents: ReadonlyArray<ActivityEvent>;
   focusHistory: ReadonlyArray<FocusHistoryEntry>;
+  // Phase 18 - the real, persisted active plan (or null) - see
+  // hooks/useJarvisPlans.ts. Never reconstructed from conversation history.
+  activePlan: JarvisPlan | null;
+  // Phase 19 - see JarvisContext.desktopCapable.
+  desktopCapable: boolean;
 }>;
 
 const MAX_GOALS = 8;
@@ -53,6 +58,22 @@ function parseProgressMeta(meta: string | undefined): number {
   if (!meta) return 0;
   const parsed = Number(meta.replace("%", ""));
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function toContextPlan(plan: JarvisPlan | null): JarvisContextPlan | null {
+  if (!plan) return null;
+  const byId = new Map(plan.steps.map((step) => [step.id, step]));
+  return {
+    title: plan.title,
+    objective: plan.objective,
+    status: plan.status,
+    steps: plan.steps.map((step) => ({
+      summary: step.proposal.summary,
+      status: step.status,
+      dependsOn: step.dependencies.map((depId) => byId.get(depId)?.proposal.summary ?? depId),
+      failureReason: step.failureReason,
+    })),
+  };
 }
 
 export function buildJarvisContext(input: JarvisContextBuildInput): JarvisContext {
@@ -108,5 +129,7 @@ export function buildJarvisContext(input: JarvisContextBuildInput): JarvisContex
     recentAchievements,
     relevantMemories,
     relationships,
+    activePlan: toContextPlan(input.activePlan),
+    desktopCapable: input.desktopCapable,
   };
 }

@@ -44,17 +44,36 @@ function extractEvidenceFromToolData(data: unknown): JarvisEvidenceItem[] {
   return [];
 }
 
+// Phase 19.5 - every failure mode gets its OWN, actionable message. Before
+// this, four genuinely different problems (no key configured, a rejected
+// key, a network failure, a malformed provider response) all collapsed
+// into one or two generic strings - "not configured" specifically was
+// shown for problems that had nothing to do with configuration, which is
+// exactly what made this bug hard to diagnose. See the Phase 19.5 report.
+// "Provider-attributable" codes (network/timeout/malformed_response/
+// provider_error) can legitimately differ between providers - Local
+// JARVIS (Ollama)'s "make sure Ollama is running" is meaningfully
+// different advice from Anthropic's "could not reach the provider," and
+// both anthropic-provider.ts/ollama-provider.ts already craft a message
+// safe to show verbatim (never a key, never raw internal details, never a
+// stack trace) - so these prefer the real `error.message` over one canned
+// string. "Atlas-level" codes (not_configured/authentication_error/
+// rate_limited) stay Atlas's own standardized wording - they only ever
+// apply to the Anthropic path (Ollama needs no credential and doesn't rate-
+// limit), so a fixed, specific string is already correct for them.
+const PROVIDER_ATTRIBUTABLE_CODES = new Set(["network", "timeout", "malformed_response", "provider_error"]);
+
 function buildErrorMessage(error: Readonly<{ code: string; message: string }>): JarvisMessage {
   const friendly =
     error.code === "not_configured"
-      ? "JARVIS is not yet configured. Atlas itself is still fully functional."
-      : error.code === "timeout"
-        ? "JARVIS is taking too long to respond. Please try again."
+      ? "No LLM provider is configured. Add ANTHROPIC_API_KEY to Atlas's server environment (see .env.local.example)."
+      : error.code === "authentication_error"
+        ? "The configured Anthropic API key was rejected. Check ANTHROPIC_API_KEY in your environment."
         : error.code === "rate_limited"
           ? "JARVIS is temporarily rate-limited. Please try again shortly."
-          : error.code === "network"
-            ? "JARVIS could not be reached. Atlas itself is still online."
-            : "JARVIS is temporarily unavailable. Atlas itself is still online.";
+          : PROVIDER_ATTRIBUTABLE_CODES.has(error.code)
+            ? error.message || "JARVIS could not get a response from its provider. Please try again."
+            : "JARVIS encountered an internal error. Atlas itself is still online.";
 
   return { id: generateMessageId(), role: "assistant", text: friendly, createdAt: new Date().toISOString(), isError: true };
 }
@@ -95,7 +114,7 @@ export async function runConversationTurn(input: Readonly<{
           createdAt: new Date().toISOString(),
           toolsUsed,
           actionProposal: actionProposals.length === 1 ? actionProposals[0] : undefined,
-          plan: actionProposals.length >= 2 ? buildPlanFromProposals(actionProposals) : undefined,
+          plan: actionProposals.length >= 2 ? buildPlanFromProposals(actionProposals, { objective: text }) : undefined,
           evidence: collectedEvidence.length > 0 ? collectedEvidence : undefined,
         },
       };

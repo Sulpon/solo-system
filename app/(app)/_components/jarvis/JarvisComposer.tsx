@@ -27,7 +27,7 @@ export default function JarvisComposer({ disabled, isSending, onSend, onStop, on
         type="text"
         value={text}
         onChange={(event) => setText(event.target.value)}
-        placeholder={disabled ? "JARVIS is unavailable" : "Ask JARVIS..."}
+        placeholder={disabled ? "Atlas is unavailable" : "Ask Atlas..."}
         disabled={disabled || isSending}
         className="flex-1 rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:border-cyan-400/50 focus:outline-none disabled:opacity-50"
       />

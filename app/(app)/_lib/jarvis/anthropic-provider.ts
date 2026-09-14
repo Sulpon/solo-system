@@ -17,6 +17,9 @@ export type AnthropicProviderConfig = Readonly<{
   model?: string;
   timeoutMs?: number;
   fetchImpl?: typeof fetch;
+  // Phase 19.7 Objective J - optional, dev-only performance telemetry,
+  // mirrored on ollama-provider.ts so both providers report the same shape.
+  onTelemetry?: (event: Readonly<{ providerLatencyMs: number; toolCount: number; contextChars: number; model: string; provider: "anthropic" }>) => void;
 }>;
 
 function toAnthropicContentBlock(block: LLMContentBlock): Record<string, unknown> {
@@ -60,6 +63,12 @@ export function createAnthropicProvider(config: AnthropicProviderConfig): LLMPro
     async generateResponse(input: LLMRequest): Promise<LLMResponse> {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
+      const startedAt = Date.now();
+      const toolCount = input.tools?.length ?? 0;
+      const contextChars = input.system.length + JSON.stringify(input.messages).length;
+      const emitTelemetry = () => {
+        config.onTelemetry?.({ providerLatencyMs: Date.now() - startedAt, toolCount, contextChars, model, provider: "anthropic" });
+      };
 
       try {
         const response = await fetchImpl(ANTHROPIC_API_URL, {
@@ -75,30 +84,48 @@ export function createAnthropicProvider(config: AnthropicProviderConfig): LLMPro
           signal: controller.signal,
         });
         clearTimeout(timer);
+        emitTelemetry();
 
-        if (response.status === 401 || response.status === 403) {
-          return { content: [], stopReason: "error", error: { code: "provider_error", message: "Authentication with the LLM provider failed." } };
-        }
-        if (response.status === 429) {
-          return { content: [], stopReason: "error", error: { code: "rate_limited", message: "The LLM provider is rate-limited right now." } };
-        }
         if (!response.ok) {
-          return { content: [], stopReason: "error", error: { code: "provider_error", message: `LLM provider returned status ${response.status}.` } };
+          // Anthropic's own error body ({"error":{"type":...,"message":...}})
+          // never contains the key or the request headers - safe to surface
+          // verbatim, and far more actionable than a bare status code (e.g.
+          // distinguishing "credit balance too low" from "model not found"
+          // from a genuinely rejected key, all of which are technically just
+          // "some 4xx").
+          const errorBody = await response.json().catch(() => null);
+          const providerMessage = errorBody && typeof errorBody === "object" && (errorBody as Record<string, unknown>).error && typeof (errorBody as Record<string, unknown>).error === "object" ? ((errorBody as Record<string, unknown>).error as Record<string, unknown>).message : undefined;
+
+          if (response.status === 401 || response.status === 403) {
+            console.error("[jarvis]", { provider: "anthropic", status: response.status, errorType: "authentication_error" });
+            return { content: [], stopReason: "error", error: { code: "authentication_error", message: "The configured Anthropic API key was rejected." } };
+          }
+          if (response.status === 429) {
+            return { content: [], stopReason: "error", error: { code: "rate_limited", message: "The LLM provider is rate-limited right now." } };
+          }
+          console.error("[jarvis]", { provider: "anthropic", status: response.status, errorType: "provider_error" });
+          return {
+            content: [],
+            stopReason: "error",
+            error: { code: "provider_error", message: typeof providerMessage === "string" ? providerMessage : `The LLM provider returned an error (status ${response.status}).` },
+          };
         }
 
         const json = await response.json().catch(() => null);
         if (!json || typeof json !== "object" || !Array.isArray((json as Record<string, unknown>).content)) {
-          return { content: [], stopReason: "error", error: { code: "malformed_response", message: "LLM provider returned an unexpected response shape." } };
+          console.error("[jarvis]", { provider: "anthropic", status: response.status, errorType: "malformed_response" });
+          return { content: [], stopReason: "error", error: { code: "malformed_response", message: "The provider returned an invalid response." } };
         }
 
         const content = ((json as Record<string, unknown>).content as unknown[]).map(fromAnthropicBlock).filter((block): block is LLMContentBlock => block !== null);
         return { content, stopReason: mapStopReason((json as Record<string, unknown>).stop_reason) };
       } catch (error) {
         clearTimeout(timer);
+        emitTelemetry();
         if (error instanceof Error && error.name === "AbortError") {
-          return { content: [], stopReason: "error", error: { code: "timeout", message: "The LLM provider took too long to respond." } };
+          return { content: [], stopReason: "error", error: { code: "timeout", message: "The LLM provider took too long to respond. Please try again." } };
         }
-        return { content: [], stopReason: "error", error: { code: "network", message: "Could not reach the LLM provider." } };
+        return { content: [], stopReason: "error", error: { code: "network", message: "Atlas could not reach the LLM provider. Atlas itself is still online." } };
       }
     },
   };

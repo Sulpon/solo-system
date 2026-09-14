@@ -3,15 +3,12 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import JarvisActionConfirmCard from "./JarvisActionConfirmCard";
-import JarvisPlanCard from "./JarvisPlanCard";
-import type { JarvisActionProposal, JarvisMessage, JarvisPlan } from "../../_lib/jarvis/types";
+import type { JarvisActionProposal, JarvisMessage } from "../../_lib/jarvis/types";
 
 type JarvisMessageBubbleProps = Readonly<{
   message: JarvisMessage;
   onConfirmAction: (proposal: JarvisActionProposal) => void;
   onCancelAction: (proposalId: string) => void;
-  onConfirmPlan: (plan: JarvisPlan) => void;
-  onCancelPlan: () => void;
 }>;
 
 // Phase 14 Step 6 - the conversation surface. Evidence (Step 10) starts
@@ -19,7 +16,12 @@ type JarvisMessageBubbleProps = Readonly<{
 // line rendered here came from a real tool result (see
 // conversation-engine.ts's extractEvidenceFromToolData), never the
 // model's own prose.
-export default function JarvisMessageBubble({ message, onConfirmAction, onCancelAction, onConfirmPlan, onCancelPlan }: JarvisMessageBubbleProps) {
+//
+// Phase 18: a proposed multi-step plan is no longer rendered inline here -
+// it is now PERSISTENT (see useJarvisPlans.ts), so its one live view is the
+// pinned "Active Plan" panel in JarvisPageClient, which keeps working
+// correctly across a refresh where this message list would be empty.
+export default function JarvisMessageBubble({ message, onConfirmAction, onCancelAction }: JarvisMessageBubbleProps) {
   const [expanded, setExpanded] = useState(false);
 
   if (message.role === "system") {
@@ -69,12 +71,6 @@ export default function JarvisMessageBubble({ message, onConfirmAction, onCancel
         {message.actionProposal ? (
           <div className="mt-3">
             <JarvisActionConfirmCard proposal={message.actionProposal} onConfirm={onConfirmAction} onCancel={onCancelAction} />
-          </div>
-        ) : null}
-
-        {message.plan ? (
-          <div className="mt-3">
-            <JarvisPlanCard plan={message.plan} onConfirm={onConfirmPlan} onCancel={onCancelPlan} />
           </div>
         ) : null}
       </div>

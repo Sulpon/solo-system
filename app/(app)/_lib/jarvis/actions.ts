@@ -2,6 +2,7 @@ import { applyQuestSchedule } from "../engines/quest-calendar-engine";
 import { flattenGoalTree, updateGoalNode, normalizeGoalTree } from "../goal-tree-storage";
 import { createQuestFormModel, upsertQuestFromForm } from "../../_components/quests/quest-form.utils";
 import { getLocalDayKey } from "../local-day";
+import { buildOpenApplicationProposal } from "./os-actions";
 import type { Quest, QuestCompletion } from "../types/quest";
 import type { GoalNode, GoalTree } from "../types/goal-tree";
 import type { Category } from "../types/category";
@@ -39,6 +40,35 @@ function findGoalByIdOrTitle(idOrTitle: string | undefined, flatGoals: ReadonlyA
   return flatGoals.find((node) => node.id === idOrTitle) ?? flatGoals.find((node) => node.title.toLowerCase().includes(idOrTitle.toLowerCase())) ?? null;
 }
 
+// Phase 18 - true only when the LLM marked idOrTitle as referring to an
+// entity a PRIOR step in the same plan will create (see REFS_SCHEMA_PROPERTY
+// above). When true, idOrTitle legitimately can't resolve YET (the entity
+// doesn't exist in Atlas until that earlier step actually runs) - the
+// build* function below builds a PLACEHOLDER proposal instead of failing,
+// and the real proposal is rebuilt with the real resolved id right before
+// execution (see plan-engine.ts's resolveStepArgs + rebuildProposal).
+function hasIdOrTitleRef(args: Readonly<{ refs?: unknown }>): boolean {
+  const refs = args.refs as Readonly<{ idOrTitle?: unknown }> | undefined;
+  return typeof refs?.idOrTitle === "number";
+}
+
+// Phase 18 - the entity-threading argument shared by every tool below that
+// targets an existing entity by idOrTitle. Use ONLY when that target is an
+// entity a PRIOR propose_* call IN THIS SAME RESPONSE will create (it does
+// not exist in Atlas yet, so idOrTitle can't resolve it) - map the argument
+// name to the 1-based position of that earlier call among this response's
+// propose_* calls, e.g. `refs: { idOrTitle: 1 }`. Atlas resolves this to
+// the real created entity's id right before executing that step - it is
+// never evaluated as code or a free-form expression.
+const REFS_SCHEMA_PROPERTY = {
+  refs: {
+    type: "object",
+    description:
+      "Optional. Use ONLY when idOrTitle names an entity that an EARLIER propose_* call in this same response will create (it doesn't exist in Atlas yet). Map { idOrTitle: <1-based position of that earlier call among this response's propose_* calls> }.",
+    properties: { idOrTitle: { type: "number" } },
+  },
+} as const;
+
 export const JARVIS_ACTION_TOOLS: ReadonlyArray<LLMToolDefinition> = [
   {
     name: "propose_schedule_quest",
@@ -50,6 +80,7 @@ export const JARVIS_ACTION_TOOLS: ReadonlyArray<LLMToolDefinition> = [
         scheduledDate: { type: "string", description: "YYYY-MM-DD" },
         scheduledStartTime: { type: "string", description: "HH:MM 24h, optional" },
         scheduledEndTime: { type: "string", description: "HH:MM 24h, optional" },
+        ...REFS_SCHEMA_PROPERTY,
       },
       required: ["idOrTitle", "scheduledDate"],
     },
@@ -72,12 +103,12 @@ export const JARVIS_ACTION_TOOLS: ReadonlyArray<LLMToolDefinition> = [
   {
     name: "propose_complete_quest",
     description: "Propose marking a real, existing Task Quest complete for today. Never executes by itself. Only works for plain Quests with no linked Goal (those require interactive input Atlas cannot collect here).",
-    inputSchema: { type: "object", properties: { idOrTitle: { type: "string" } }, required: ["idOrTitle"] },
+    inputSchema: { type: "object", properties: { idOrTitle: { type: "string" }, ...REFS_SCHEMA_PROPERTY }, required: ["idOrTitle"] },
   },
   {
     name: "propose_log_habit",
     description: "Propose logging a real, existing Habit Quest as done for today. Never executes by itself. Only works for plain Habits with no linked Goal.",
-    inputSchema: { type: "object", properties: { idOrTitle: { type: "string" } }, required: ["idOrTitle"] },
+    inputSchema: { type: "object", properties: { idOrTitle: { type: "string" }, ...REFS_SCHEMA_PROPERTY }, required: ["idOrTitle"] },
   },
   {
     name: "propose_create_note",
@@ -93,6 +124,7 @@ export const JARVIS_ACTION_TOOLS: ReadonlyArray<LLMToolDefinition> = [
         idOrTitle: { type: "string" },
         progressDelta: { type: "number", description: "Amount to add to a progress_goal's current value" },
         status: { type: "string", enum: ["not_started", "in_progress", "completed"] },
+        ...REFS_SCHEMA_PROPERTY,
       },
       required: ["idOrTitle"],
     },
@@ -104,12 +136,30 @@ export const JARVIS_ACTION_TOOLS: ReadonlyArray<LLMToolDefinition> = [
 export type ScheduleQuestPayload = Readonly<{ questId: string; scheduledDate: string; scheduledStartTime?: string; scheduledEndTime?: string }>;
 
 export function buildScheduleQuestProposal(
-  args: Readonly<{ idOrTitle?: string; scheduledDate?: string; scheduledStartTime?: string; scheduledEndTime?: string }>,
+  args: Readonly<{ idOrTitle?: string; scheduledDate?: string; scheduledStartTime?: string; scheduledEndTime?: string; refs?: unknown }>,
   quests: ReadonlyArray<Quest>,
 ): JarvisActionProposal | null {
   if (!args.scheduledDate) return null;
   const quest = findQuestByIdOrTitle(args.idOrTitle, quests);
-  if (!quest) return null;
+  if (!quest) {
+    if (!hasIdOrTitleRef(args)) return null;
+    const timeLabel = args.scheduledStartTime ? ` at ${args.scheduledStartTime}` : "";
+    return {
+      id: `action:schedule_quest:pending-ref:${args.scheduledDate}:${args.scheduledStartTime ?? "allday"}`,
+      actionType: "schedule_quest",
+      summary: `Schedule "${args.idOrTitle ?? "(created earlier in this plan)"}" on ${args.scheduledDate}${timeLabel}`,
+      preview: [
+        { label: "Quest", before: null, after: `${args.idOrTitle ?? "(created earlier in this plan)"} (created earlier in this plan)` },
+        { label: "Date", before: null, after: args.scheduledDate },
+      ],
+      // Never executed directly - resolveStepArgs+rebuildProposal always
+      // replaces sourceArgs.idOrTitle with the real produced id first, at
+      // which point a fully real proposal (with a real questId) is built.
+      payload: { questId: "", scheduledDate: args.scheduledDate, scheduledStartTime: args.scheduledStartTime, scheduledEndTime: args.scheduledEndTime },
+      sourceTool: "propose_schedule_quest",
+      sourceArgs: args,
+    };
+  }
 
   const timeLabel = args.scheduledStartTime ? ` at ${args.scheduledStartTime}` : "";
   const preview: JarvisActionPreviewField[] = [
@@ -194,7 +244,7 @@ export function executeCreateQuestAction(proposal: JarvisActionProposal, quests:
   if (!created) return { ok: false, message: "Could not create the Quest.", verified: [] };
 
   setQuestDefinitions(updatedQuests);
-  return { ok: true, message: `Created "${created.title}" (+${created.xp} XP).`, verified: [{ label: "Quest", before: null, after: created.title }] };
+  return { ok: true, message: `Created "${created.title}" (+${created.xp} XP).`, verified: [{ label: "Quest", before: null, after: created.title }], producedEntityId: created.id };
 }
 
 // ---- complete_quest / log_habit --------------------------------------------
@@ -208,14 +258,27 @@ export type CompleteQuestPayload = Readonly<{ questId: string }>;
 // honest behavior, not a silent approximation of the real reward/goal-
 // contribution logic.
 function buildCompleteOrLogProposal(
-  args: Readonly<{ idOrTitle?: string }>,
+  args: Readonly<{ idOrTitle?: string; refs?: unknown }>,
   quests: ReadonlyArray<Quest>,
   completions: ReadonlyArray<QuestCompletion>,
   actionType: "complete_quest" | "log_habit",
   now: Date,
 ): JarvisActionProposal | null {
   const quest = findQuestByIdOrTitle(args.idOrTitle, quests);
-  if (!quest || quest.status !== "active") return null;
+  if (!quest) {
+    if (!hasIdOrTitleRef(args)) return null;
+    const verb = actionType === "log_habit" ? "Log" : "Complete";
+    return {
+      id: `action:${actionType}:pending-ref:${getLocalDayKey(now)}`,
+      actionType,
+      summary: `${verb} "${args.idOrTitle ?? "(created earlier in this plan)"}" for today`,
+      preview: [{ label: "Quest", before: null, after: `${args.idOrTitle ?? "(created earlier in this plan)"} (created earlier in this plan)` }],
+      payload: { questId: "" },
+      sourceTool: actionType === "log_habit" ? "propose_log_habit" : "propose_complete_quest",
+      sourceArgs: args,
+    };
+  }
+  if (quest.status !== "active") return null;
   if (quest.linkedProgressGoalId || (quest.attributeXPOverride && quest.attributeXPOverride.length > 0)) return null;
 
   const todayKey = getLocalDayKey(now);
@@ -239,11 +302,11 @@ function buildCompleteOrLogProposal(
   };
 }
 
-export function buildCompleteQuestProposal(args: Readonly<{ idOrTitle?: string }>, quests: ReadonlyArray<Quest>, completions: ReadonlyArray<QuestCompletion>, now: Date): JarvisActionProposal | null {
+export function buildCompleteQuestProposal(args: Readonly<{ idOrTitle?: string; refs?: unknown }>, quests: ReadonlyArray<Quest>, completions: ReadonlyArray<QuestCompletion>, now: Date): JarvisActionProposal | null {
   return buildCompleteOrLogProposal(args, quests, completions, "complete_quest", now);
 }
 
-export function buildLogHabitProposal(args: Readonly<{ idOrTitle?: string }>, quests: ReadonlyArray<Quest>, completions: ReadonlyArray<QuestCompletion>, now: Date): JarvisActionProposal | null {
+export function buildLogHabitProposal(args: Readonly<{ idOrTitle?: string; refs?: unknown }>, quests: ReadonlyArray<Quest>, completions: ReadonlyArray<QuestCompletion>, now: Date): JarvisActionProposal | null {
   return buildCompleteOrLogProposal(args, quests, completions, "log_habit", now);
 }
 
@@ -291,7 +354,7 @@ export function buildCreateNoteProposal(args: Readonly<{ title?: string; content
 export function executeCreateNoteAction(proposal: JarvisActionProposal, addNote: (draft: NoteDraft) => Note): JarvisActionResult {
   const payload = proposal.payload as CreateNotePayload;
   const created = addNote({ title: payload.title, content: payload.content });
-  return { ok: true, message: `Created the Note "${created.title}".`, verified: [{ label: "Note", before: null, after: created.title }] };
+  return { ok: true, message: `Created the Note "${created.title}".`, verified: [{ label: "Note", before: null, after: created.title }], producedEntityId: created.id };
 }
 
 // ---- update_goal ---------------------------------------------------------
@@ -301,12 +364,24 @@ export type UpdateGoalPayload =
   | Readonly<{ nodeId: string; mode: "status"; status: GoalNode["status"] }>;
 
 export function buildUpdateGoalProposal(
-  args: Readonly<{ idOrTitle?: string; progressDelta?: number; status?: string }>,
+  args: Readonly<{ idOrTitle?: string; progressDelta?: number; status?: string; refs?: unknown }>,
   goalTree: GoalTree,
 ): JarvisActionProposal | null {
   const flat = flattenGoalTree(goalTree);
   const node = findGoalByIdOrTitle(args.idOrTitle, flat);
-  if (!node) return null;
+  if (!node) {
+    if (!hasIdOrTitleRef(args)) return null;
+    const after = typeof args.progressDelta === "number" ? `${args.progressDelta > 0 ? "+" : ""}${args.progressDelta}` : (args.status ?? "");
+    return {
+      id: `action:update_goal:pending-ref:${Date.now()}`,
+      actionType: "update_goal",
+      summary: `Update "${args.idOrTitle ?? "(created earlier in this plan)"}" (${after})`,
+      preview: [{ label: "Goal", before: null, after: `${args.idOrTitle ?? "(created earlier in this plan)"} (created earlier in this plan)` }],
+      payload: { nodeId: "", mode: "status", status: "in_progress" },
+      sourceTool: "propose_update_goal",
+      sourceArgs: args,
+    };
+  }
 
   if (typeof args.progressDelta === "number" && args.progressDelta !== 0 && node.type === "progress_goal") {
     const before = node.currentValue ?? 0;
@@ -410,6 +485,8 @@ export function rebuildProposal(sourceTool: string, sourceArgs: Readonly<Record<
       return buildCreateNoteProposal(sourceArgs);
     case "propose_update_goal":
       return buildUpdateGoalProposal(sourceArgs, context.goalTree);
+    case "propose_open_application":
+      return buildOpenApplicationProposal(sourceArgs);
     default:
       return null;
   }

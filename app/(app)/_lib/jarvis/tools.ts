@@ -1,6 +1,7 @@
 import { getGoalRelationships, getQuestRelationships } from "../relationships";
 import { flattenGoalTree } from "../goal-tree-storage";
 import { getQuestsForDate, buildCalendarWeek, getQuestScheduledDurationMinutes } from "../engines/quest-calendar-engine";
+import { OS_APPLICATION_REGISTRY } from "../os/application-registry";
 import type { StructuredAtlasContext } from "../context/context-engine";
 import type { CalendarQuestItem } from "../engines/quest-calendar-engine";
 import type { GoalTree } from "../types/goal-tree";
@@ -85,6 +86,11 @@ export const JARVIS_TOOLS: ReadonlyArray<LLMToolDefinition> = [
       "Get the real Quest schedule for a whole week ('this_week' or 'next_week'), with each day's already-scheduled Quest count and minutes. Does NOT report a computed 'available time' budget for future days - Atlas only tracks what's actually scheduled, not total daily work hours.",
     inputSchema: { type: "object", properties: { when: { type: "string", enum: ["this_week", "next_week"] } } },
   },
+  {
+    name: "list_supported_applications",
+    description: "Get the real, registered list of desktop applications Atlas can open (id, display name, aliases) - use this to answer 'what apps can you open?' or to check whether an application is supported before proposing to open it.",
+    inputSchema: { type: "object", properties: {} },
+  },
 ];
 
 // ---- Tool execution (real Atlas data, no invention) ------------------------
@@ -156,6 +162,13 @@ function executeGetRelationships(context: ToolExecutionContext, args: Readonly<{
     return { ok: true, data: groups.map((group) => ({ label: group.label, items: group.entities.map((entity) => entity.title) })) };
   }
   return { ok: false, data: { error: "entityType must be 'goal' or 'quest'." } };
+}
+
+// Phase 19 - a thin read over the SAME controlled registry
+// os-actions.ts's buildOpenApplicationProposal resolves against - never a
+// second list, never anything discovered from the real filesystem.
+function executeListSupportedApplications(): ToolResult {
+  return { ok: true, data: OS_APPLICATION_REGISTRY.map((entry) => ({ id: entry.id, name: entry.name, aliases: entry.aliases })) };
 }
 
 function executeGetFocusPatterns(context: ToolExecutionContext): ToolResult {
@@ -237,6 +250,8 @@ export function executeTool(name: string, rawArgs: Readonly<Record<string, unkno
       return executeGetGoalPortfolioStatus(context);
     case "get_week_calendar":
       return executeGetWeekCalendar(context, rawArgs as { when?: string });
+    case "list_supported_applications":
+      return executeListSupportedApplications();
     default:
       return { ok: false, data: { error: `Unknown tool: ${name}` } };
   }

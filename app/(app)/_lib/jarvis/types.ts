@@ -40,7 +40,13 @@ export type LLMRequest = Readonly<{
 
 export type LLMStopReason = "end_turn" | "tool_use" | "max_tokens" | "error";
 
-export type LLMErrorCode = "not_configured" | "timeout" | "rate_limited" | "network" | "malformed_response" | "provider_error";
+// Phase 19.5 - "authentication_error" is its own code, distinct from the
+// generic "provider_error" bucket - a rejected API key needs a completely
+// different fix (check ANTHROPIC_API_KEY) than a generic provider failure,
+// and collapsing them together was exactly what made every real failure
+// mode look identical to "not configured" in the UI (see conversation-
+// engine.ts's buildErrorMessage and the Phase 19.5 report).
+export type LLMErrorCode = "not_configured" | "authentication_error" | "timeout" | "rate_limited" | "network" | "malformed_response" | "provider_error";
 
 export type LLMResponse = Readonly<{
   content: ReadonlyArray<LLMContentBlock>;
@@ -70,6 +76,16 @@ export type JarvisContextAchievement = Readonly<{ title: string; explanation: st
 export type JarvisContextMemory = Readonly<{ type: string; origin: string; content: string; confidence: number }>;
 export type JarvisContextRelationshipGroup = Readonly<{ label: string; items: ReadonlyArray<string> }>;
 
+// Phase 18 - a compact, real projection of the persisted active plan (see
+// _lib/hooks/useJarvisPlans.ts), always included (never slice-gated, same
+// as presentMoment/priorityGate) so "what's my plan"/"what's next"/"why is
+// this blocked" are answered from Atlas's own persisted plan state, never
+// reconstructed from conversation history. `dependsOn` is already resolved
+// to human-readable step summaries so the model never has to reason about
+// internal step ids.
+export type JarvisContextPlanStep = Readonly<{ summary: string; status: string; dependsOn: ReadonlyArray<string>; failureReason?: string }>;
+export type JarvisContextPlan = Readonly<{ title: string; objective: string; status: string; steps: ReadonlyArray<JarvisContextPlanStep> }>;
+
 export type JarvisContext = Readonly<{
   now: string;
   currentApp: string | null;
@@ -83,6 +99,15 @@ export type JarvisContext = Readonly<{
   recentAchievements: ReadonlyArray<JarvisContextAchievement>;
   relevantMemories: ReadonlyArray<JarvisContextMemory>;
   relationships: ReadonlyArray<JarvisContextRelationshipGroup>;
+  activePlan: JarvisContextPlan | null;
+  // Phase 19 - whether this session is running inside Atlas Desktop (real
+  // native OS control) or an ordinary browser tab. Always included so
+  // JARVIS can honestly decline an open_application request in the
+  // browser instead of proposing an action doomed to fail (see
+  // system-prompt.ts) - the real desktop-vs-browser check still happens
+  // again in _lib/desktop/os-launcher.ts regardless of what the model does
+  // with this.
+  desktopCapable: boolean;
 }>;
 
 // ---- Conversation (Step 11) -------------------------------------------------
@@ -94,7 +119,13 @@ export type JarvisEvidenceItem = Readonly<{ label: string; value?: string }>;
 // being introduced (e.g. a brand-new Quest's title), not changed.
 export type JarvisActionPreviewField = Readonly<{ label: string; before: string | null; after: string }>;
 
-export type JarvisActionType = "schedule_quest" | "create_quest" | "complete_quest" | "log_habit" | "create_note" | "update_goal";
+// Phase 19 - "open_application" is Atlas OS v1's first OS action, living
+// alongside the existing Atlas-data actions in the SAME proposal/plan
+// machinery (see _lib/jarvis/os-actions.ts) rather than a second action
+// system. Future OS actions (focus_application, close_application,
+// open_url, open_file, ...) extend this same union - none are implemented
+// yet.
+export type JarvisActionType = "schedule_quest" | "create_quest" | "complete_quest" | "log_habit" | "create_note" | "update_goal" | "open_application";
 
 // A proposed Atlas mutation the user must explicitly confirm - never
 // executed by the assistant message itself. `preview` is the exact
@@ -121,20 +152,70 @@ export type JarvisActionProposal = Readonly<{
 // (Step "VERIFY RESULT"). Built from the actual data the real Atlas
 // mutation function returned/produced, never assumed from the proposal
 // alone - see actions.ts's execute* functions.
+//
+// Phase 18: `producedEntityId` is set ONLY by an action that creates a
+// brand-new entity (create_quest, create_note) - the real id the Atlas
+// mutation actually assigned. This is the sole channel a later plan step
+// may reference (see JarvisEntityReference below); nothing else about a
+// step's result is ever treated as a cross-step reference.
 export type JarvisActionResult = Readonly<{
   ok: boolean;
   message: string;
   verified: ReadonlyArray<JarvisActionPreviewField>;
+  producedEntityId?: string;
 }>;
 
-// Phase 16 - a multi-step plan (Step "GENERATE PLAN" / "PLAN PREVIEW").
-// Built when a single assistant turn proposes 2+ actions - see
-// conversation-engine.ts. A single-action turn keeps using
-// JarvisMessage.actionProposal exactly as Phase 14/15 did; `plan` is
-// additive, never a replacement for that path.
-export type JarvisPlanStep = Readonly<{ id: string; proposal: JarvisActionProposal }>;
+// ---- Phase 18: Persistent, dependency-aware Plans --------------------------
+//
+// Upgrades Phase 16's plan (a one-shot, ephemeral, strictly-sequential list
+// attached to a single chat message) into a plan Atlas itself owns: it
+// survives the conversation, tracks each step's real dependency/readiness
+// state, and threads a real produced entity id from one step into a later
+// one - never a guess, never LLM-evaluated code. JARVIS still only ever
+// PROPOSES; every status transition below happens through an explicit user
+// control (see plan-engine.ts) or a real, verified execution outcome.
 
-export type JarvisPlan = Readonly<{ id: string; title: string; steps: ReadonlyArray<JarvisPlanStep> }>;
+export type JarvisPlanStatus = "proposed" | "active" | "paused" | "completed" | "failed" | "cancelled";
+export type JarvisPlanStepStatus = "pending" | "blocked" | "ready" | "executing" | "completed" | "failed" | "skipped";
+
+// A deterministic reference to another step's produced entity id, resolved
+// ONLY at execution time against that step's real, verified result (see
+// plan-engine.ts's resolveStepArgs). `field` names the argument on THIS
+// step's own sourceArgs that the resolved id replaces (e.g. "idOrTitle").
+export type JarvisEntityReference = Readonly<{ sourceStepId: string; field: "entityId" }>;
+
+export type JarvisPlanStep = Readonly<{
+  id: string;
+  proposal: JarvisActionProposal;
+  status: JarvisPlanStepStatus;
+  // Prerequisite step ids within the same plan - derived deterministically
+  // from the proposal's own sourceArgs.refs (see plan-engine.ts), never
+  // hand-declared by the LLM as a free-form graph.
+  dependencies: ReadonlyArray<string>;
+  // Maps an argument name on this step's proposal to the earlier step whose
+  // real output should be substituted in for it. Present only when the LLM
+  // used `refs` when proposing this step (see actions.ts's tool schemas).
+  entityRefs?: Readonly<Record<string, JarvisEntityReference>>;
+  createdAt: string;
+  updatedAt: string;
+  result?: JarvisActionResult;
+  failureReason?: string;
+  completedAt?: string;
+}>;
+
+export type JarvisPlan = Readonly<{
+  id: string;
+  title: string;
+  objective: string;
+  createdAt: string;
+  updatedAt: string;
+  status: JarvisPlanStatus;
+  steps: ReadonlyArray<JarvisPlanStep>;
+  rationale?: string;
+  tradeoffs?: string;
+  horizon?: string;
+  source?: string;
+}>;
 
 // The real, verified outcome of one executed (or skipped) plan step -
 // mirrors JarvisActionResult but keeps the step's own proposal alongside
