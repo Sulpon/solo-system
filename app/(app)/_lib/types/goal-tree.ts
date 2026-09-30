@@ -38,10 +38,19 @@ export type KeyResult = Readonly<{
 // over the same GoalNode tree /goals already reads and writes, not a
 // separate data model. Role mapping (no new GoalNodeType values):
 //   Dream            -> type "dream"            (periodType unused)
+//   Annual Goal       -> type "dream"             periodType "year"
 //   Quarterly Goal    -> type "long_term_goal"    periodType "quarter"
 //   Monthly Milestone -> type "milestone"         periodType "month"
 //   Weekly Milestone  -> type "progress_goal"     periodType "week"
-export type GoalNodePeriodType = "quarter" | "month" | "week";
+//
+// "year" is the Goal Tree hierarchy's top level. It is deliberately NOT a
+// new GoalNodeType: an Annual Goal is a Dream that has been given a date
+// range, which is exactly how the hierarchy already works (Quarterly Goals
+// are already children of Dreams). Adding a type would have meant touching
+// getChildType, every editor, the XP ledger and the progress rollup for no
+// structural gain. An existing Dream with no periodType is untouched and
+// still renders - as an undated, ongoing direction.
+export type GoalNodePeriodType = "year" | "quarter" | "month" | "week";
 
 export type GoalNode = Readonly<{
   id: string;

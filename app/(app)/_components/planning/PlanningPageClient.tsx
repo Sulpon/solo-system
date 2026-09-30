@@ -16,6 +16,7 @@ import QuarterlyGoalDetail from "./QuarterlyGoalDetail";
 import CreateQuarterlyGoalModal from "./CreateQuarterlyGoalModal";
 import CreateMonthlyMilestoneModal from "./CreateMonthlyMilestoneModal";
 import CreateWeeklyMilestoneModal from "./CreateWeeklyMilestoneModal";
+import PlanningCrossLink from "./PlanningCrossLink";
 
 export default function PlanningPageClient() {
   const { goalTree, hasLoaded, createRootNode, createChildNode, saveNode } = useGoalTree();
@@ -135,8 +136,9 @@ export default function PlanningPageClient() {
           <Card className="p-5">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-300">Planning</p>
-                <h1 className="mt-1 text-2xl font-black text-white">Design the next chapter</h1>
+                <p className="atlas-accent text-xs font-semibold uppercase tracking-[0.22em]">Planning</p>
+                <h1 className="atlas-display mt-1 text-2xl font-bold text-white">Design the next chapter</h1>
+                <p className="atlas-muted mt-1 text-sm">One quarter at a time, across every annual goal.</p>
               </div>
               <button
                 type="button"
@@ -157,6 +159,8 @@ export default function PlanningPageClient() {
               />
             </div>
           </Card>
+
+          <PlanningCrossLink from="planning" />
 
           {dreamsWithGoals.length === 0 ? (
             <Card className="p-8">

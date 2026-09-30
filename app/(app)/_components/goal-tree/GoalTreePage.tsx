@@ -23,6 +23,8 @@ import GoalTreeFilters from "./GoalTreeFilters";
 import GoalTreeSummaryCards from "./GoalTreeSummaryCards";
 import GoalTreeTable from "./GoalTreeTable";
 import GoalTreeChildTypeModal from "./GoalTreeChildTypeModal";
+import GoalHierarchyView from "./hierarchy/GoalHierarchyView";
+import ThemeHeader from "../theme/ThemeHeader";
 import QuestForm, { type QuestFormModel } from "../quests/QuestForm";
 import { createQuestFormModel, toQuestForm, upsertQuestFromForm } from "../quests/quest-form.utils";
 import {
@@ -193,6 +195,9 @@ export default function GoalTreePage() {
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(() => new Set());
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [pendingChildParentId, setPendingChildParentId] = useState<string | null>(null);
+  // Hierarchy is the default: it is the planning lens the page is built
+  // around. Outline stays one click away and is unchanged.
+  const [viewMode, setViewMode] = useState<"hierarchy" | "outline">("hierarchy");
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState<GoalTreeFilterKey>("all");
   const [editorForm, setEditorForm] = useState<GoalNodeFormState | null>(null);
@@ -552,71 +557,110 @@ export default function GoalTreePage() {
 
   return (
     <div className="space-y-5">
-      <GoalTreeFilters search={search} activeFilter={activeFilter} onSearchChange={setSearch} onFilterChange={setActiveFilter} onAddGoal={openCreateRoot} />
+      <ThemeHeader
+        title="Goal Tree"
+        subtitle="From a vision to daily actions."
+        actions={
+          // Two ways to read the same tree, not two trees. Hierarchy is the
+          // time-boxed planning lens (Year -> Day); Outline is the existing
+          // type-based browser, kept intact so no workflow that relied on
+          // it - filters, search, the details panel, sequential steps -
+          // is lost.
+          <div className="flex items-center gap-1 rounded-xl border border-white/10 p-1">
+            {(
+              [
+                { id: "hierarchy", label: "Hierarchy" },
+                { id: "outline", label: "Outline" },
+              ] as const
+            ).map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => setViewMode(option.id)}
+                aria-pressed={viewMode === option.id}
+                className={
+                  "rounded-lg px-3 py-1.5 text-xs font-semibold transition " +
+                  (viewMode === option.id ? "atlas-accent bg-[rgb(var(--atlas-accent,168_85_247)/0.14)]" : "atlas-muted hover:text-white")
+                }
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        }
+      />
 
-      {isEmpty ? (
-        <EmptyState onCreateDream={openCreateRoot} />
-      ) : outlineRows.length === 0 ? (
-        <NoMatchState />
-      ) : (
-        <div className="space-y-5">
-          <CustomizablePage pageId="goal-tree" title="Goal Tree Widgets" subtitle="Read-only goal progress and structure panels." sections={statsSections} availableWidgets={availableWidgets} />
+      {viewMode === "hierarchy" ? <GoalHierarchyView onEditNode={openEdit} /> : null}
 
-          <GoalTreeSummaryCards
-            dreams={typeCounts.dreams}
-            goals={typeCounts.goals}
-            milestones={typeCounts.milestones}
-            progressGoals={typeCounts.progressGoals}
-            overallProgress={summary.progress}
-            activeFilter={activeFilter}
-            onSelectFilter={handleSelectSummaryFilter}
-          />
+      {viewMode === "outline" ? (
+        <>
+          <GoalTreeFilters search={search} activeFilter={activeFilter} onSearchChange={setSearch} onFilterChange={setActiveFilter} onAddGoal={openCreateRoot} />
 
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(360px,0.92fr)]">
-            <div className="space-y-5 min-w-0">
-              <GoalTreeTable
-                rows={outlineRows}
-                selectedNodeId={visibleSelectedNodeId}
-                collapsedIds={collapsedIds}
-                onSelectNode={setSelectedNodeId}
-                onToggleCollapse={(nodeId) => {
-                  setCollapsedIds((current) => {
-                    const next = new Set(current);
+          {isEmpty ? (
+            <EmptyState onCreateDream={openCreateRoot} />
+          ) : outlineRows.length === 0 ? (
+            <NoMatchState />
+          ) : (
+            <div className="space-y-5">
+              <CustomizablePage pageId="goal-tree" title="Goal Tree Widgets" subtitle="Read-only goal progress and structure panels." sections={statsSections} availableWidgets={availableWidgets} />
 
-                    if (next.has(nodeId)) {
-                      next.delete(nodeId);
-                    } else {
-                      next.add(nodeId);
-                    }
-
-                    return next;
-                  });
-                }}
+              <GoalTreeSummaryCards
+                dreams={typeCounts.dreams}
+                goals={typeCounts.goals}
+                milestones={typeCounts.milestones}
+                progressGoals={typeCounts.progressGoals}
+                overallProgress={summary.progress}
+                activeFilter={activeFilter}
+                onSelectFilter={handleSelectSummaryFilter}
               />
 
-              <TipBanner />
-            </div>
+              <div className="grid gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(360px,0.92fr)]">
+                <div className="space-y-5 min-w-0">
+                  <GoalTreeTable
+                    rows={outlineRows}
+                    selectedNodeId={visibleSelectedNodeId}
+                    collapsedIds={collapsedIds}
+                    onSelectNode={setSelectedNodeId}
+                    onToggleCollapse={(nodeId) => {
+                      setCollapsedIds((current) => {
+                        const next = new Set(current);
 
-            <GoalTreeDetailsPanel
-              node={selectedNode}
-              parentTitle={parentTitle}
-              dreamTitle={dreamTitle}
-              linkedQuests={linkedQuests}
-              relationshipGroups={relationshipGroups}
-              overview={activeFilterOverview}
-              onEdit={openEdit}
-              onAddChild={openAddChild}
-              onDelete={handleDelete}
-              onUpdateProgress={handleUpdateProgress}
-              onAdvanceSequentialStep={completeSequentialStep}
-              onUndoSequentialStep={undoSequentialStep}
-              onEditQuest={openEditQuest}
-              onDeleteQuest={deleteQuest}
-              inheritedAttributeWeights={inheritedAttributeWeights}
-            />
-          </div>
-        </div>
-      )}
+                        if (next.has(nodeId)) {
+                          next.delete(nodeId);
+                        } else {
+                          next.add(nodeId);
+                        }
+
+                        return next;
+                      });
+                    }}
+                  />
+
+                  <TipBanner />
+                </div>
+
+                <GoalTreeDetailsPanel
+                  node={selectedNode}
+                  parentTitle={parentTitle}
+                  dreamTitle={dreamTitle}
+                  linkedQuests={linkedQuests}
+                  relationshipGroups={relationshipGroups}
+                  overview={activeFilterOverview}
+                  onEdit={openEdit}
+                  onAddChild={openAddChild}
+                  onDelete={handleDelete}
+                  onUpdateProgress={handleUpdateProgress}
+                  onAdvanceSequentialStep={completeSequentialStep}
+                  onUndoSequentialStep={undoSequentialStep}
+                  onEditQuest={openEditQuest}
+                  onDeleteQuest={deleteQuest}
+                  inheritedAttributeWeights={inheritedAttributeWeights}
+                />
+              </div>
+            </div>
+          )}
+        </>
+      ) : null}
 
       {editorForm ? (
         <GoalNodeEditor
