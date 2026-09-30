@@ -151,25 +151,31 @@ export default function WorldMapPageClient() {
 
   return (
     <div className="space-y-4">
-      <Card className="overflow-hidden border-purple-500/25 bg-[radial-gradient(circle_at_12%_0%,rgba(126,34,206,0.18),transparent_24%),linear-gradient(135deg,rgba(15,23,42,0.7),rgba(2,6,23,0.9))] p-5">
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-purple-400/60 to-transparent" />
+      <Card className="atlas-surface overflow-hidden p-5">
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgb(var(--atlas-accent)/0.6)] to-transparent" />
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-300">World Explorer</p>
-            <h1 className="mt-1 text-2xl font-black text-white">Your life, as a world</h1>
+            <p className="atlas-accent text-xs font-semibold uppercase tracking-[0.22em]">Outside</p>
+            <h1 className="atlas-display mt-1 text-2xl font-bold text-white">Your life, as a world</h1>
           </div>
           <div className="flex gap-2">
             <button
               type="button"
               onClick={() => setTab("map")}
-              className={"rounded-xl border px-4 py-2 text-sm font-semibold transition " + (tab === "map" ? "border-purple-400/60 bg-purple-500/20 text-white" : "border-slate-700 bg-slate-950/50 text-slate-400 hover:text-white")}
+              className={
+                "rounded-xl border px-4 py-2 text-sm font-semibold transition " +
+                (tab === "map" ? "atlas-accent border-[rgb(var(--atlas-accent)/0.6)] bg-[rgb(var(--atlas-accent)/0.16)]" : "atlas-muted border-[var(--atlas-border)] bg-white/[0.03] hover:text-white")
+              }
             >
               Map
             </button>
             <button
               type="button"
               onClick={() => setTab("leaderboard")}
-              className={"rounded-xl border px-4 py-2 text-sm font-semibold transition " + (tab === "leaderboard" ? "border-purple-400/60 bg-purple-500/20 text-white" : "border-slate-700 bg-slate-950/50 text-slate-400 hover:text-white")}
+              className={
+                "rounded-xl border px-4 py-2 text-sm font-semibold transition " +
+                (tab === "leaderboard" ? "atlas-accent border-[rgb(var(--atlas-accent)/0.6)] bg-[rgb(var(--atlas-accent)/0.16)]" : "atlas-muted border-[var(--atlas-border)] bg-white/[0.03] hover:text-white")
+              }
             >
               Leaderboard
             </button>

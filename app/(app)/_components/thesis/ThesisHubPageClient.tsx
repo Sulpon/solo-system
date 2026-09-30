@@ -1,6 +1,7 @@
 "use client";
 
 import Card from "../Card";
+import ThemeHeader from "../theme/ThemeHeader";
 import StatCard from "../StatCard";
 import ThesisHubNavCard from "./ThesisHubNavCard";
 import ManuscriptChapterCard from "./ManuscriptChapterCard";
@@ -49,26 +50,22 @@ export default function ThesisHubPageClient() {
 
   return (
     <div className="space-y-5">
-      <div className="rounded-2xl border border-purple-500/20 bg-slate-950/45 p-5 shadow-[0_0_30px_rgba(88,28,135,0.14)] backdrop-blur-xl">
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-300">Atlas</p>
-        <h1 className="mt-2 text-3xl font-black text-white">🎓 {dashboard.info.title || "Thesis Hub"}</h1>
-        <p className="mt-2 text-sm text-slate-400">Your MSc thesis, from research to final submission - one workspace, nothing extra.</p>
-      </div>
+      <ThemeHeader title={dashboard.info.title || "Thesis Hub"} subtitle="From research to final submission - one workspace, nothing extra." />
 
       <Card className="p-5">
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">Overview</p>
+        <p className="atlas-accent text-xs font-semibold uppercase tracking-[0.22em]">Overview</p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <StatCard label="Overall Progress" value={`${overallProgress}%`} accentClass="text-cyan-300" />
-          <StatCard label="Current Milestone" value={dashboard.currentFocus.nextMilestone || "Not set"} accentClass="text-cyan-300" />
-          <StatCard label="Next Task" value={dashboard.currentFocus.currentTask || "Not set"} accentClass="text-cyan-300" />
-          <StatCard label="Thesis Deadline" value={nearestUpcomingDeadlineLabel(dashboard.timeline, dashboard.info.expectedGraduation)} accentClass="text-cyan-300" />
-          <StatCard label="Total Pages Written" value={totalPagesWritten} accentClass="text-cyan-300" />
-          <StatCard label="Chapters Complete" value={`${chaptersStarted}/${MANUSCRIPT_CHAPTER_ORDER.length}`} accentClass="text-cyan-300" />
+          <StatCard label="Overall Progress" value={`${overallProgress}%`} accentClass="atlas-accent" />
+          <StatCard label="Current Milestone" value={dashboard.currentFocus.nextMilestone || "Not set"} accentClass="atlas-accent" />
+          <StatCard label="Next Task" value={dashboard.currentFocus.currentTask || "Not set"} accentClass="atlas-accent" />
+          <StatCard label="Thesis Deadline" value={nearestUpcomingDeadlineLabel(dashboard.timeline, dashboard.info.expectedGraduation)} accentClass="atlas-accent" />
+          <StatCard label="Total Pages Written" value={totalPagesWritten} accentClass="atlas-accent" />
+          <StatCard label="Chapters Complete" value={`${chaptersStarted}/${MANUSCRIPT_CHAPTER_ORDER.length}`} accentClass="atlas-accent" />
         </div>
       </Card>
 
       <Card className="p-5">
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">Chapters</p>
+        <p className="atlas-accent text-xs font-semibold uppercase tracking-[0.22em]">Chapters</p>
         <h2 className="mt-2 text-xl font-black text-white">Chapter progress</h2>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {MANUSCRIPT_CHAPTER_ORDER.map((key) => (
@@ -78,16 +75,16 @@ export default function ThesisHubPageClient() {
       </Card>
 
       <Card className="p-5">
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">Pages Written</p>
+        <p className="atlas-accent text-xs font-semibold uppercase tracking-[0.22em]">Pages Written</p>
         <h2 className="mt-2 text-xl font-black text-white">Log today&rsquo;s output</h2>
         <div className="mt-4">
           <WritingLogForm onLog={(entry) => setWritingLog((current) => [...current, entry])} />
         </div>
         <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard label="This Week" value={pagesThisWeek} accentClass="text-cyan-300" />
-          <StatCard label="This Month" value={pagesThisMonth} accentClass="text-cyan-300" />
-          <StatCard label="Average / Day" value={averagePagesPerDay} accentClass="text-cyan-300" />
-          <StatCard label="Best Day" value={bestWritingDay ? `${bestWritingDay.pages} pages` : "—"} detail={bestWritingDay ? new Date(`${bestWritingDay.date}T00:00:00`).toLocaleDateString() : undefined} accentClass="text-cyan-300" />
+          <StatCard label="This Week" value={pagesThisWeek} accentClass="atlas-accent" />
+          <StatCard label="This Month" value={pagesThisMonth} accentClass="atlas-accent" />
+          <StatCard label="Average / Day" value={averagePagesPerDay} accentClass="atlas-accent" />
+          <StatCard label="Best Day" value={bestWritingDay ? `${bestWritingDay.pages} pages` : "—"} detail={bestWritingDay ? new Date(`${bestWritingDay.date}T00:00:00`).toLocaleDateString() : undefined} accentClass="atlas-accent" />
         </div>
       </Card>
 
@@ -95,13 +92,13 @@ export default function ThesisHubPageClient() {
         metricId="thesis-pages-written"
         thisWeekValue={pagesThisWeek}
         todayValue={pagesToday}
-        accentClass="text-cyan-300"
+        accentClass="atlas-accent"
         defaultTitle="Write the thesis"
         defaultTargetValue={80}
       />
 
       <Card className="p-5">
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">Writing Calendar</p>
+        <p className="atlas-accent text-xs font-semibold uppercase tracking-[0.22em]">Writing Calendar</p>
         <h2 className="mt-2 text-xl font-black text-white">Daily output</h2>
         <p className="mt-1 text-sm text-slate-400">The same records that drive the goal above - edit or delete a day&rsquo;s entries and the goal updates immediately.</p>
         <div className="mt-5">

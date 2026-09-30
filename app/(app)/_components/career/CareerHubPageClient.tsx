@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import Card from "../Card";
+import ThemeHeader from "../theme/ThemeHeader";
 import StatCard from "../StatCard";
 import CareerHubNavCard from "./CareerHubNavCard";
 import ApplicationPipelinePanel from "../applications/ApplicationPipelinePanel";
@@ -63,14 +64,10 @@ export default function CareerHubPageClient() {
 
   return (
     <div className="space-y-5">
-      <div className="rounded-2xl border border-purple-500/20 bg-slate-950/45 p-5 shadow-[0_0_30px_rgba(88,28,135,0.14)] backdrop-blur-xl">
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-300">Atlas</p>
-        <h1 className="mt-2 text-3xl font-black text-white">Career Hub</h1>
-        <p className="mt-2 text-sm text-slate-400">Your career operating system - identity, background, target companies, and what&rsquo;s next, all in one place.</p>
-      </div>
+      <ThemeHeader title="Career Hub" subtitle="Identity, background, target companies, and what&rsquo;s next - in one place." />
 
       <Card className="p-5">
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-300">Career Identity</p>
+        <p className="atlas-accent text-xs font-semibold uppercase tracking-[0.22em]">Career Identity</p>
         <div className="mt-4 grid gap-5 lg:grid-cols-2">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Current Position</p>
@@ -104,13 +101,13 @@ export default function CareerHubPageClient() {
       </Card>
 
       <Card className="p-5">
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-300">Job-Search Overview</p>
+        <p className="atlas-accent text-xs font-semibold uppercase tracking-[0.22em]">Job-Search Overview</p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <StatCard label="Target Roles" value={careerVision.targetRoles.length} accentClass="text-purple-300" />
-          <StatCard label="Applications" value={totalApplications} detail={`${applicationsThisWeek} this week · ${applicationsThisMonth} this month`} accentClass="text-purple-300" />
-          <StatCard label="Saved Vacancies" value={savedVacancies} accentClass="text-purple-300" />
-          <StatCard label="Interviews" value={interviews} accentClass="text-purple-300" />
-          <StatCard label="Offers" value={offers} accentClass="text-purple-300" />
+          <StatCard label="Target Roles" value={careerVision.targetRoles.length} accentClass="atlas-accent" />
+          <StatCard label="Applications" value={totalApplications} detail={`${applicationsThisWeek} this week · ${applicationsThisMonth} this month`} accentClass="atlas-accent" />
+          <StatCard label="Saved Vacancies" value={savedVacancies} accentClass="atlas-accent" />
+          <StatCard label="Interviews" value={interviews} accentClass="atlas-accent" />
+          <StatCard label="Offers" value={offers} accentClass="atlas-accent" />
         </div>
       </Card>
 
@@ -120,13 +117,13 @@ export default function CareerHubPageClient() {
         metricId="career-applications-submitted"
         thisWeekValue={applicationsThisWeek}
         todayValue={applicationsToday}
-        accentClass="text-purple-300"
+        accentClass="atlas-accent"
         defaultTitle="Land the next role"
         defaultTargetValue={50}
       />
 
       <Card className="p-5">
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-300">Applications Calendar</p>
+        <p className="atlas-accent text-xs font-semibold uppercase tracking-[0.22em]">Applications Calendar</p>
         <h2 className="mt-2 text-xl font-black text-white">Submission activity</h2>
         <div className="mt-5">
           <ApplicationsCalendar vacancies={vacancyEntries} companyNames={companyNames} />

@@ -44,6 +44,7 @@ import AtlasIntelligencePanel from "./AtlasIntelligencePanel";
 import RecentAchievementsPanel from "./RecentAchievementsPanel";
 import RelevantContextPanel from "./RelevantContextPanel";
 import SortableWidgetFrame from "./SortableWidgetFrame";
+import { ThemeHeader, ThemeProgress, ThemeStat } from "../theme";
 import WidgetSettingsModal from "./WidgetSettingsModal";
 
 type DropPosition = "left" | "right" | "above" | "below" | "row" | "new-row";
@@ -376,7 +377,7 @@ export default function DashboardPageClient() {
   const [dragSize, setDragSize] = useState<DragSize | null>(null);
   const [layout, setLayout, , resetLayout] = useLocalStorageState<DashboardLayout>(STORAGE_KEYS.dashboardLayout, createDefaultDashboardLayout());
   const [gridLayout, setGridLayout, , resetGridLayout] = useLocalStorageState<DashboardGridLayout>(STORAGE_KEYS.dashboardGridLayout, createDefaultDashboardGridLayout());
-  const { questDefinitions } = useProgression();
+  const { questDefinitions, progressionSummary } = useProgression();
   const { attributes: categories } = useAttributes();
   const [isEntranceActive, setIsEntranceActive] = useState(true);
 
@@ -775,38 +776,53 @@ export default function DashboardPageClient() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-purple-500/20 bg-slate-950/45 p-4 shadow-[0_0_30px_rgba(88,28,135,0.14)] backdrop-blur-xl">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Dashboard</p>
-          <h1 className="mt-1 text-2xl font-black text-white">Overview</h1>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {isEditing ? (
-            <button type="button" onClick={resetAllLayout} className="rounded-xl border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:border-purple-400/60 hover:text-white">
-              Reset Layout
-            </button>
-          ) : null}
-          {isEditing ? (
+      {/* Home Base header. Every figure below comes from the existing
+          progressionSummary - no new derivation, and nothing shown that
+          the user's real history has not produced. */}
+      <ThemeHeader
+        title="Home Base"
+        subtitle="Where you stand right now, and what is worth your attention."
+        actions={
+          <>
+            {isEditing ? (
+              <button type="button" onClick={resetAllLayout} className="atlas-muted rounded-xl border border-[var(--atlas-border)] px-4 py-2 text-sm transition hover:text-white">
+                Reset Layout
+              </button>
+            ) : null}
+            {isEditing ? (
+              <button
+                type="button"
+                onClick={() => setIsCatalogOpen(true)}
+                className="rounded-xl border border-[var(--atlas-border)] bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10"
+              >
+                Add Widget
+              </button>
+            ) : null}
             <button
               type="button"
-              onClick={() => setIsCatalogOpen(true)}
-              className="rounded-xl border border-cyan-400/40 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/20"
+              onClick={() => setIsEditing((current) => !current)}
+              className="atlas-accent rounded-xl border border-[rgb(var(--atlas-accent)/0.45)] bg-[rgb(var(--atlas-accent)/0.12)] px-4 py-2 text-sm font-semibold transition hover:bg-[rgb(var(--atlas-accent)/0.22)]"
             >
-              Add Widget
+              {isEditing ? "Done Editing" : "Edit Dashboard"}
             </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => setIsEditing((current) => !current)}
-            className="rounded-xl border border-purple-400/50 bg-purple-500/15 px-4 py-2 text-sm font-semibold text-purple-100 transition hover:bg-purple-500/25"
-          >
-            {isEditing ? "Done Editing" : "Edit Dashboard"}
-          </button>
+          </>
+        }
+      >
+        <ThemeStat label="Level" value={String(progressionSummary.currentLevel)} hint={`${progressionSummary.totalXP.toLocaleString()} XP total`} />
+        <ThemeStat label="Today" value={`${progressionSummary.dailyXP.toLocaleString()} XP`} hint={`${progressionSummary.weeklyXP.toLocaleString()} XP this week`} />
+        <ThemeStat label="Streak" value={`${progressionSummary.currentStreak}d`} hint="Consecutive active days" />
+        <div className="atlas-surface rounded-xl border p-4">
+          <ThemeProgress
+            label={`To level ${progressionSummary.currentLevel + 1}`}
+            value={progressionSummary.xpInCurrentLevel}
+            max={progressionSummary.xpInCurrentLevel + progressionSummary.xpNeededForNextLevel}
+            valueLabel={`${progressionSummary.xpNeededForNextLevel.toLocaleString()} XP to go`}
+          />
         </div>
-      </div>
+      </ThemeHeader>
 
       {isEditing ? (
-        <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-4 text-sm text-cyan-100">
+        <div className="atlas-surface atlas-muted rounded-2xl border border-dashed p-4 text-sm">
           Edit mode is active. Drag a widget by its handle to preview the final placement before release.
         </div>
       ) : null}

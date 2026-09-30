@@ -291,3 +291,99 @@ body {
     transition: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Domain themes.
+
+   Consumers of the CSS variables emitted by _lib/theme/domain-themes.ts.
+   Only behaviour lives here; the values live in TypeScript, so there is one
+   source of truth and nothing to keep in sync. Every class degrades to the
+   existing Atlas look if no --atlas-* variable is set, which is what makes
+   this an extension of the current system rather than a replacement.
+--------------------------------------------------------------------------- */
+
+.atlas-themed {
+  background: var(--atlas-ambient, none);
+}
+
+[data-theme="oled"] .atlas-themed {
+  /* OLED keeps the domain's accent wash but drops to true black underneath,
+     matching how .menace-shell already handles this preference. */
+  background: var(--atlas-ambient, none), #000;
+}
+
+.atlas-surface {
+  background: var(--atlas-surface, rgba(2, 6, 23, 0.55));
+  border-color: var(--atlas-border, rgb(var(--menace-accent, 168 85 247) / 0.2));
+  box-shadow: var(--atlas-glow, none);
+}
+
+.atlas-display {
+  font-family: var(--atlas-display-font, inherit);
+}
+
+.atlas-muted {
+  color: var(--atlas-muted, rgb(148 163 184));
+}
+
+.atlas-accent {
+  color: rgb(var(--atlas-accent, var(--menace-accent, 168 85 247)));
+}
+
+.atlas-accent-soft {
+  color: rgb(var(--atlas-accent-soft, var(--menace-accent, 168 85 247)));
+}
+
+/* The decorative motif. Pointer-events-none and aria-hidden at the element;
+   kept at low opacity so it never competes with content for attention. */
+.atlas-decor {
+  background-image: var(--atlas-decor, none);
+  opacity: var(--atlas-decor-opacity, 0.5);
+}
+
+@keyframes atlas-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes atlas-surface-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Duration comes from the domain's motion token, so Peace and Reading are
+   genuinely slower than Trading without any page hardcoding a number. */
+.atlas-page-enter {
+  animation: atlas-page-in var(--atlas-motion-duration, 380ms) cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.atlas-surface-enter {
+  animation: atlas-surface-in var(--atlas-motion-duration, 380ms) cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.atlas-ambient-fade {
+  transition: background var(--atlas-motion-duration, 380ms) ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .atlas-page-enter,
+  .atlas-surface-enter {
+    animation: none;
+  }
+
+  .atlas-ambient-fade {
+    transition: none;
+  }
+}

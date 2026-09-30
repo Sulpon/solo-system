@@ -15,13 +15,18 @@ import SessionHistoryList from "./SessionHistoryList";
 import SessionDetailModal from "./SessionDetailModal";
 import LogPastWorkoutModal from "./LogPastWorkoutModal";
 import BodyweightPanel from "./BodyweightPanel";
+import CalisthenicsProgression from "./CalisthenicsProgression";
+import { getCalisthenicsOverview, getCalisthenicsProgress } from "../../_lib/engines/calisthenics-engine";
+import HallOfFame from "./HallOfFame";
+import ThemeHeader from "../theme/ThemeHeader";
+import ThemeStat from "../theme/ThemeStat";
 import type { EditablePageSection } from "../page-edit/types";
 import type { WorkoutSession, WorkoutTemplate } from "../../_lib/types/workout";
 
-type WorkoutTab = "templates" | "history" | "body";
+type WorkoutTab = "progression" | "templates" | "history" | "body";
 
 export default function WorkoutManagerPage() {
-  const [tab, setTab] = useState<WorkoutTab>("templates");
+  const [tab, setTab] = useState<WorkoutTab>("progression");
   const { templates, setTemplates } = useWorkoutTemplates();
   const { sessions, setSessions } = useWorkoutSessions();
   const { startSession, activeSession, expand } = useWorkout();
@@ -29,6 +34,7 @@ export default function WorkoutManagerPage() {
   const [selectedSession, setSelectedSession] = useState<WorkoutSession | null>(null);
   const [showLogPastWorkout, setShowLogPastWorkout] = useState(false);
   const availableWidgets = useMemo(() => getCatalogWidgetsForPage("workouts"), []);
+  const calisthenicsOverview = useMemo(() => getCalisthenicsOverview(getCalisthenicsProgress(sessions)), [sessions]);
 
   const statsSections = useMemo<EditablePageSection[]>(
     () => [
@@ -40,7 +46,7 @@ export default function WorkoutManagerPage() {
         readOnly: true,
         content: (
           <Card className="rounded-2xl border border-slate-800 bg-slate-950/55 p-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300">Workout Stats</p>
+            <p className="atlas-accent text-xs font-semibold uppercase tracking-[0.22em]">Workout Stats</p>
             <h2 className="mt-2 text-xl font-black text-white">Training overview</h2>
             <div className="mt-5 grid gap-3 sm:grid-cols-3">
               <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
@@ -65,7 +71,7 @@ export default function WorkoutManagerPage() {
         description: "Total workouts completed.",
         size: "md",
         readOnly: true,
-        content: <StatNumberCard eyebrow="History" title="Sessions logged" value={sessions.length.toLocaleString()} description="Created when a workout is finished." accentClass="text-emerald-300" />,
+        content: <StatNumberCard eyebrow="History" title="Sessions logged" value={sessions.length.toLocaleString()} description="Created when a workout is finished." accentClass="atlas-accent" />,
       },
     ],
     [sessions, templates.length],
@@ -124,26 +130,43 @@ export default function WorkoutManagerPage() {
 
   return (
     <div className="space-y-5">
+      {/* Every figure is read from real finished sessions via the existing
+          workout engine. Nothing is shown before it has been earned: with
+          no sessions logged, these read 0 because zero sessions is a true
+          measurement, while the skill ladder below shows an empty state
+          instead, because "no data" and "a score of zero" are different
+          claims. */}
+      <ThemeHeader title="Training" actions={null}>
+        <ThemeStat label="Sessions" value={sessions.length.toLocaleString()} hint="Finished workouts" />
+        <ThemeStat label="Weekly volume" value={getWeeklyVolume(sessions).toLocaleString()} hint="Last 7 days" />
+        <ThemeStat label="Streak" value={`${getWorkoutStreak(sessions)}d`} hint="Consecutive training days" />
+        <ThemeStat label="Skills trained" value={`${calisthenicsOverview.skillsAttempted} / ${calisthenicsOverview.skillsTotal}`} hint={`${calisthenicsOverview.milestonesReached} checkpoints cleared`} />
+      </ThemeHeader>
+
       <CustomizablePage pageId="workouts" title="Workout Widgets" subtitle="Read-only workout statistics and progress panels." sections={statsSections} availableWidgets={availableWidgets} />
 
       <Card className="p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300">Workout Manager</p>
-            <h2 className="mt-2 text-2xl font-black text-white">Track your workouts</h2>
-            <p className="mt-2 text-sm text-slate-400">Jump in and record what you did - no template required. Save one only if you want a shortcut for a routine you repeat.</p>
+            <p className="atlas-accent text-xs font-semibold uppercase tracking-[0.22em]">Training Floor</p>
+            <h2 className="atlas-display mt-2 text-2xl font-bold text-white">Track your workouts</h2>
+            <p className="atlas-muted mt-2 text-sm">Jump in and record what you did - no template required. Save one only if you want a shortcut for a routine you repeat.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={handleStartWorkout} className="rounded-xl border border-emerald-500/50 bg-emerald-500/15 px-4 py-2 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-500/25">
+            <button
+              type="button"
+              onClick={handleStartWorkout}
+              className="atlas-accent rounded-xl border border-[rgb(var(--atlas-accent)/0.5)] bg-[rgb(var(--atlas-accent)/0.14)] px-4 py-2 text-sm font-semibold transition hover:bg-[rgb(var(--atlas-accent)/0.24)]"
+            >
               {activeSession ? "Resume Workout" : "Start Workout"}
             </button>
             {tab === "templates" ? (
-              <button type="button" onClick={() => setForm(createEmptyTemplateForm())} className="rounded-xl border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:border-purple-400/60 hover:text-white">
+              <button type="button" onClick={() => setForm(createEmptyTemplateForm())} className="atlas-muted rounded-xl border border-[var(--atlas-border)] px-4 py-2 text-sm transition hover:text-white">
                 Create Template
               </button>
             ) : null}
             {tab === "history" ? (
-              <button type="button" onClick={() => setShowLogPastWorkout(true)} className="rounded-xl border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:border-purple-400/60 hover:text-white">
+              <button type="button" onClick={() => setShowLogPastWorkout(true)} className="atlas-muted rounded-xl border border-[var(--atlas-border)] px-4 py-2 text-sm transition hover:text-white">
                 Log Past Workout
               </button>
             ) : null}
@@ -152,6 +175,7 @@ export default function WorkoutManagerPage() {
 
         <div className="mt-5 flex flex-wrap gap-2">
           {([
+            { id: "progression", label: "Progression" },
             { id: "templates", label: "Templates" },
             { id: "history", label: "History" },
             { id: "body", label: "Body" },
@@ -162,7 +186,9 @@ export default function WorkoutManagerPage() {
               onClick={() => setTab(item.id)}
               className={
                 "rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] transition " +
-                (tab === item.id ? "border-emerald-400/60 bg-emerald-500/15 text-emerald-100" : "border-slate-700 bg-slate-950/60 text-slate-400 hover:border-emerald-400/40 hover:text-white")
+                (tab === item.id
+                  ? "atlas-accent border-[rgb(var(--atlas-accent)/0.6)] bg-[rgb(var(--atlas-accent)/0.14)]"
+                  : "atlas-muted border-[var(--atlas-border)] bg-white/[0.03] hover:text-white")
               }
             >
               {item.label}
@@ -171,6 +197,12 @@ export default function WorkoutManagerPage() {
         </div>
 
         <div className="mt-5">
+          {tab === "progression" ? (
+            <div className="space-y-6">
+              <CalisthenicsProgression sessions={sessions} />
+              <HallOfFame sessions={sessions} />
+            </div>
+          ) : null}
           {tab === "templates" ? (
             <TemplateList
               templates={templates}
