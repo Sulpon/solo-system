@@ -133,6 +133,19 @@ export const STORAGE_KEYS = {
   // side, no ACL/JS involvement) - visibility is the one thing that plugin
   // doesn't track, so it needs its own small, plain entry here.
   desktopWidgetVisibility: "menace-desktop-widget-visibility",
+  // Automatic Life Capture - observations awaiting (or having received) a
+  // human decision, see types/capture.ts. A SEPARATE collection from
+  // activityEvents on purpose: an ActivityEvent is a committed outcome and
+  // that log is capped with eviction, while a CaptureEvent is an
+  // unconfirmed observation that must never evict real history nor be
+  // mistaken for it. Each entry carries `id`/`updatedAt`, so it merges via
+  // the same generic id-entity-array rule every other collection already
+  // uses (sync/merge-atlas-snapshot.ts) - no sync-side code needed.
+  captureEvents: "menace-capture-events",
+  // Which capture sources the user has explicitly turned on, see
+  // capture/capture-permissions.ts. Default-deny: an absent entry means
+  // off, so a new source can never start reading anything by existing.
+  capturePermissions: "menace-capture-permissions",
 } as const;
 
 export const MENACE_STORAGE_EVENT = "menace-local-storage-change";
