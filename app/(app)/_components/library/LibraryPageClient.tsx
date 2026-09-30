@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Card from "../Card";
+import ThemeHeader from "../theme/ThemeHeader";
 import Modal from "../Modal";
 import { useLibrary } from "../../_lib/hooks/useLibrary";
 import type { MediaDraft } from "../../_lib/hooks/useLibrary";
@@ -24,7 +25,7 @@ const TYPE_TAB_LABELS: Record<TypeFilter, string> = { all: "All", book: "Books",
 type FormState = { mode: "closed" } | { mode: "create" } | { mode: "edit"; item: MediaItem };
 
 export default function LibraryPageClient() {
-  const { items, hasLoaded, addItem, updateItem, deleteItem, changeStatus, setRating, linkGoal, unlinkGoal, linkSkill, unlinkSkill, linkNote, unlinkNote } = useLibrary();
+  const { items, hasLoaded, addItem, updateItem, deleteItem, changeStatus, setRating, linkGoal, unlinkGoal, linkSkill, unlinkSkill, linkNote, unlinkNote, addAttachments, removeAttachment } = useLibrary();
   const { goalTree } = useGoalTree();
 
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
@@ -85,22 +86,22 @@ export default function LibraryPageClient() {
 
   return (
     <div className="space-y-5">
-      <Card className="p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">Media / Knowledge</p>
-            <h1 className="mt-1 text-2xl font-black text-white">Library</h1>
-          </div>
+      <ThemeHeader
+        title="The Library"
+        subtitle="Books, films and series you are working through, and what you have taken from them."
+        actions={
           <button
             type="button"
             onClick={() => setFormState({ mode: "create" })}
-            className="rounded-xl border border-cyan-400/50 bg-cyan-500/15 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-500/25"
+            className="atlas-accent rounded-xl border border-[rgb(var(--atlas-accent)/0.5)] bg-[rgb(var(--atlas-accent)/0.14)] px-4 py-2 text-sm font-semibold transition hover:bg-[rgb(var(--atlas-accent)/0.24)]"
           >
             + Add Item
           </button>
-        </div>
+        }
+      />
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+      <Card className="p-5">
+        <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
           <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search books, movies, series..." className={inputClass} />
           <select value={sortKey} onChange={(event) => setSortKey(event.target.value as MediaSortKey)} className={inputClass + " sm:w-52"}>
             {MEDIA_SORT_OPTIONS.map((option) => (
@@ -212,6 +213,8 @@ export default function LibraryPageClient() {
               onUnlinkSkill={(skillId) => unlinkSkill(selectedItem.id, skillId)}
               onLinkNote={(noteId) => linkNote(selectedItem.id, noteId)}
               onUnlinkNote={(noteId) => unlinkNote(selectedItem.id, noteId)}
+              onAddAttachments={(files) => addAttachments(selectedItem.id, files)}
+              onRemoveAttachment={(attachmentId) => removeAttachment(selectedItem.id, attachmentId)}
             />
           </div>
         ) : null}

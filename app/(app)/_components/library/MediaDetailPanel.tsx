@@ -9,6 +9,7 @@ import MediaStars from "./MediaStars";
 import LibraryLinkedGoals from "./LibraryLinkedGoals";
 import LibraryLinkedSkills from "./LibraryLinkedSkills";
 import LibraryLinkedNotes from "./LibraryLinkedNotes";
+import AttachmentsPanel from "../attachments/AttachmentsPanel";
 
 type MediaDetailPanelProps = Readonly<{
   item: MediaItem;
@@ -24,6 +25,8 @@ type MediaDetailPanelProps = Readonly<{
   onUnlinkSkill: (skillId: string) => void;
   onLinkNote: (noteId: string) => void;
   onUnlinkNote: (noteId: string) => void;
+  onAddAttachments: (files: ReadonlyArray<File>) => Promise<void> | void;
+  onRemoveAttachment: (attachmentId: string) => void;
 }>;
 
 const labelClass = "text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500";
@@ -50,6 +53,8 @@ export default function MediaDetailPanel({
   onUnlinkSkill,
   onLinkNote,
   onUnlinkNote,
+  onAddAttachments,
+  onRemoveAttachment,
 }: MediaDetailPanelProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const startedLabel = formatDate(item.startedAt);
@@ -165,6 +170,15 @@ export default function MediaDetailPanel({
           <p className="mt-1.5 whitespace-pre-wrap text-sm leading-6 text-slate-300">{item.whatILearned?.trim() || "Nothing captured yet."}</p>
         </div>
       </div>
+
+      <AttachmentsPanel
+        testId="library-attachments"
+        attachments={item.attachments ?? []}
+        onAdd={onAddAttachments}
+        onRemove={onRemoveAttachment}
+        label="Files"
+        emptyHint={item.type === "book" ? "No files attached yet — add the PDF, EPUB or your own notes." : "No files attached yet — add subtitles, notes or anything related."}
+      />
 
       <LibraryLinkedGoals goalTree={goalTree} linkedGoalIds={item.linkedGoalIds ?? []} onLink={onLinkGoal} onUnlink={onUnlinkGoal} />
       <LibraryLinkedSkills linkedSkillIds={item.linkedSkillIds ?? []} onLink={onLinkSkill} onUnlink={onUnlinkSkill} />

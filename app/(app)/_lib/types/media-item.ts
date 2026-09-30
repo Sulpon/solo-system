@@ -3,6 +3,8 @@
 // book can never end up "watching" and vice versa) rather than three
 // separate storage systems, since they're structurally identical and only
 // differ in a couple of labels.
+import type { EntityAttachment } from "./attachment";
+
 export type MediaType = "book" | "movie" | "series";
 
 export const MEDIA_TYPES: ReadonlyArray<MediaType> = ["book", "movie", "series"];
@@ -48,6 +50,12 @@ export type MediaItem = Readonly<{
   linkedGoalIds?: ReadonlyArray<string>;
   linkedSkillIds?: ReadonlyArray<string>;
   linkedNoteIds?: ReadonlyArray<string>;
+  // Files the user attached to this item - the actual PDF/EPUB, scanned
+  // notes, whatever they have. Metadata only; the bytes live in
+  // IndexedDB via document-store.ts, exactly like coverImageId above, so
+  // the cloud snapshot never carries file weight. Absent on every item
+  // created before this existed, which reads as "no files".
+  attachments?: ReadonlyArray<EntityAttachment>;
   createdAt: string;
   updatedAt: string;
 }>;
