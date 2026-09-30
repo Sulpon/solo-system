@@ -255,16 +255,41 @@ pub fn run() {
                         log_diag(&format!("spawn_atlas_server: ok, child pid={}", child.id()));
                         handle_for_server.state::<ServerProcess>().0.lock().unwrap().replace(child);
                         let wait_started = std::time::Instant::now();
-                        let reachable = wait_for_server(APP_PORT);
-                        log_diag(&format!(
-                            "wait_for_server: reachable={reachable} elapsed={:?}",
-                            wait_started.elapsed()
-                        ));
-                        Ok(format!("http://127.0.0.1:{APP_PORT}"))
+
+                        // Milestone 7 - waits on the port AND the child, so
+                        // "our server died and something else owns the
+                        // port" can no longer masquerade as success.
+                        match wait_for_server_with_child(APP_PORT, &handle_for_server) {
+                            ServerReadiness::Ready => {
+                                log_diag(&format!("wait_for_server: ready elapsed={:?}", wait_started.elapsed()));
+                                Ok(format!("http://127.0.0.1:{APP_PORT}"))
+                            }
+                            ServerReadiness::ChildDied(detail) => {
+                                log_diag(&format!("wait_for_server: SERVER PROCESS DIED elapsed={:?}", wait_started.elapsed()));
+                                Err(tauri::Error::Io(std::io::Error::new(
+                                    std::io::ErrorKind::Other,
+                                    format!("Atlas's bundled server stopped while starting up: {detail}"),
+                                )))
+                            }
+                            ServerReadiness::TimedOut => {
+                                log_diag(&format!("wait_for_server: TIMED OUT elapsed={:?}", wait_started.elapsed()));
+                                Err(tauri::Error::Io(std::io::Error::new(
+                                    std::io::ErrorKind::Other,
+                                    format!("Atlas's bundled server did not start listening on 127.0.0.1:{APP_PORT} in time."),
+                                )))
+                            }
+                        }
                     })();
 
                     if let Err(ref error) = outcome {
                         log_diag(&format!("spawn_atlas_server: FAILED: {error}"));
+                        // Milestone 7 - a startup failure used to be
+                        // completely silent: the window opened anyway and
+                        // sat on a loading/error screen with the real
+                        // reason only in a temp log nobody knows about.
+                        // A native dialog needs no webview (there may not
+                        // be a working one) and no extra plugin.
+                        show_startup_error_dialog(&error.to_string());
                     }
 
                     let handle_for_main = handle_for_server.clone();
@@ -573,8 +598,39 @@ fn kill_server_process(app: &AppHandle) {
 // applied to is a real, existing, already-absolute filesystem path well
 // under MAX_PATH, never a UNC network path or anything else `\\?\` is
 // actually load-bearing for.
-#[cfg(not(debug_assertions))]
-fn strip_extended_length_prefix(path: &std::path::Path) -> std::path::PathBuf {
+// The production layout Atlas's installer produces, resolved in ONE place
+// so the spawn path and its regression tests can never disagree about
+// where node.exe and the standalone server actually live:
+//
+//   <resource_dir>\node.exe
+//   <resource_dir>\.next\standalone\server.js   (cwd for the server)
+//
+// Deliberately NOT cfg-gated to release: the spawn itself is release-only,
+// but `cargo test` runs in debug, and a path-resolution bug that only
+// compiles in release is exactly the kind of thing that shipped before.
+pub(crate) struct AtlasServerPaths {
+    pub(crate) resource_dir: std::path::PathBuf,
+    pub(crate) standalone_dir: std::path::PathBuf,
+    pub(crate) server_js: std::path::PathBuf,
+    pub(crate) node_binary: std::path::PathBuf,
+}
+
+pub(crate) fn atlas_server_paths(resource_dir: &std::path::Path) -> AtlasServerPaths {
+    let standalone_dir = resource_dir.join(".next").join("standalone");
+
+    AtlasServerPaths {
+        server_js: standalone_dir.join("server.js"),
+        node_binary: resource_dir.join("node.exe"),
+        standalone_dir,
+        resource_dir: resource_dir.to_path_buf(),
+    }
+}
+
+// Un-gated (release-only in practice, but `cargo test` runs in debug) so
+// the \\?\ regression that once broke Node's own path resolution stays
+// covered by a real test.
+#[allow(dead_code)]
+pub(crate) fn strip_extended_length_prefix(path: &std::path::Path) -> std::path::PathBuf {
     match path.to_string_lossy().strip_prefix(r"\\?\") {
         Some(stripped) => std::path::PathBuf::from(stripped),
         None => path.to_path_buf(),
@@ -606,9 +662,12 @@ fn spawn_atlas_server(app: &tauri::AppHandle) -> tauri::Result<Child> {
     // fixed together to get a working release build. Stripping the prefix
     // yields a perfectly valid, absolute Windows path (nowhere near
     // MAX_PATH here) that both `Command` and Node itself handle correctly.
-    let resource_dir = strip_extended_length_prefix(&app.path().resource_dir()?);
-    let standalone_dir = resource_dir.join(".next").join("standalone");
-    let server_js = standalone_dir.join("server.js");
+    let AtlasServerPaths {
+        resource_dir,
+        standalone_dir,
+        server_js,
+        node_binary: resolved_node_binary,
+    } = atlas_server_paths(&strip_extended_length_prefix(&app.path().resource_dir()?));
     log_diag(&format!("spawn_atlas_server: resource_dir={} exists={}", resource_dir.display(), resource_dir.exists()));
     log_diag(&format!("spawn_atlas_server: server_js={} exists={}", server_js.display(), server_js.exists()));
 
@@ -629,7 +688,7 @@ fn spawn_atlas_server(app: &tauri::AppHandle) -> tauri::Result<Child> {
     // install, antivirus quarantine, ...) - hence the explicit existence
     // check and specific error message below, instead of letting a mystery
     // "file not found" bubble up from Command::spawn() itself.
-    let node_binary = resource_dir.join("node.exe");
+    let node_binary = resolved_node_binary;
     log_diag(&format!("spawn_atlas_server: node_binary={} exists={}", node_binary.display(), node_binary.exists()));
 
     if !node_binary.exists() {
@@ -686,7 +745,24 @@ fn spawn_atlas_server(app: &tauri::AppHandle) -> tauri::Result<Child> {
         standalone_dir.display()
     ));
 
-    let child = Command::new(&node_binary)
+    // Milestone 7 - a listener on APP_PORT BEFORE we spawn means some other
+    // process already owns the port (a `npm run dev` server, a manually
+    // started standalone server, or an orphaned node.exe from a previous
+    // Atlas run). Our own child will then die instantly with EADDRINUSE
+    // while wait_for_server still sees a reachable port and reports
+    // success - the exact "Atlas is running but there is no node.exe child"
+    // failure this milestone fixes. Detecting it up front turns a silent
+    // mystery into a named cause.
+    let port_already_in_use = is_port_listening(APP_PORT);
+    if port_already_in_use {
+        log_diag(&format!(
+            "spawn_atlas_server: WARNING - 127.0.0.1:{APP_PORT} is ALREADY in use before spawning. \
+             Atlas's own server will fail to bind (EADDRINUSE) and the window would otherwise be \
+             pointed at a server Atlas does not own."
+        ));
+    }
+
+    let mut child = Command::new(&node_binary)
         .arg(&server_js)
         .current_dir(&standalone_dir)
         .env("PORT", APP_PORT.to_string())
@@ -703,7 +779,162 @@ fn spawn_atlas_server(app: &tauri::AppHandle) -> tauri::Result<Child> {
             ))
         })?;
 
+    // Milestone 7 - `spawn()` returning Ok only proves the process was
+    // CREATED, never that it survived. Node binds the port milliseconds
+    // later and exits on failure, so without this check a dead child looks
+    // exactly like a healthy one (confirmed from a real installed launch:
+    // "spawn_atlas_server: ok, child pid=..." immediately followed by
+    // EADDRINUSE in node's stderr, and no child process left alive).
+    // Done before the liveness check so even a child that dies a moment
+    // later was never outside the job.
+    #[cfg(windows)]
+    tie_child_lifetime_to_app(&child);
+
+    // When the port was ALREADY taken we know our child is about to lose the
+    // bind, so wait long enough to actually observe it die - otherwise the
+    // race is won by the squatter (the port answers instantly, the child
+    // hasn't failed yet) and Atlas silently adopts a server it does not own,
+    // which is precisely the "no node.exe child" state being fixed here.
+    let settle_deadline = std::time::Instant::now()
+        + if port_already_in_use { std::time::Duration::from_secs(5) } else { std::time::Duration::from_millis(400) };
+
+    let mut exited = None;
+    while std::time::Instant::now() < settle_deadline {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                exited = Some(status);
+                break;
+            }
+            Ok(None) => std::thread::sleep(std::time::Duration::from_millis(150)),
+            Err(_) => break,
+        }
+    }
+
+    if let Some(status) = exited {
+        return Err(tauri::Error::Io(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!(
+                "Atlas's bundled server exited immediately after starting ({status}). Most likely another process is \
+                 already using 127.0.0.1:{APP_PORT} - close any `npm run dev` server, any manually started \
+                 server.js, or a leftover node.exe from a previous Atlas run, then start Atlas again.\n\nNode reported:\n{}",
+                read_node_stderr_tail()
+            ),
+        )));
+    }
+
     Ok(child)
+}
+
+// Milestone 7 - ties the server's lifetime to Atlas's at the OS level.
+//
+// Storing the Child in managed state and killing it on RunEvent::ExitRequested
+// (see kill_server_process) only covers a GRACEFUL exit. A crash, Task
+// Manager, or `taskkill /F` never runs that path, and Windows does not kill
+// children with their parent - so the server survives, keeps listening on
+// APP_PORT, and the next Atlas launch spawns a node that dies instantly with
+// EADDRINUSE. That orphan is the actual mechanism behind "Atlas is running
+// but there is no node.exe child" - verified live: force-killing Atlas left
+// node.exe holding port 3000.
+//
+// A Job Object with JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE fixes it at the
+// source: the job handle is owned by this process, so when Atlas dies for
+// ANY reason the kernel closes it and terminates everything inside.
+#[cfg(all(windows, not(debug_assertions)))]
+fn tie_child_lifetime_to_app(child: &Child) {
+    use std::os::windows::io::AsRawHandle;
+    use windows_sys::Win32::Foundation::HANDLE;
+    use windows_sys::Win32::System::JobObjects::{
+        AssignProcessToJobObject, CreateJobObjectW, SetInformationJobObject,
+        JobObjectExtendedLimitInformation, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+        JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+    };
+
+    unsafe {
+        let job = CreateJobObjectW(std::ptr::null(), std::ptr::null());
+        if job.is_null() {
+            log_diag("tie_child_lifetime_to_app: CreateJobObjectW failed - server may outlive a forced Atlas exit");
+            return;
+        }
+
+        let mut info: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = std::mem::zeroed();
+        info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+
+        let set = SetInformationJobObject(
+            job,
+            JobObjectExtendedLimitInformation,
+            &info as *const _ as *const core::ffi::c_void,
+            std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+        );
+        if set == 0 {
+            log_diag("tie_child_lifetime_to_app: SetInformationJobObject failed - server may outlive a forced Atlas exit");
+            return;
+        }
+
+        if AssignProcessToJobObject(job, child.as_raw_handle() as HANDLE) == 0 {
+            log_diag("tie_child_lifetime_to_app: AssignProcessToJobObject failed - server may outlive a forced Atlas exit");
+            return;
+        }
+
+        // The job handle is deliberately NEVER closed. It is a raw HANDLE
+        // (no Drop, nothing to suppress) - simply not calling CloseHandle is
+        // what keeps the job alive for this process's lifetime, and the
+        // kernel closing it during process teardown is exactly what kills
+        // the server. Holding it open IS the mechanism.
+        let _ = job;
+        log_diag("tie_child_lifetime_to_app: server assigned to kill-on-close job");
+    }
+}
+
+// Milestone 7 - surfaces a startup failure the user can actually see and
+// act on, replacing the silent infinite loading screen. Uses PowerShell's
+// message box rather than a Tauri dialog plugin or a raw Win32 binding on
+// purpose: this path runs when the app may have no usable webview at all,
+// it must not add a dependency to the normal startup path, and it only
+// ever runs when startup has already failed.
+#[cfg(not(debug_assertions))]
+fn show_startup_error_dialog(message: &str) {
+    use std::process::Command;
+
+    // Single-quoted PowerShell literal - the only escape that matters is a
+    // single quote itself, doubled.
+    let sanitized = message.replace('\'', "''");
+    let script = format!(
+        "Add-Type -AssemblyName PresentationFramework; \
+         [System.Windows.MessageBox]::Show('{sanitized}', 'Atlas could not start', 'OK', 'Error') | Out-Null"
+    );
+
+    let _ = Command::new("powershell")
+        .args(["-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", &script])
+        .spawn();
+}
+
+// A plain "is anything accepting connections on this port right now"
+// probe - deliberately NOT proof that the listener is OUR server (nothing
+// short of a handshake could prove that), which is exactly why the caller
+// treats a pre-spawn hit as a warning about a foreign owner.
+#[cfg(not(debug_assertions))]
+fn is_port_listening(port: u16) -> bool {
+    use std::net::{SocketAddr, TcpStream};
+    use std::time::Duration;
+
+    let address: SocketAddr = ([127, 0, 0, 1], port).into();
+    TcpStream::connect_timeout(&address, Duration::from_millis(250)).is_ok()
+}
+
+// The last few lines node actually printed before dying - the difference
+// between "the server failed" and a genuinely actionable error message
+// (EADDRINUSE, a missing module, a port permission problem, ...).
+#[cfg(not(debug_assertions))]
+fn read_node_stderr_tail() -> String {
+    let path = std::env::temp_dir().join("atlas-node-stderr.log");
+
+    match std::fs::read_to_string(&path) {
+        Ok(contents) => {
+            let tail: Vec<&str> = contents.lines().rev().take(12).collect();
+            tail.into_iter().rev().collect::<Vec<_>>().join("\n")
+        }
+        Err(_) => format!("(no output captured at {})", path.display()),
+    }
 }
 
 // Returns whether the port actually became reachable within the retry
@@ -711,7 +942,50 @@ fn spawn_atlas_server(app: &tauri::AppHandle) -> tauri::Result<Child> {
 // instrumentation (see log_diag's own comment) so the caller can log
 // success/failure/elapsed time rather than always silently proceeding to
 // open a window regardless of what happened.
+// Milestone 7 - the outcome of waiting for the server, so the caller can
+// tell the three cases apart instead of collapsing them into one bool.
+// `ChildDied` is the case that used to be invisible: our node process is
+// gone, and any reachable port belongs to somebody else.
 #[cfg(not(debug_assertions))]
+enum ServerReadiness {
+    Ready,
+    ChildDied(String),
+    TimedOut,
+}
+
+// Polls the port AND the child together. A bare port poll cannot tell our
+// server apart from a foreign process squatting on APP_PORT - that is
+// precisely how a dead child previously reported success (observed live:
+// reachable=true in 1.9ms, against a server Atlas never started).
+#[cfg(not(debug_assertions))]
+fn wait_for_server_with_child(port: u16, app: &AppHandle) -> ServerReadiness {
+    use std::time::Duration;
+
+    for _ in 0..30 {
+        // A dead child is decisive: whatever may be listening on the port,
+        // it is not ours, so report the real reason rather than a timeout.
+        if let Some(state) = app.try_state::<ServerProcess>() {
+            if let Ok(mut guard) = state.0.lock() {
+                if let Some(child) = guard.as_mut() {
+                    if let Ok(Some(status)) = child.try_wait() {
+                        return ServerReadiness::ChildDied(format!("exited with {status}\n\nNode reported:\n{}", read_node_stderr_tail()));
+                    }
+                }
+            }
+        }
+
+        if is_port_listening(port) {
+            return ServerReadiness::Ready;
+        }
+
+        std::thread::sleep(Duration::from_millis(250));
+    }
+
+    ServerReadiness::TimedOut
+}
+
+#[cfg(not(debug_assertions))]
+#[allow(dead_code)]
 fn wait_for_server(port: u16) -> bool {
     use std::net::{SocketAddr, TcpStream};
     use std::time::Duration;
@@ -735,4 +1009,83 @@ fn wait_for_server(port: u16) -> bool {
         }
     }
     false
+}
+
+#[cfg(test)]
+mod server_startup_tests {
+    use super::{atlas_server_paths, strip_extended_length_prefix};
+    use std::path::{Path, PathBuf};
+
+    // The installed layout Atlas actually ships (NSIS installs per-user
+    // into %LOCALAPPDATA%\Atlas). Used to assert against the REAL install
+    // when one is present on this machine.
+    fn installed_root() -> Option<PathBuf> {
+        let local_app_data = std::env::var("LOCALAPPDATA").ok()?;
+        let root = Path::new(&local_app_data).join("Atlas");
+        root.is_dir().then_some(root)
+    }
+
+    #[test]
+    fn production_paths_resolve_to_the_documented_installed_layout() {
+        let paths = atlas_server_paths(Path::new(r"C:\Users\example\AppData\Local\Atlas"));
+
+        assert_eq!(paths.node_binary, Path::new(r"C:\Users\example\AppData\Local\Atlas\node.exe"));
+        assert_eq!(paths.server_js, Path::new(r"C:\Users\example\AppData\Local\Atlas\.next\standalone\server.js"));
+        assert_eq!(paths.standalone_dir, Path::new(r"C:\Users\example\AppData\Local\Atlas\.next\standalone"));
+    }
+
+    // The server's working directory must be the standalone dir itself -
+    // Next's standalone server resolves its own assets relative to cwd, so
+    // spawning it with any other cwd is a real (silent) breakage.
+    #[test]
+    fn server_working_directory_is_the_standalone_directory_containing_server_js() {
+        let paths = atlas_server_paths(Path::new(r"C:\Atlas"));
+
+        assert_eq!(paths.server_js.parent().unwrap(), paths.standalone_dir);
+    }
+
+    // The \?\ extended-length prefix that Rust returns on Windows broke
+    // Node's own module resolution in production - it must never reach the
+    // spawned process.
+    #[test]
+    fn extended_length_prefix_is_stripped_from_resource_paths() {
+        let stripped = strip_extended_length_prefix(Path::new(r"\\?\C:\Users\example\AppData\Local\Atlas"));
+
+        assert_eq!(stripped, Path::new(r"C:\Users\example\AppData\Local\Atlas"));
+        assert!(!stripped.to_string_lossy().contains(r"\\?\"));
+    }
+
+    #[test]
+    fn a_plain_path_is_left_untouched_by_the_prefix_strip() {
+        let plain = Path::new(r"C:\Users\example\AppData\Local\Atlas");
+
+        assert_eq!(strip_extended_length_prefix(plain), plain);
+    }
+
+    #[test]
+    fn resolved_paths_never_keep_the_extended_length_prefix() {
+        let paths = atlas_server_paths(&strip_extended_length_prefix(Path::new(r"\\?\C:\Atlas")));
+
+        for path in [&paths.resource_dir, &paths.standalone_dir, &paths.server_js, &paths.node_binary] {
+            assert!(!path.to_string_lossy().contains(r"\\?\"), "{} still carries the prefix", path.display());
+        }
+    }
+
+    // Against the REAL install when present: the two files the spawn
+    // depends on must actually exist where the resolver says they are.
+    // Skips (rather than fails) on a machine with no install, so the suite
+    // stays runnable in CI.
+    #[test]
+    fn installed_build_contains_node_and_the_standalone_server() {
+        let Some(root) = installed_root() else {
+            eprintln!(r"skipping: no installed Atlas at %LOCALAPPDATA%\Atlas");
+            return;
+        };
+
+        let paths = atlas_server_paths(&root);
+
+        assert!(paths.node_binary.is_file(), "missing bundled node.exe at {}", paths.node_binary.display());
+        assert!(paths.server_js.is_file(), "missing standalone server at {}", paths.server_js.display());
+        assert!(paths.standalone_dir.is_dir(), "missing standalone dir at {}", paths.standalone_dir.display());
+    }
 }

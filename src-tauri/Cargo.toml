@@ -21,6 +21,15 @@ tauri-plugin-window-state = "2.4.1"
 tauri-plugin-global-shortcut = "2.3.2"
 tauri-plugin-autostart = "2.5.1"
 
+# Windows-only, and used for exactly one thing: putting the bundled Next.js
+# server into a Job Object so Windows itself kills it if Atlas dies without
+# running its own shutdown path (crash, Task Manager, taskkill /F). Without
+# this the server is orphaned, keeps port 3000, and the NEXT Atlas launch
+# fails with EADDRINUSE - see spawn_atlas_server. Already vendored via
+# Tauri's own tree, so this adds no new download.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_System_JobObjects", "Win32_System_Threading"] }
+
 [profile.release]
 panic = "abort"
 codegen-units = 1
