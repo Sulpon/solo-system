@@ -3,7 +3,7 @@ import { computePersonalState } from "./state-engine";
 import { computeInsights } from "./insight-engine";
 import { computeRecommendations } from "./recommendation-engine";
 import { getNextBestAction } from "./next-action-engine";
-import type { Quest, EisenhowerQuadrant } from "../types/quest";
+import type { Quest } from "../types/quest";
 import type { PresentMomentState } from "../engines/present-moment-engine";
 import type { PersonalIntelligenceSnapshot } from "./types";
 
@@ -19,7 +19,6 @@ export type IntelligenceEngineInput = SignalEngineInput &
     presentMoment: PresentMomentState;
     activeQuest: Quest | null;
     isQuestExecution: boolean;
-    currentPriorityQuadrant: EisenhowerQuadrant | null;
   }>;
 
 export function computePersonalIntelligence(input: IntelligenceEngineInput): PersonalIntelligenceSnapshot {
@@ -32,7 +31,6 @@ export function computePersonalIntelligence(input: IntelligenceEngineInput): Per
     presentMoment: input.presentMoment,
     activeQuest: input.activeQuest,
     isQuestExecution: input.isQuestExecution,
-    currentPriorityQuadrant: input.currentPriorityQuadrant,
     signals,
   });
 

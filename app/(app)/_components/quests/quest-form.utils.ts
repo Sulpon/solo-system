@@ -13,7 +13,6 @@ export const emptyQuestForm: QuestFormModel = {
   cadence: "daily",
   importance: "core",
   kind: "",
-  eisenhowerQuadrant: "",
   scheduledDays: [],
   scheduledDate: "",
   scheduledStartTime: "",
@@ -91,7 +90,6 @@ export function toQuestForm(quest: Quest): QuestFormModel {
     cadence: quest.cadence,
     importance: quest.importance ?? "core",
     kind: quest.kind ?? "",
-    eisenhowerQuadrant: quest.eisenhowerQuadrant ?? "",
     scheduledDays: [...(quest.scheduledDays ?? [])],
     scheduledDate: quest.scheduledDate ?? "",
     scheduledStartTime: quest.scheduledStartTime ?? "",
@@ -156,11 +154,6 @@ export function upsertQuestFromForm(quests: ReadonlyArray<Quest>, form: QuestFor
   const resolvedAttributeIds = form.inheritedAttributeIds.length > 0 ? form.inheritedAttributeIds : form.attributeXPOverride.map((reward) => reward.attributeId);
   const categoryId = resolvedAttributeIds[0] ?? form.categoryId;
   const kind = form.kind || undefined;
-  // Only a Task can carry a quadrant - if the form's kind isn't "task" (a
-  // Habit, or still uncategorized), this is always cleared regardless of
-  // whatever the (hidden) form field holds, so a Habit can never end up
-  // with stale Eisenhower data from when it used to be a Task.
-  const eisenhowerQuadrant = kind === "task" ? form.eisenhowerQuadrant || undefined : undefined;
   const scheduledDays = [...new Set(form.scheduledDays.filter((day) => Number.isInteger(day) && day >= 0 && day <= 6))].sort((first, second) => first - second);
   // scheduledDate (one-time) and a non-empty scheduledDays (recurring) are
   // mutually exclusive Calendar-scheduling modes (see types/quest.ts) - a
@@ -195,7 +188,6 @@ export function upsertQuestFromForm(quests: ReadonlyArray<Quest>, form: QuestFor
             cadence: form.cadence,
             importance: form.importance,
             kind,
-            eisenhowerQuadrant,
             scheduledDays,
             scheduledDate,
             scheduledStartTime,
@@ -231,7 +223,6 @@ export function upsertQuestFromForm(quests: ReadonlyArray<Quest>, form: QuestFor
       cadence: form.cadence,
       importance: form.importance,
       kind,
-      eisenhowerQuadrant,
       scheduledDays,
       scheduledDate,
       scheduledStartTime,

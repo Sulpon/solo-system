@@ -12,9 +12,7 @@ import { getLocalDayKey, parseLocalDayKey } from "../../_lib/local-day";
 import { useProgression } from "../../_lib/hooks/useProgression";
 import { useGoalTree } from "../../_lib/hooks/useGoalTree";
 import { useWorkout } from "../../_lib/workout-store";
-import { useEisenhowerSettings } from "../../_lib/hooks/useEisenhowerSettings";
-import { EISENHOWER_QUADRANTS } from "../../_lib/types/quest";
-import type { ChecklistItem, ChecklistMode, EisenhowerQuadrant, Quest, QuestKind, QuestStatus } from "../../_lib/types/quest";
+import type { ChecklistItem, ChecklistMode, Quest, QuestKind, QuestStatus } from "../../_lib/types/quest";
 import QuestForm, { type QuestFormModel } from "./QuestForm";
 import QuestBottomBar from "./QuestBottomBar";
 import QuestCommandBar from "./QuestCommandBar";
@@ -24,8 +22,6 @@ import UndoCompletionModal from "./UndoCompletionModal";
 import QuestList from "./QuestList";
 import QuestKindSection from "./QuestKindSection";
 import QuestDetailPanel from "./QuestDetailPanel";
-import TodaysPriorityGate from "./TodaysPriorityGate";
-import TomorrowPlanPanel from "./TomorrowPlanPanel";
 import { useQuestCompletionFlow } from "./useQuestCompletionFlow";
 import { createQuestFormModel, toQuestForm, upsertQuestFromForm } from "./quest-form.utils";
 import type { EditablePageSection } from "../page-edit/types";
@@ -34,44 +30,15 @@ import type { EditablePageSection } from "../page-edit/types";
 // handleDragEnd. Not persisted anywhere; purely a UI-level identifier for
 // "which zone did this land on."
 const HABIT_ZONE_ID = "quest-kind-zone-habit";
-// A Task with no quadrant chosen yet lands here - the only other "just make
-// it a Task" target, replacing the old single flat Tasks zone now that
-// Tasks are split into 4 quadrants (see QuestDropTarget below).
-const UNASSIGNED_TASK_ZONE_ID = "quest-eisenhower-zone-unassigned";
-const eisenhowerZoneId = (quadrant: EisenhowerQuadrant) => `quest-eisenhower-zone-${quadrant}`;
+const TASK_ZONE_ID = "quest-kind-zone-task";
 
-// What dropping onto a given zone should do to the dragged Quest. Every
-// Task zone (a quadrant, or Unassigned) sets kind: "task"; only a quadrant
-// zone also carries eisenhowerQuadrant. Deliberately flat, non-nested
-// droppables (4 quadrants + Unassigned + Habits, all siblings) rather than
-// one Tasks zone containing 4 nested zones - dnd-kit's pointerWithin
-// collision detection has no reliable "smallest zone wins" tie-break for
-// overlapping/nested droppables, so nesting them would make which zone
-// actually receives the drop unpredictable.
-type QuestDropTarget = Readonly<{ kind: QuestKind; eisenhowerQuadrant?: EisenhowerQuadrant }>;
+// What dropping onto a given zone should do to the dragged Quest: set its
+// kind, nothing else. Two flat, sibling droppables.
+type QuestDropTarget = Readonly<{ kind: QuestKind }>;
 
 const ZONE_DROP_TARGETS: Record<string, QuestDropTarget> = {
   [HABIT_ZONE_ID]: { kind: "habit" },
-  [UNASSIGNED_TASK_ZONE_ID]: { kind: "task" },
-  ...Object.fromEntries(EISENHOWER_QUADRANTS.map((quadrant) => [eisenhowerZoneId(quadrant), { kind: "task", eisenhowerQuadrant: quadrant }])),
-};
-
-// Rank glyph + accent per quadrant, in the same order as
-// EISENHOWER_QUADRANTS (urgency/importance ranking) - purely presentational,
-// never persisted. Plain squares rather than colored emoji circles - the
-// accent color (applied to this glyph via QuestKindSection's accentTextClass)
-// already carries the urgency signal, so the glyph itself stays restrained.
-const QUADRANT_ICONS: Record<EisenhowerQuadrant, string> = {
-  urgent_important: "◆ I",
-  urgent_not_important: "◆ II",
-  not_urgent_important: "◆ III",
-  not_urgent_not_important: "◆ IV",
-};
-const QUADRANT_ACCENTS: Record<EisenhowerQuadrant, { border: string; text: string }> = {
-  urgent_important: { border: "border-rose-400/60", text: "text-rose-200" },
-  urgent_not_important: { border: "border-orange-400/60", text: "text-orange-200" },
-  not_urgent_important: { border: "border-yellow-400/60", text: "text-yellow-200" },
-  not_urgent_not_important: { border: "border-slate-400/60", text: "text-slate-300" },
+  [TASK_ZONE_ID]: { kind: "task" },
 };
 
 type QuestManagerPageProps = Readonly<{}>;
@@ -85,7 +52,6 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
   const { isReady, questDefinitions: quests, setQuestDefinitions, questCompletions, activityEvents, progressionSummary } = useProgression();
   const { goalTree, progressGoals } = useGoalTree();
   const { startSession: startWorkoutSession } = useWorkout();
-  const { quadrantNames, renameQuadrant } = useEisenhowerSettings();
   const availableWidgets = useMemo(() => getCatalogWidgetsForPage("quests"), []);
   const {
     pendingQuest,
@@ -140,29 +106,6 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
   const habitQuests = useMemo(() => sortedQuests.filter((quest) => quest.kind === "habit"), [sortedQuests]);
   const uncategorizedQuests = useMemo(() => sortedQuests.filter((quest) => quest.kind !== "task" && quest.kind !== "habit"), [sortedQuests]);
 
-  // Sub-grouping of Tasks only - same "pure UI split, not a second source
-  // of truth" reasoning as taskQuests/habitQuests above. A Task with no
-  // eisenhowerQuadrant yet falls into its own Unassigned bucket rather than
-  // being hidden or guessed into a quadrant.
-  const tasksByQuadrant = useMemo(() => {
-    const groups = new Map<EisenhowerQuadrant, Quest[]>(EISENHOWER_QUADRANTS.map((quadrant) => [quadrant, []]));
-
-    for (const quest of taskQuests) {
-      if (quest.eisenhowerQuadrant) {
-        groups.get(quest.eisenhowerQuadrant)?.push(quest);
-      }
-    }
-
-    return groups;
-  }, [taskQuests]);
-  const unassignedTaskQuests = useMemo(() => taskQuests.filter((quest) => !quest.eisenhowerQuadrant), [taskQuests]);
-
-  // The Priority Gate and evening planning operate on every active Task
-  // regardless of the "all/today/core/bonus" filter above (that filter is
-  // a display concern for the regular board below, unrelated to gating) -
-  // computed straight from the raw, unfiltered quest list.
-  const activeGateTasks = useMemo(() => quests.filter((quest) => quest.kind === "task" && quest.status === "active"), [quests]);
-
   const [activeDragQuestId, setActiveDragQuestId] = useState<string | null>(null);
   const dragSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const activeDragQuest = quests.find((quest) => quest.id === activeDragQuestId) ?? null;
@@ -211,18 +154,14 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
     setQuestDefinitions(nextQuests);
   }
 
-  // Reassigns the classification (and, for Tasks, the Eisenhower quadrant)
-  // on the SAME Quest record - never creates or removes a Quest, never
-  // touches completions/streaks/XP/schedule/goal links, and goes through
-  // the exact setQuestDefinitions call every other mutation on this page
-  // already uses, so it persists (and syncs) exactly like an edit or an
-  // archive does. Landing on a Habit zone always clears eisenhowerQuadrant
-  // - a Habit can never carry a leftover quadrant from when it was a Task.
+  // Reassigns the classification on the SAME Quest record - never creates
+  // or removes a Quest, never touches completions/streaks/XP/schedule/goal
+  // links, and goes through the exact setQuestDefinitions call every other
+  // mutation on this page already uses, so it persists (and syncs) exactly
+  // like an edit or an archive does.
   function setQuestClassification(questId: string, target: QuestDropTarget) {
     const nextQuests = quests.map((item) =>
-      item.id === questId
-        ? { ...item, kind: target.kind, eisenhowerQuadrant: target.kind === "task" ? target.eisenhowerQuadrant : undefined, updatedAt: new Date().toISOString() }
-        : item,
+      item.id === questId ? { ...item, kind: target.kind, updatedAt: new Date().toISOString() } : item,
     );
     setQuestDefinitions(nextQuests);
   }
@@ -260,7 +199,7 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
   // Same thin-mutation shape as setQuestStatus/setQuestClassification above -
   // a plain patch on the one matching Quest, through the same
   // setQuestDefinitions every other mutation on this page uses. Never
-  // touches completions/XP/schedule/kind/eisenhowerQuadrant, so editing a
+  // touches completions/XP/schedule/kind, so editing a
   // checklist can never affect the rest of a Quest's data.
   function updateQuestChecklist(questId: string, patch: Readonly<{ checklistMode?: ChecklistMode; checklist?: ReadonlyArray<ChecklistItem>; checklistTemplateId?: string | null }>) {
     const nextQuests = quests.map((item) => (item.id === questId ? { ...item, ...patch, updatedAt: new Date().toISOString() } : item));
@@ -337,11 +276,6 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
         ))}
       </div>
 
-      <div className="mt-5 space-y-4">
-        <TodaysPriorityGate tasks={activeGateTasks} completions={questCompletions} onSelect={(quest) => setSelectedQuestId(quest.id)} />
-        <TomorrowPlanPanel tasks={activeGateTasks} />
-      </div>
-
       {sortedQuests.length === 0 ? (
         <div className="mt-5 rounded-2xl border border-dashed border-slate-700 bg-slate-950/45 p-8 text-center">
           <h3 className="text-lg font-bold text-white">No quests created yet</h3>
@@ -363,63 +297,26 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
           onDragCancel={handleDragCancel}
         >
           <div className="mt-5 space-y-4">
-            <div>
-              <div className="flex items-center gap-2 px-1">
-                <span className="h-1.5 w-1.5 rounded-full bg-cyan-300" aria-hidden="true" />
-                <h3 className="text-sm font-black uppercase tracking-[0.14em] text-white">Tasks</h3>
-                <span className="text-xs text-slate-500">{taskQuests.length}</span>
-              </div>
-
-              <div className="mt-2 space-y-3">
-                {EISENHOWER_QUADRANTS.map((quadrant) => (
-                  <QuestKindSection
-                    key={quadrant}
-                    id={eisenhowerZoneId(quadrant)}
-                    title={quadrantNames[quadrant]}
-                    icon={QUADRANT_ICONS[quadrant]}
-                    accentBorderClass={QUADRANT_ACCENTS[quadrant].border}
-                    accentTextClass={QUADRANT_ACCENTS[quadrant].text}
-                    emptyHint="Drag a Task here."
-                    quests={tasksByQuadrant.get(quadrant) ?? []}
-                    questCompletions={questCompletions}
-                    completedTodayIds={completedForLogDayIds}
-                    referenceDate={logDate}
-                    onEdit={(quest) => setForm(toQuestForm(quest))}
-                    onToggleStatus={(quest) => setQuestStatus(quest, quest.status === "active" ? "archived" : "active")}
-                    onDelete={deleteQuest}
-                    onComplete={(quest) => beginQuestCompletion(quest, completionTimestampForLogDay())}
-                    onUndoComplete={(quest) => beginUndoCompletion(quest.id, logDate.toISOString())}
-                    onStartWorkout={(quest) => startWorkoutSession({ templateId: quest.linkedWorkoutTemplateId, linkedQuestId: quest.id })}
-                    onSelect={(quest) => setSelectedQuestId(quest.id)}
-                    selectedQuestId={selectedQuestId}
-                    onRenameTitle={(nextTitle) => renameQuadrant(quadrant, nextTitle)}
-                  />
-                ))}
-
-                {unassignedTaskQuests.length > 0 ? (
-                  <QuestKindSection
-                    id={UNASSIGNED_TASK_ZONE_ID}
-                    title="Unassigned"
-                    icon="—"
-                    accentBorderClass="border-slate-500/60"
-                    accentTextClass="text-slate-300"
-                    emptyHint="Drag a Task here to clear its priority."
-                    quests={unassignedTaskQuests}
-                    questCompletions={questCompletions}
-                    completedTodayIds={completedForLogDayIds}
-                    referenceDate={logDate}
-                    onEdit={(quest) => setForm(toQuestForm(quest))}
-                    onToggleStatus={(quest) => setQuestStatus(quest, quest.status === "active" ? "archived" : "active")}
-                    onDelete={deleteQuest}
-                    onComplete={(quest) => beginQuestCompletion(quest, completionTimestampForLogDay())}
-                    onUndoComplete={(quest) => beginUndoCompletion(quest.id, logDate.toISOString())}
-                    onStartWorkout={(quest) => startWorkoutSession({ templateId: quest.linkedWorkoutTemplateId, linkedQuestId: quest.id })}
-                    onSelect={(quest) => setSelectedQuestId(quest.id)}
-                    selectedQuestId={selectedQuestId}
-                  />
-                ) : null}
-              </div>
-            </div>
+            <QuestKindSection
+              id={TASK_ZONE_ID}
+              title="Tasks"
+              icon="◆"
+              accentBorderClass="border-cyan-400/60"
+              accentTextClass="text-cyan-200"
+              emptyHint="Drag a quest here to make it a Task."
+              quests={taskQuests}
+              questCompletions={questCompletions}
+              completedTodayIds={completedForLogDayIds}
+              referenceDate={logDate}
+              onEdit={(quest) => setForm(toQuestForm(quest))}
+              onToggleStatus={(quest) => setQuestStatus(quest, quest.status === "active" ? "archived" : "active")}
+              onDelete={deleteQuest}
+              onComplete={(quest) => beginQuestCompletion(quest, completionTimestampForLogDay())}
+              onUndoComplete={(quest) => beginUndoCompletion(quest.id, logDate.toISOString())}
+              onStartWorkout={(quest) => startWorkoutSession({ templateId: quest.linkedWorkoutTemplateId, linkedQuestId: quest.id })}
+              onSelect={(quest) => setSelectedQuestId(quest.id)}
+              selectedQuestId={selectedQuestId}
+            />
 
             <QuestKindSection
               id={HABIT_ZONE_ID}

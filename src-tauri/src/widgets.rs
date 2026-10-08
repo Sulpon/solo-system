@@ -40,7 +40,6 @@ pub struct WidgetDefinition {
 
 pub const WIDGET_DEFINITIONS: &[WidgetDefinition] = &[
     WidgetDefinition { id: "current-quest", label: "widget-current-quest", title: "Atlas - Current Quest", menu_label: "Current Quest Widget", path: "/widget/current-quest", width: 300.0, height: 160.0, min_width: 240.0, min_height: 120.0, stack_index: 1 },
-    WidgetDefinition { id: "priority", label: "widget-priority", title: "Atlas - Priority", menu_label: "Priority Widget", path: "/widget/priority", width: 260.0, height: 140.0, min_width: 220.0, min_height: 110.0, stack_index: 2 },
     WidgetDefinition { id: "xp", label: "widget-xp", title: "Atlas - XP", menu_label: "XP Widget", path: "/widget/xp", width: 260.0, height: 120.0, min_width: 220.0, min_height: 100.0, stack_index: 3 },
 ];
 

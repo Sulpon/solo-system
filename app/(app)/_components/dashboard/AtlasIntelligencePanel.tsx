@@ -23,7 +23,6 @@ const STATE_BADGES: Readonly<Record<SignalType, Readonly<{ label: string; classN
   overload: { label: "Overloaded", className: "border-amber-400/30 bg-amber-400/10 text-amber-200" },
   focus_quality: { label: "Focus quality", className: "border-cyan-400/30 bg-cyan-400/10 text-cyan-200" },
   completion_momentum: { label: "Building momentum", className: "border-emerald-400/30 bg-emerald-400/10 text-emerald-200" },
-  priority_conflict: { label: "Conflict", className: "border-rose-400/30 bg-rose-400/10 text-rose-200" },
 };
 
 // One row per real Goal, not per signal - a goal with both a risk and a

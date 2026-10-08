@@ -9,7 +9,6 @@ import type { Category } from "../types/category";
 import type { FocusHistoryEntry } from "../types/focus";
 import type { ActivityEvent } from "../types/activity-event";
 import type { CalendarQuestItem } from "../engines/quest-calendar-engine";
-import type { PriorityGateState } from "../engines/priority-gate-engine";
 import type { PersonalSignal, SignalPolarity } from "./types";
 
 // Phase 11's Signal Engine - every function here is a PURE, deterministic
@@ -24,6 +23,8 @@ import type { PersonalSignal, SignalPolarity } from "./types";
 // goal's linked quests - this is deliberate: relationships.ts already owns
 // goal-tree traversal + quest linkage, so this module never re-derives it.
 
+import { hasCompletedToday } from "../quest-storage";
+
 export type SignalEngineInput = Readonly<{
   now: Date;
   goalTree: GoalTree;
@@ -35,7 +36,6 @@ export type SignalEngineInput = Readonly<{
   focusHistory: ReadonlyArray<FocusHistoryEntry>;
   activityEvents: ReadonlyArray<ActivityEvent>;
   todaysCalendarItems: ReadonlyArray<CalendarQuestItem>;
-  priorityGateState: PriorityGateState | null;
   // From Present-Moment Engine (presentMoment.availableUnscheduledMinutes) -
   // reused, never recomputed here.
   availableUnscheduledMinutes: number | null;
@@ -329,13 +329,8 @@ function computeGoalRiskSignal(node: GoalNode, linkedQuests: ReadonlyArray<Quest
 const OVERLOAD_TASK_COUNT_THRESHOLD = 4;
 
 function computeOverloadSignal(input: SignalEngineInput): PersonalSignal | null {
-  const gate = input.priorityGateState;
-  if (!gate) {
-    return null;
-  }
-
-  const uncleared = gate.quadrantStatuses.filter((status) => !status.cleared);
-  const totalTasks = uncleared.reduce((sum, status) => sum + status.tasks.length, 0);
+  const openTasks = input.quests.filter((quest) => quest.kind === "task" && quest.status === "active" && !hasCompletedToday(quest.id, input.completions, input.now));
+  const totalTasks = openTasks.length;
   if (totalTasks === 0) {
     return null;
   }
@@ -350,7 +345,7 @@ function computeOverloadSignal(input: SignalEngineInput): PersonalSignal | null 
     return null;
   }
 
-  const evidence: string[] = [`${totalTasks} uncleared priority task${totalTasks === 1 ? "" : "s"} today`];
+  const evidence: string[] = [`${totalTasks} open task${totalTasks === 1 ? "" : "s"} today`];
   if (overloadByTime) {
     evidence.push(`${scheduledMinutes} minutes scheduled vs ${input.availableUnscheduledMinutes} minutes available`);
   }
@@ -366,7 +361,7 @@ function computeOverloadSignal(input: SignalEngineInput): PersonalSignal | null 
     label: "Today",
     explanation: "Today's important work is concentrated beyond what's likely to fit.",
     evidence,
-    sourceIds: uncleared.flatMap((status) => status.tasks.map((task) => task.id)),
+    sourceIds: openTasks.map((task) => task.id),
   };
 }
 
@@ -454,50 +449,6 @@ function computeCompletionMomentumSignal(input: SignalEngineInput): PersonalSign
   return null;
 }
 
-// ---- Priority conflict (calendar vs. Priority Gate) ------------------------
-
-function timeToMinutes(time: string): number {
-  const [hours, minutes] = time.split(":").map(Number);
-  return hours * 60 + minutes;
-}
-
-function computePriorityConflictSignal(input: SignalEngineInput): PersonalSignal | null {
-  const quadrant = input.priorityGateState?.currentQuadrant ?? null;
-  if (!quadrant) {
-    return null;
-  }
-
-  const nowMinutes = input.now.getHours() * 60 + input.now.getMinutes();
-  const active = input.todaysCalendarItems.find((item) => {
-    if (item.status === "completed" || !item.startTime) return false;
-    const start = timeToMinutes(item.startTime);
-    const end = item.endTime ? timeToMinutes(item.endTime) : start + 30;
-    return nowMinutes >= start && nowMinutes < end;
-  });
-  if (!active) {
-    return null;
-  }
-
-  const activeQuadrant = active.quest.kind === "task" ? active.quest.eisenhowerQuadrant ?? null : null;
-  if (activeQuadrant === quadrant) {
-    return null;
-  }
-
-  return {
-    id: `priority_conflict:${active.quest.id}`,
-    type: "priority_conflict",
-    polarity: "negative",
-    strength: 0.6,
-    confidence: 0.7,
-    entityType: "quest",
-    entityId: active.quest.id,
-    label: active.quest.title,
-    explanation: `The calendar has "${active.quest.title}" scheduled now, but the Priority Gate's current quadrant isn't cleared yet.`,
-    evidence: [`"${active.quest.title}" is scheduled right now`, `Priority Gate is still on ${quadrant.replaceAll("_", " ")}`],
-    sourceIds: [active.quest.id],
-  };
-}
-
 // ---- Composition ------------------------------------------------------------
 
 // Goal-scoped signals are only computed for TOP-LEVEL goal-tree nodes
@@ -527,8 +478,6 @@ export function computeAllSignals(input: SignalEngineInput): PersonalSignal[] {
   if (focusQuality) signals.push(focusQuality);
   const completionMomentum = computeCompletionMomentumSignal(input);
   if (completionMomentum) signals.push(completionMomentum);
-  const priorityConflict = computePriorityConflictSignal(input);
-  if (priorityConflict) signals.push(priorityConflict);
 
   return signals;
 }

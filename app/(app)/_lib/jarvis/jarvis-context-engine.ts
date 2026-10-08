@@ -117,11 +117,9 @@ export function buildJarvisContext(input: JarvisContextBuildInput): JarvisContex
     currentApp: structured.currentApp?.name ?? null,
     activeMission: structured.activeMission,
     presentMoment: {
-      importantWorkComplete: structured.currentState.presentMoment.importantWorkComplete,
       availableUnscheduledMinutes: structured.currentState.presentMoment.availableUnscheduledMinutes,
       nextCommitment: structured.currentState.presentMoment.nextCommitment,
     },
-    priorityGate: { currentQuadrant: structured.currentState.currentPriority },
     nextBestAction: selectedSlices.has("priority") && structured.nextBestAction ? { title: structured.nextBestAction.title, reason: structured.nextBestAction.reason, evidence: structured.nextBestAction.evidence } : null,
     goals,
     todaysCalendar,

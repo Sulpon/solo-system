@@ -1,6 +1,6 @@
 import { daysBetween } from "./signal-engine";
 import type { GoalTree } from "../types/goal-tree";
-import type { Quest, EisenhowerQuadrant } from "../types/quest";
+import type { Quest } from "../types/quest";
 import type { ActivityEvent, ActivityEventType } from "../types/activity-event";
 import type { PresentMomentState } from "../engines/present-moment-engine";
 import type { PersonalSignal, PersonalState, UpcomingDeadline } from "./types";
@@ -19,7 +19,6 @@ export type StateEngineInput = Readonly<{
   presentMoment: PresentMomentState;
   activeQuest: Quest | null;
   isQuestExecution: boolean;
-  currentPriorityQuadrant: EisenhowerQuadrant | null;
   signals: ReadonlyArray<PersonalSignal>;
 }>;
 
@@ -51,14 +50,12 @@ export function computePersonalState(input: StateEngineInput): PersonalState {
   return {
     presentMoment: input.presentMoment,
     activeMission,
-    currentPriority: input.currentPriorityQuadrant,
     goalMomentum: input.signals.filter((signal) => signal.type === "momentum"),
     friction: input.signals.filter((signal) => signal.type === "friction"),
     neglectedAreas: input.signals.filter((signal) => signal.type === "neglect"),
     workload: input.signals.find((signal) => signal.type === "overload") ?? null,
     focusQuality: input.signals.find((signal) => signal.type === "focus_quality") ?? null,
     completionMomentum: input.signals.find((signal) => signal.type === "completion_momentum") ?? null,
-    priorityConflict: input.signals.find((signal) => signal.type === "priority_conflict") ?? null,
     recentAchievementTitles,
     upcomingDeadlines,
   };

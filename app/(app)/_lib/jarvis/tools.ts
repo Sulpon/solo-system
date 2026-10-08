@@ -65,7 +65,7 @@ function calendarItemsFor(context: ToolExecutionContext, when: string | undefine
 // ---- Tool definitions (sent to the LLM) ------------------------------------
 
 export const JARVIS_TOOLS: ReadonlyArray<LLMToolDefinition> = [
-  { name: "get_current_state", description: "Get Atlas's current deterministic state: active mission, current priority quadrant, present-moment status, momentum/friction/neglect signals.", inputSchema: { type: "object", properties: {} } },
+  { name: "get_current_state", description: "Get Atlas's current deterministic state: active mission, present-moment status, momentum/friction/neglect signals.", inputSchema: { type: "object", properties: {} } },
   { name: "get_next_best_action", description: "Get Atlas's deterministic recommendation for what to do right now, with evidence. Returns null if a mission is already active or nothing qualifies.", inputSchema: { type: "object", properties: {} } },
   { name: "get_goal", description: "Get details and real connected entities for one Goal, by id or title.", inputSchema: { type: "object", properties: { idOrTitle: { type: "string" } }, required: ["idOrTitle"] } },
   { name: "get_quest", description: "Get details and real connected entities for one Quest, by id or title.", inputSchema: { type: "object", properties: { idOrTitle: { type: "string" } }, required: ["idOrTitle"] } },
@@ -101,7 +101,6 @@ function executeGetCurrentState(context: ToolExecutionContext): ToolResult {
     ok: true,
     data: {
       activeMission: state.activeMission,
-      currentPriority: state.currentPriority,
       presentMoment: state.presentMoment,
       goalMomentum: state.goalMomentum.map((signal) => ({ label: signal.label, explanation: signal.explanation })),
       friction: state.friction.map((signal) => ({ label: signal.label, explanation: signal.explanation })),

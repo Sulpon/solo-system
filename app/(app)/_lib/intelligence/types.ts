@@ -1,4 +1,3 @@
-import type { EisenhowerQuadrant } from "../types/quest";
 import type { PresentMomentState } from "../engines/present-moment-engine";
 
 // Phase 11's "Personal Intelligence Foundation" - shared types for the
@@ -16,7 +15,7 @@ export type SignalType =
   | "overload"
   | "focus_quality"
   | "completion_momentum"
-  | "priority_conflict";
+;
 
 export type SignalPolarity = "positive" | "negative" | "neutral";
 
@@ -66,14 +65,12 @@ export type UpcomingDeadline = Readonly<{
 export type PersonalState = Readonly<{
   presentMoment: PresentMomentState;
   activeMission: Readonly<{ questId: string; title: string }> | null;
-  currentPriority: EisenhowerQuadrant | null;
   goalMomentum: ReadonlyArray<PersonalSignal>;
   friction: ReadonlyArray<PersonalSignal>;
   neglectedAreas: ReadonlyArray<PersonalSignal>;
   workload: PersonalSignal | null;
   focusQuality: PersonalSignal | null;
   completionMomentum: PersonalSignal | null;
-  priorityConflict: PersonalSignal | null;
   recentAchievementTitles: ReadonlyArray<string>;
   upcomingDeadlines: ReadonlyArray<UpcomingDeadline>;
 }>;

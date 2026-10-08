@@ -8,7 +8,7 @@ import type { QuestFormModel } from "../QuestForm";
 import type { Quest } from "../../../_lib/types/quest";
 
 // Every hook QuestForm depends on (useAttributes, useGoalTree,
-// useWorkoutTemplates, useEisenhowerSettings) is backed only by
+// useWorkoutTemplates) is backed only by
 // useLocalStorageState - no Supabase/auth/context provider needed to mount
 // the real create/edit modal in jsdom.
 function Harness({ initialForm }: Readonly<{ initialForm: QuestFormModel }>) {

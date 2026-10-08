@@ -2,7 +2,7 @@
 // "focus" is not a new implementation but the EXISTING Focus Companion
 // (Milestone 2), registered here purely so it can be listed/toggled
 // through the same uniform API as the widgets introduced this milestone.
-export type FloatingWidgetId = "focus" | "current-quest" | "priority" | "xp";
+export type FloatingWidgetId = "focus" | "current-quest" | "xp";
 
 export type FloatingWidgetDefinition = Readonly<{
   id: FloatingWidgetId;

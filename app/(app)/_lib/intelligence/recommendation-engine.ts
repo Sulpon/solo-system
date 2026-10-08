@@ -171,41 +171,6 @@ function fromOverload(signal: PersonalSignal, availableMinutes: number | null): 
   );
 }
 
-function fromPriorityConflict(signal: PersonalSignal, availableMinutes: number | null): PersonalRecommendation {
-  return buildRecommendation(
-    signal,
-    "review_goal",
-    `Resolve conflict: "${signal.label}"`,
-    signal.explanation,
-    signal.entityId,
-    "/quests",
-    { urgency: 0.7, importance: 0.5, goalImpact: 0.3, momentum: 0, friction: 0, availableTime: availableTimeScore(availableMinutes), recentContext: 0.3 },
-  );
-}
-
-// Present-Moment Engine's own "important work complete" state, reused
-// verbatim - never recomputed. Only produced when there's genuinely open
-// time to suggest something into (never invented activities beyond a
-// generic "open time" pointer, per Phase 11's evidence-first rule).
-function fromImportantWorkComplete(presentMoment: PresentMomentState): PersonalRecommendation | null {
-  if (!presentMoment.importantWorkComplete || presentMoment.availableUnscheduledMinutes === null || presentMoment.availableUnscheduledMinutes <= 0) {
-    return null;
-  }
-  return {
-    id: "recommend:important_work_complete",
-    actionType: "open_time_suggestion",
-    title: "Important work is complete",
-    reason: `You have ${presentMoment.availableUnscheduledMinutes} minutes of open time before your next commitment.`,
-    evidence: [
-      "Today's Priority Gate is clear",
-      presentMoment.nextCommitment ? `Next commitment: ${presentMoment.nextCommitment.title} at ${presentMoment.nextCommitment.time}` : "No further commitments scheduled today",
-    ],
-    entityId: null,
-    href: null,
-    priorityScore: scoreRecommendation({ urgency: 0.1, importance: 0.2, goalImpact: 0.1, momentum: 0, friction: 0, availableTime: availableTimeScore(presentMoment.availableUnscheduledMinutes), recentContext: 0.1 }),
-  };
-}
-
 export function computeRecommendations(input: RecommendationEngineInput): PersonalRecommendation[] {
   const recommendations: PersonalRecommendation[] = [];
 
@@ -231,9 +196,6 @@ export function computeRecommendations(input: RecommendationEngineInput): Person
       case "overload":
         recommendations.push(fromOverload(signal, input.availableUnscheduledMinutes));
         break;
-      case "priority_conflict":
-        recommendations.push(fromPriorityConflict(signal, input.availableUnscheduledMinutes));
-        break;
       case "focus_quality":
         // Informational only - no single concrete Atlas action is
         // supported by this signal alone (see insight-engine.ts); it still
@@ -241,9 +203,6 @@ export function computeRecommendations(input: RecommendationEngineInput): Person
         break;
     }
   }
-
-  const importantWorkComplete = fromImportantWorkComplete(input.presentMoment);
-  if (importantWorkComplete) recommendations.push(importantWorkComplete);
 
   return recommendations.sort((first, second) => second.priorityScore - first.priorityScore);
 }

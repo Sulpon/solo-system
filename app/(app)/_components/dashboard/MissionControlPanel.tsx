@@ -6,7 +6,6 @@ import { Crosshair, Pause, Play } from "lucide-react";
 import { useQuestExecutionSession } from "../focus/useQuestExecutionSession";
 import { formatFocusDuration } from "../focus/focus-format";
 import { useAttributes } from "../../_lib/hooks/useAttributes";
-import { useEisenhowerSettings } from "../../_lib/hooks/useEisenhowerSettings";
 import { useAtlasContext } from "../../_lib/atlas-context";
 import AskJarvisLink from "../jarvis/AskJarvisLink";
 
@@ -32,8 +31,7 @@ function formatMinutes(minutes: number) {
 export default function MissionControlPanel() {
   const { activeSession, isQuestExecution, linkedQuest, elapsedSeconds, isRunning, checklistProgress, pauseSession, resumeSession, expand } = useQuestExecutionSession();
   const { attributes } = useAttributes();
-  const { quadrantNames } = useEisenhowerSettings();
-  const { currentPriorityQuadrant, presentMoment } = useAtlasContext();
+  const { presentMoment } = useAtlasContext();
 
   const categoryName = useMemo(
     () => (linkedQuest ? attributes.find((attribute) => attribute.id === linkedQuest.categoryId)?.name ?? null : null),
@@ -50,15 +48,7 @@ export default function MissionControlPanel() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Mission Control</p>
-            {presentMoment.importantWorkComplete ? (
-              <p className="mt-1 text-sm font-semibold text-emerald-300">Important work complete for today.</p>
-            ) : currentPriorityQuadrant ? (
-              <p className="mt-1 text-sm text-slate-300">
-                Current priority: <span className="font-semibold text-white">{quadrantNames[currentPriorityQuadrant]}</span>
-              </p>
-            ) : (
-              <p className="mt-1 text-sm text-slate-400">No active mission. Take a Quest to start one.</p>
-            )}
+            <p className="mt-1 text-sm text-slate-400">No active mission. Take a Quest to start one.</p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <AskJarvisLink label="Ask JARVIS" />
@@ -72,11 +62,6 @@ export default function MissionControlPanel() {
           <span>
             Next: <span className="text-slate-300">{nextCommitmentLabel}</span>
           </span>
-          {presentMoment.remainingPriorityCategories > 0 ? (
-            <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-amber-200">
-              {presentMoment.remainingPriorityCategories} priority {presentMoment.remainingPriorityCategories === 1 ? "category" : "categories"} remaining
-            </span>
-          ) : null}
         </div>
       </div>
     );

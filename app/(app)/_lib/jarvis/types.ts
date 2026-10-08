@@ -78,7 +78,7 @@ export type JarvisContextRelationshipGroup = Readonly<{ label: string; items: Re
 
 // Phase 18 - a compact, real projection of the persisted active plan (see
 // _lib/hooks/useJarvisPlans.ts), always included (never slice-gated, same
-// as presentMoment/priorityGate) so "what's my plan"/"what's next"/"why is
+// as presentMoment) so "what's my plan"/"what's next"/"why is
 // this blocked" are answered from Atlas's own persisted plan state, never
 // reconstructed from conversation history. `dependsOn` is already resolved
 // to human-readable step summaries so the model never has to reason about
@@ -90,8 +90,7 @@ export type JarvisContext = Readonly<{
   now: string;
   currentApp: string | null;
   activeMission: Readonly<{ questId: string; title: string }> | null;
-  presentMoment: Readonly<{ importantWorkComplete: boolean; availableUnscheduledMinutes: number | null; nextCommitment: Readonly<{ title: string; time: string }> | null }>;
-  priorityGate: Readonly<{ currentQuadrant: string | null }>;
+  presentMoment: Readonly<{ availableUnscheduledMinutes: number | null; nextCommitment: Readonly<{ title: string; time: string }> | null }>;
   nextBestAction: Readonly<{ title: string; reason: string; evidence: ReadonlyArray<string> }> | null;
   goals: ReadonlyArray<JarvisContextGoal>;
   todaysCalendar: ReadonlyArray<JarvisContextCalendarItem>;

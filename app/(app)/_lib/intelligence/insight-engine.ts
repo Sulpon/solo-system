@@ -16,7 +16,6 @@ const TITLE_TEMPLATES: Readonly<Record<SignalType, (signal: PersonalSignal) => s
   focus_quality: (signal) =>
     signal.polarity === "positive" ? "Focus Sessions are completing cleanly" : signal.polarity === "negative" ? "Focus Sessions have been struggling" : "Focus Sessions have been mixed",
   completion_momentum: (signal) => `Continue your ${signal.label} execution context`,
-  priority_conflict: () => "Calendar and Priority Gate disagree on what's next",
 };
 
 function hrefForSignal(signal: PersonalSignal): string | null {
@@ -25,11 +24,11 @@ function hrefForSignal(signal: PersonalSignal): string | null {
   return null;
 }
 
-// goal_risk/friction/overload/priority_conflict are elevated because they
+// goal_risk/friction/overload are elevated because they
 // represent something the user is likely to want to act on soon; pure
 // momentum/focus_quality/completion_momentum stay informational unless the
 // underlying evidence is unusually strong.
-const ELEVATED_TYPES: ReadonlySet<SignalType> = new Set(["goal_risk", "friction", "overload", "priority_conflict"]);
+const ELEVATED_TYPES: ReadonlySet<SignalType> = new Set<SignalType>(["goal_risk", "friction", "overload"]);
 
 function priorityForSignal(signal: PersonalSignal): InsightPriority {
   const weight = (signal.strength + signal.confidence) / 2;

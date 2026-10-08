@@ -26,11 +26,6 @@ type QuestKindSectionProps = Readonly<{
   onStartWorkout: (quest: Quest) => void;
   onSelect: (quest: Quest) => void;
   selectedQuestId: string | null;
-  // Opt-in inline rename affordance (used by the Eisenhower quadrant
-  // sections, which have user-customizable display names - see
-  // useEisenhowerSettings.ts). Omitted entirely for Tasks/Habits, which
-  // have fixed titles - no rename UI renders when this is absent.
-  onRenameTitle?: (nextTitle: string) => void;
 }>;
 
 // A drop target for reclassifying an existing Quest's `kind` - see
@@ -57,26 +52,8 @@ export default function QuestKindSection({
   onStartWorkout,
   onSelect,
   selectedQuestId,
-  onRenameTitle,
 }: QuestKindSectionProps) {
   const { setNodeRef, isOver } = useDroppable({ id });
-  const [isRenaming, setIsRenaming] = useState(false);
-  const [draftTitle, setDraftTitle] = useState(title);
-
-  function startRename() {
-    setDraftTitle(title);
-    setIsRenaming(true);
-  }
-
-  function commitRename() {
-    const trimmed = draftTitle.trim();
-
-    if (trimmed && trimmed !== title) {
-      onRenameTitle?.(trimmed);
-    }
-
-    setIsRenaming(false);
-  }
 
   return (
     <div
@@ -86,31 +63,8 @@ export default function QuestKindSection({
     >
       <div className="flex items-center gap-2 px-1">
         <span className={"text-xs leading-none " + accentTextClass}>{icon}</span>
-        {isRenaming ? (
-          <input
-            autoFocus
-            value={draftTitle}
-            onChange={(event) => setDraftTitle(event.target.value)}
-            onBlur={commitRename}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                commitRename();
-              } else if (event.key === "Escape") {
-                setIsRenaming(false);
-              }
-            }}
-            aria-label={`Rename ${title}`}
-            className="rounded-md border border-purple-400/50 bg-slate-950/80 px-2 py-0.5 text-sm font-black uppercase tracking-[0.14em] text-white outline-none"
-          />
-        ) : (
-          <h3 className={"text-sm font-black uppercase tracking-[0.14em] " + (isOver ? accentTextClass : "text-white")}>{title}</h3>
-        )}
+        <h3 className={"text-sm font-black uppercase tracking-[0.14em] " + (isOver ? accentTextClass : "text-white")}>{title}</h3>
         <span className="text-xs text-slate-500">{quests.length}</span>
-        {onRenameTitle && !isRenaming ? (
-          <button type="button" onClick={startRename} aria-label={`Rename ${title}`} className="ml-auto text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-500 transition hover:text-white">
-            Rename
-          </button>
-        ) : null}
       </div>
 
       {quests.length === 0 ? (

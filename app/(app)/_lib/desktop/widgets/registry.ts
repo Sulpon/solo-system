@@ -45,20 +45,6 @@ export const FLOATING_WIDGET_REGISTRY: Readonly<Record<FloatingWidgetId, Floatin
     alwaysOnTop: true,
     stackIndex: 1,
   },
-  priority: {
-    id: "priority",
-    label: "widget-priority",
-    title: "Atlas - Priority",
-    menuLabel: "Priority Widget",
-    url: "/widget/priority",
-    defaultWidth: 260,
-    defaultHeight: 140,
-    minWidth: 220,
-    minHeight: 110,
-    resizable: true,
-    alwaysOnTop: true,
-    stackIndex: 2,
-  },
   xp: {
     id: "xp",
     label: "widget-xp",
@@ -75,7 +61,7 @@ export const FLOATING_WIDGET_REGISTRY: Readonly<Record<FloatingWidgetId, Floatin
   },
 };
 
-export const FLOATING_WIDGET_IDS: ReadonlyArray<FloatingWidgetId> = ["focus", "current-quest", "priority", "xp"];
+export const FLOATING_WIDGET_IDS: ReadonlyArray<FloatingWidgetId> = ["focus", "current-quest", "xp"];
 
 export function getWidgetDefinition(id: FloatingWidgetId): FloatingWidgetDefinition {
   return FLOATING_WIDGET_REGISTRY[id];

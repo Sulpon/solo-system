@@ -6,7 +6,6 @@ import AuthControl from "./AuthControl";
 import FocusMiniTimer from "./focus/FocusMiniTimer";
 import WorkoutMiniTimer from "./workouts/WorkoutMiniTimer";
 import { useAtlasContext } from "../_lib/atlas-context";
-import { useEisenhowerSettings } from "../_lib/hooks/useEisenhowerSettings";
 import { useOnlineStatus } from "../_lib/hooks/useOnlineStatus";
 import { usePersonalIntelligence } from "../_lib/hooks/usePersonalIntelligence";
 
@@ -29,8 +28,7 @@ export default function TopBar({ onOpenMenu, onOpenLauncher, onOpenNotifications
   // contextual pill is just another read of the one real execution session
   // plus the same Priority Gate derivation the Quests page already uses,
   // never a second source of truth for what's active or what matters next.
-  const { activeQuest, activeFocusSession, isQuestExecution, currentPriorityQuadrant, currentLevel, dailyXp } = useAtlasContext();
-  const { quadrantNames } = useEisenhowerSettings();
+  const { activeQuest, activeFocusSession, isQuestExecution, currentLevel, dailyXp } = useAtlasContext();
   const { nextAction } = usePersonalIntelligence();
   const isOnline = useOnlineStatus();
   const [now, setNow] = useState(() => new Date());
@@ -46,15 +44,11 @@ export default function TopBar({ onOpenMenu, onOpenLauncher, onOpenNotifications
   const currentTime = useMemo(() => formatTime(now), [now]);
   const missionTitle = isQuestExecution && activeFocusSession ? activeQuest?.title ?? "Focus Session" : null;
   // When nothing is actively executing, the pill communicates what SHOULD
-  // happen next (the current Priority Gate quadrant) instead of going
-  // blank - the same "current priority" concept section 4 of the Phase 3
-  // spec asks for, reusing the exact Priority Gate state already computed.
-  const priorityLabel = !missionTitle && currentPriorityQuadrant ? quadrantNames[currentPriorityQuadrant] : null;
   // Third fallback: no active mission AND the Priority Gate is fully
   // cleared (or has nothing today) - Phase 11's Next Action Engine already
   // returns null whenever a mission is active, so this is safe to read
   // unconditionally without duplicating that check here.
-  const recommendedLabel = !missionTitle && !priorityLabel ? nextAction?.title ?? null : null;
+  const recommendedLabel = !missionTitle ? nextAction?.title ?? null : null;
 
   return (
     <div className="flex items-center justify-between gap-3 border-b border-purple-500/10 pb-4 text-sm text-slate-400">
@@ -83,11 +77,6 @@ export default function TopBar({ onOpenMenu, onOpenLauncher, onOpenNotifications
           <span className="hidden max-w-[220px] items-center gap-1.5 truncate rounded-full border border-cyan-400/25 bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-200 lg:flex">
             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-300 motion-safe:animate-pulse" aria-hidden="true" />
             <span className="truncate">{missionTitle}</span>
-          </span>
-        ) : priorityLabel ? (
-          <span className="hidden max-w-[220px] items-center gap-1.5 truncate rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-200 lg:flex">
-            <span className="text-[9px] uppercase tracking-[0.1em] text-amber-300/80">Priority</span>
-            <span className="truncate">{priorityLabel}</span>
           </span>
         ) : recommendedLabel ? (
           <span className="hidden max-w-[220px] items-center gap-1.5 truncate rounded-full border border-slate-700 bg-slate-800/50 px-3 py-1 text-xs font-semibold text-slate-300 lg:flex">

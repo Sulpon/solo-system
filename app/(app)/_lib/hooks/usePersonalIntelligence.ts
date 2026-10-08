@@ -38,12 +38,10 @@ export function usePersonalIntelligence(): PersonalIntelligenceSnapshot {
         focusHistory,
         activityEvents,
         todaysCalendarItems: atlas.todaysCalendarItems,
-        priorityGateState: atlas.priorityGateState,
         availableUnscheduledMinutes: atlas.presentMoment.availableUnscheduledMinutes,
         presentMoment: atlas.presentMoment,
         activeQuest: atlas.activeQuest,
         isQuestExecution: atlas.isQuestExecution,
-        currentPriorityQuadrant: atlas.currentPriorityQuadrant,
       }),
     [
       atlas.now,
@@ -56,11 +54,9 @@ export function usePersonalIntelligence(): PersonalIntelligenceSnapshot {
       focusHistory,
       activityEvents,
       atlas.todaysCalendarItems,
-      atlas.priorityGateState,
       atlas.presentMoment,
       atlas.activeQuest,
       atlas.isQuestExecution,
-      atlas.currentPriorityQuadrant,
     ],
   );
 }

@@ -1,5 +1,4 @@
 import CurrentQuestWidget from "../../(app)/_components/desktop/widgets/CurrentQuestWidget";
-import PriorityWidget from "../../(app)/_components/desktop/widgets/PriorityWidget";
 import XPWidget from "../../(app)/_components/desktop/widgets/XPWidget";
 
 // Mirrors app/(app)/attributes/[attributeId]/page.tsx's exact pattern: an
@@ -16,8 +15,6 @@ export default async function Page({ params }: { params: Promise<{ widgetId: str
   switch (decodeURIComponent(widgetId)) {
     case "current-quest":
       return <CurrentQuestWidget />;
-    case "priority":
-      return <PriorityWidget />;
     case "xp":
       return <XPWidget />;
     default:

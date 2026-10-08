@@ -8,12 +8,10 @@ import { useAttributes } from "../../_lib/hooks/useAttributes";
 import { DEFAULT_QUEST_MASTERY_MULTIPLIER, getQuestMasteryLevel100Target } from "../../_lib/engines/quest-mastery-engine";
 import { useGoalTree } from "../../_lib/hooks/useGoalTree";
 import { useWorkoutTemplates } from "../../_lib/hooks/useWorkoutTemplates";
-import { useEisenhowerSettings } from "../../_lib/hooks/useEisenhowerSettings";
 import ChecklistEditor from "./ChecklistEditor";
 import type { CategoryId } from "../../_lib/types/category";
 import type { AttributeWeight } from "../../_lib/types/goal-tree";
-import { EISENHOWER_QUADRANTS } from "../../_lib/types/quest";
-import type { ChecklistItem, ChecklistMode, EisenhowerQuadrant, QuestAttributeReward, QuestCadence, QuestCompletionMetricType, QuestImportance, QuestKind } from "../../_lib/types/quest";
+import type { ChecklistItem, ChecklistMode, QuestAttributeReward, QuestCadence, QuestCompletionMetricType, QuestImportance, QuestKind } from "../../_lib/types/quest";
 
 export const CHALLENGE_LEVEL_COUNT = 5;
 
@@ -27,9 +25,6 @@ type QuestFormModel = Readonly<{
   importance: QuestImportance;
   // "" means uncategorized - see QuestKind in types/quest.ts.
   kind: QuestKind | "";
-  // Eisenhower priority - only meaningful/shown when kind === "task"; see
-  // EisenhowerQuadrant in types/quest.ts. "" means no priority chosen yet.
-  eisenhowerQuadrant: EisenhowerQuadrant | "";
   scheduledDays: number[];
   scheduledDate: string;
   scheduledStartTime: string;
@@ -127,7 +122,6 @@ export default function QuestForm({ form, isEditing, onChange, onCancel, onSave 
   const { attributes: categories } = useAttributes();
   const { goalTree, progressGoals } = useGoalTree();
   const { templates: workoutTemplates } = useWorkoutTemplates();
-  const { quadrantNames } = useEisenhowerSettings();
   const linkedGoalOptions = useMemo(() => [...progressGoals].sort((first, second) => first.title.localeCompare(second.title)), [progressGoals]);
   const linkedWorkoutTemplateOptions = useMemo(() => [...workoutTemplates].sort((first, second) => first.title.localeCompare(second.title)), [workoutTemplates]);
   const inheritedAttributeIds = useMemo(
@@ -209,24 +203,6 @@ export default function QuestForm({ form, isEditing, onChange, onCancel, onSave 
           </select>
           <p className="text-xs text-slate-500">Can also be set later by dragging this quest onto Tasks or Habits.</p>
         </label>
-        {form.kind === "task" ? (
-          <label className="space-y-2">
-            <span className={labelClass}>Priority</span>
-            <select
-              value={form.eisenhowerQuadrant}
-              onChange={(event) => onChange({ ...form, eisenhowerQuadrant: event.target.value as EisenhowerQuadrant | "" })}
-              className={inputClass}
-            >
-              <option value="">No priority set</option>
-              {EISENHOWER_QUADRANTS.map((quadrant) => (
-                <option key={quadrant} value={quadrant}>
-                  {quadrantNames[quadrant]}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-slate-500">Eisenhower priority - can also be set later by dragging this Task between quadrants.</p>
-          </label>
-        ) : null}
         <div className="space-y-3 rounded-2xl border border-slate-800 bg-slate-950/45 p-4 sm:col-span-2">
           <div>
             <p className={labelClass}>Schedule</p>

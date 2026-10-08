@@ -6,14 +6,13 @@ import { getQuestRelationships, type RelatedEntity, type RelatedEntityGroup } fr
 import { getEvents } from "../activity-events";
 import type { AppNavItem } from "../icons/app-icon-map";
 import type { GoalTree } from "../types/goal-tree";
-import type { Quest, QuestCompletion, EisenhowerQuadrant } from "../types/quest";
+import type { Quest, QuestCompletion } from "../types/quest";
 import type { Note } from "../types/note";
 import type { MediaItem } from "../types/media-item";
 import type { Category } from "../types/category";
 import type { FocusHistoryEntry } from "../types/focus";
 import type { ActivityEvent } from "../types/activity-event";
 import type { CalendarQuestItem } from "../engines/quest-calendar-engine";
-import type { PriorityGateState } from "../engines/priority-gate-engine";
 import type { PresentMomentState } from "../engines/present-moment-engine";
 import type { PersonalState, PersonalInsight, PersonalSignal, PersonalRecommendation, NextAction } from "../intelligence/types";
 import type { AchievementMoment } from "../achievements/types";
@@ -36,10 +35,8 @@ export type ContextEngineInput = Readonly<{
   currentApp: AppNavItem | null;
   activeQuest: Quest | null;
   isQuestExecution: boolean;
-  currentPriorityQuadrant: EisenhowerQuadrant | null;
   presentMoment: PresentMomentState;
   todaysCalendarItems: ReadonlyArray<CalendarQuestItem>;
-  priorityGateState: PriorityGateState | null;
   availableUnscheduledMinutes: number | null;
   goalTree: GoalTree;
   quests: ReadonlyArray<Quest>;
@@ -120,12 +117,10 @@ export function computeAtlasIntelligenceContext(input: ContextEngineInput): Stru
   const intelligence = computePersonalIntelligence({
     ...intelligenceInput,
     todaysCalendarItems: input.todaysCalendarItems,
-    priorityGateState: input.priorityGateState,
     availableUnscheduledMinutes: input.availableUnscheduledMinutes,
     presentMoment: input.presentMoment,
     activeQuest: input.activeQuest,
     isQuestExecution: input.isQuestExecution,
-    currentPriorityQuadrant: input.currentPriorityQuadrant,
   });
 
   const achievementMoments = computeAchievementMoments(intelligenceInput);
