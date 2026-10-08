@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import QuestList from "./QuestList";
 import type { Quest, QuestCompletion } from "../../_lib/types/quest";
