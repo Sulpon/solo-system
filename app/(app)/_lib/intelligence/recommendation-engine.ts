@@ -163,8 +163,8 @@ function fromOverload(signal: PersonalSignal, availableMinutes: number | null): 
   return buildRecommendation(
     signal,
     "review_goal",
-    "Review today's Priority Gate",
-    `${signal.evidence[0]} - consider deferring non-critical work to tomorrow's plan.`,
+    "Review today's workload",
+    `${signal.evidence[0]} - consider deferring non-critical work to another day.`,
     null,
     "/quests",
     { urgency: 0.6, importance: 0.5, goalImpact: 0.3, momentum: 0, friction: 0, availableTime: 1 - availableTimeScore(availableMinutes), recentContext: 0.2 },
