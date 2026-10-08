@@ -23,6 +23,7 @@ const getSessionDeferred = { current: createDeferred<{ data: { session: null } }
 
 vi.mock("../../../_lib/supabase/client", () => ({
   isSupabaseConfigured: () => true,
+  getSupabaseConfig: () => ({ configured: true, url: "https://abcdefghijklmnop.supabase.co", anonKey: "sb_publishable_abcdefghijklmnopqrstuvwxyz" }),
   getSupabaseBrowserClient: () => ({
     auth: {
       getSession: () => getSessionDeferred.current.promise,

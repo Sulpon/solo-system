@@ -24,6 +24,7 @@ vi.mock("../../../_lib/hooks/useProgression", () => ({
 
 vi.mock("../../../_lib/supabase/client", () => ({
   isSupabaseConfigured: () => true,
+  getSupabaseConfig: () => ({ configured: true, url: "https://abcdefghijklmnop.supabase.co", anonKey: "sb_publishable_abcdefghijklmnopqrstuvwxyz" }),
   getSupabaseBrowserClient: () => ({
     auth: {
       getSession: () => Promise.resolve({ data: { session: null } }),

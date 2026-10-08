@@ -3,13 +3,38 @@
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 import { createContext, useCallback, useEffect, useRef, useState } from "react";
 import { applyAtlasSnapshot, collectAtlasSnapshot, hasAnyAtlasData, type AtlasSnapshot } from "./atlas-snapshot";
-import { getSupabaseBrowserClient, isSupabaseConfigured } from "./supabase/client";
+import { getSupabaseBrowserClient, getSupabaseConfig } from "./supabase/client";
+import { resolveConnectionState, type SupabaseConnectionState } from "./supabase/config";
+import { compareSnapshots, type SnapshotComparison } from "./sync/snapshot-comparison";
 import { FOCUS_ACTIVE_SESSION_KEY, MENACE_STORAGE_EVENT } from "./storage-keys";
 import { mergeAtlasSnapshots } from "./sync/merge-atlas-snapshot";
 import { pushActiveFocusSession, readLocalActiveFocusSession, reconcileActiveFocusSession as reconcileActiveFocusSessionRemote } from "./sync/active-focus-sync";
 import { TimeoutError, withTimeout } from "./async-timeout";
 
 const ATLAS_TABLE = "user_atlas_data";
+
+// Records that THIS device has completed at least one successful sync with
+// a given user/project. Deliberately not a menace-* key: it describes this
+// browser's relationship with the cloud, not Atlas data, and must never
+// travel inside the snapshot it guards.
+const INITIAL_SYNC_KEY = "atlas-initial-cloud-sync";
+
+function hasCompletedInitialSync(userId: string): boolean {
+  try {
+    return window.localStorage.getItem(`${INITIAL_SYNC_KEY}:${userId}`) !== null;
+  } catch {
+    return false;
+  }
+}
+
+function markInitialSyncComplete(userId: string): void {
+  try {
+    window.localStorage.setItem(`${INITIAL_SYNC_KEY}:${userId}`, new Date().toISOString());
+  } catch {
+    // Storage unavailable (private mode) only means the guard asks again
+    // next time, which is the safe direction.
+  }
+}
 const SYNC_DEBOUNCE_MS = 800;
 
 // How long the initial auth.getSession() lookup, and a returning user's
@@ -42,6 +67,14 @@ export type CloudSyncStatus = "idle" | "syncing" | "synced" | "offline" | "error
 
 export type CloudSyncStoreValue = Readonly<{
   isCloudSyncAvailable: boolean;
+  // Why cloud sync is unavailable, when it is - so the UI can say
+  // "placeholder values in .env.local" instead of staying silent.
+  configurationReason: string | null;
+  connectionState: SupabaseConnectionState;
+  // Set when initialization found unexpected cloud data and stopped.
+  needsReconciliation: boolean;
+  cloudComparison: SnapshotComparison | null;
+  confirmReconciliation: () => Promise<void>;
   isAuthLoading: boolean;
   user: User | null;
   syncStatus: CloudSyncStatus;
@@ -83,7 +116,8 @@ function isLikelyOffline(error: unknown): boolean {
 }
 
 export function CloudSyncProvider({ children }: Readonly<{ children: React.ReactNode }>) {
-  const cloudSyncAvailable = isSupabaseConfigured();
+  const supabaseConfig = getSupabaseConfig();
+  const cloudSyncAvailable = supabaseConfig.configured;
 
   const [user, setUser] = useState<User | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(cloudSyncAvailable);
@@ -91,6 +125,8 @@ export function CloudSyncProvider({ children }: Readonly<{ children: React.React
   const [syncStatus, setSyncStatus] = useState<CloudSyncStatus>("idle");
   const [syncError, setSyncError] = useState<string | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [needsReconciliation, setNeedsReconciliation] = useState(false);
+  const [cloudComparison, setCloudComparison] = useState<SnapshotComparison | null>(null);
 
   const userIdRef = useRef<string | null>(null);
   const isApplyingRemoteRef = useRef(false);
@@ -120,6 +156,7 @@ export function CloudSyncProvider({ children }: Readonly<{ children: React.React
         if (!error) {
           knownVersionRef.current = 1;
           hasPendingChangesRef.current = false;
+          markInitialSyncComplete(userId);
           setSyncStatus("synced");
           setLastSyncedAt(nowIso);
           return;
@@ -139,6 +176,7 @@ export function CloudSyncProvider({ children }: Readonly<{ children: React.React
         if (!error && data && data.length > 0) {
           knownVersionRef.current = expectedVersion + 1;
           hasPendingChangesRef.current = false;
+          markInitialSyncComplete(userId);
           setSyncStatus("synced");
           setLastSyncedAt(nowIso);
           return;
@@ -170,7 +208,10 @@ export function CloudSyncProvider({ children }: Readonly<{ children: React.React
 
       const merged = mergeAtlasSnapshots(snapshot, remoteRow.data as AtlasSnapshot);
       isApplyingRemoteRef.current = true;
-      applyAtlasSnapshot(merged);
+      // "merge", never "replace": the merged snapshot already contains
+      // every local key, so removal would be a no-op in the happy case and
+      // data loss in any case where the merge is wrong.
+      applyAtlasSnapshot(merged, "merge");
       isApplyingRemoteRef.current = false;
 
       const remoteVersion = remoteRow.version as number;
@@ -188,6 +229,7 @@ export function CloudSyncProvider({ children }: Readonly<{ children: React.React
 
       knownVersionRef.current = remoteVersion + 1;
       hasPendingChangesRef.current = false;
+      markInitialSyncComplete(userId);
       setSyncStatus("synced");
       setLastSyncedAt(nowIso);
     } catch (thrown) {
@@ -254,6 +296,20 @@ export function CloudSyncProvider({ children }: Readonly<{ children: React.React
       knownVersionRef.current = data.version as number;
       const remoteSnapshot = data.data as AtlasSnapshot;
 
+      // Initialization guard: this device has never completed a sync with
+      // this project, yet the cloud already holds data. That is not the
+      // expected state for a fresh project, so it is NOT auto-merged -
+      // Atlas stops, shows the comparison, and waits for a human. Once a
+      // sync has completed once, this never fires again and the existing
+      // merge behaviour below is unchanged.
+      if (!hasCompletedInitialSync(userId) && hasAnyAtlasData() && Object.keys(remoteSnapshot ?? {}).length > 0) {
+        authDiag("hydrateFromCloud: existing cloud data on first connection - stopping for reconciliation");
+        setCloudComparison(compareSnapshots(collectAtlasSnapshot(), remoteSnapshot));
+        setNeedsReconciliation(true);
+        setSyncStatus("idle");
+        return;
+      }
+
       if (hasAnyAtlasData()) {
         // Both sides have real state - this is the "Desktop contains
         // locally created data AND Cloud contains existing data" case from
@@ -262,7 +318,7 @@ export function CloudSyncProvider({ children }: Readonly<{ children: React.React
         // authoritative version so the cloud reflects the merge too.
         const merged = mergeAtlasSnapshots(collectAtlasSnapshot(), remoteSnapshot);
         isApplyingRemoteRef.current = true;
-        applyAtlasSnapshot(merged);
+        applyAtlasSnapshot(merged, "merge");
         isApplyingRemoteRef.current = false;
 
         const nowIso = new Date().toISOString();
@@ -284,9 +340,12 @@ export function CloudSyncProvider({ children }: Readonly<{ children: React.React
         return;
       }
 
-      // Nothing to lose locally - safe to adopt the cloud snapshot wholesale.
+      // Nothing to lose locally - adopt the cloud snapshot. Still "merge":
+      // with no local menace-* keys the two modes are identical here, and
+      // using the non-destructive one means NO cloud path can ever delete,
+      // however this branch's precondition changes later.
       isApplyingRemoteRef.current = true;
-      applyAtlasSnapshot(remoteSnapshot);
+      applyAtlasSnapshot(remoteSnapshot, "merge");
       isApplyingRemoteRef.current = false;
       setSyncStatus("synced");
       setLastSyncedAt((data.updated_at as string | null) ?? new Date().toISOString());
@@ -506,6 +565,23 @@ export function CloudSyncProvider({ children }: Readonly<{ children: React.React
     setShowUploadPrompt(false);
   }, []);
 
+  // Proceeding past the initialization stop. Deliberately does NOT contain
+  // any merge logic of its own: it records that the user accepted, which
+  // disarms the guard, then re-runs the ordinary hydrate so the EXISTING
+  // merge engine does the work exactly as it always has.
+  const confirmReconciliation = useCallback(async () => {
+    const userId = userIdRef.current;
+
+    if (!userId) {
+      return;
+    }
+
+    markInitialSyncComplete(userId);
+    setNeedsReconciliation(false);
+    setCloudComparison(null);
+    await hydrateFromCloud(userId);
+  }, [hydrateFromCloud]);
+
   const syncNow = useCallback(async () => {
     const userId = userIdRef.current;
 
@@ -518,6 +594,11 @@ export function CloudSyncProvider({ children }: Readonly<{ children: React.React
 
   const value: CloudSyncStoreValue = {
     isCloudSyncAvailable: cloudSyncAvailable,
+    configurationReason: supabaseConfig.configured ? null : supabaseConfig.reason,
+    connectionState: resolveConnectionState({ configured: cloudSyncAvailable, isAuthLoading, hasUser: Boolean(user), syncStatus, syncError }),
+    needsReconciliation,
+    cloudComparison,
+    confirmReconciliation,
     isAuthLoading,
     user,
     syncStatus,

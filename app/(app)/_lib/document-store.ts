@@ -53,3 +53,19 @@ export async function deleteDocumentFile(id: string): Promise<void> {
     transaction.onerror = () => reject(transaction.error);
   });
 }
+
+// Enumeration, added for the backup system: until now every caller
+// looked a blob up by an id it already held on some entity, so nothing
+// needed to ask what is actually in here. A backup does - it has to be
+// able to report files that no entity references any more, and to prove
+// the export accounted for every record.
+export async function listDocumentFileIds(): Promise<string[]> {
+  const db = await openDatabase();
+
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(STORE_NAME, "readonly");
+    const request = transaction.objectStore(STORE_NAME).getAllKeys();
+    request.onsuccess = () => resolve((request.result as IDBValidKey[]).map(String));
+    request.onerror = () => reject(request.error);
+  });
+}

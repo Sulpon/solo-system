@@ -4,6 +4,8 @@ import { useMemo } from "react";
 import Card from "../Card";
 import { useAttributes } from "../../_lib/hooks/useAttributes";
 import { useCloudSync } from "../../_lib/hooks/useCloudSync";
+import DataSafetyPanel from "./DataSafetyPanel";
+import { CONNECTION_STATE_LABELS } from "../../_lib/supabase/config";
 import { MENACE_STORAGE_EVENT, STORAGE_KEYS } from "../../_lib/storage-keys";
 
 function useDataItems() {
@@ -51,17 +53,38 @@ function formatSyncedAt(iso: string | null) {
 }
 
 function CloudSyncPanel() {
-  const { isCloudSyncAvailable, isAuthLoading, user, syncStatus, syncError, lastSyncedAt, signInWithGoogle, syncNow } = useCloudSync();
+  const { isCloudSyncAvailable, isAuthLoading, user, syncStatus, syncError, lastSyncedAt, signInWithGoogle, syncNow, connectionState, configurationReason, needsReconciliation, cloudComparison, confirmReconciliation } =
+    useCloudSync();
 
   return (
     <Card className="p-5">
-      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-300">Cloud Sync</p>
-      <h2 className="mt-2 text-2xl font-black text-white">Google account sync</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="atlas-accent text-xs font-semibold uppercase tracking-[0.22em]">Cloud Sync</p>
+          <h2 className="atlas-display mt-2 text-2xl font-bold text-white">Google account sync</h2>
+        </div>
+        <span
+          data-testid="cloud-connection-state"
+          className={
+            "rounded-lg border px-3 py-1.5 text-xs font-semibold " +
+            (connectionState === "connected"
+              ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-100"
+              : connectionState === "not-configured"
+                ? "border-white/15 bg-white/[0.04] text-slate-300"
+                : "border-amber-400/40 bg-amber-400/10 text-amber-100")
+          }
+        >
+          {CONNECTION_STATE_LABELS[connectionState]}
+        </span>
+      </div>
 
       {!isCloudSyncAvailable && (
-        <p className="mt-2 text-sm text-slate-400">
-          Cloud sync is not configured for this deployment. Atlas is running in local-only mode.
-        </p>
+        <div className="mt-3 rounded-xl border border-white/[0.08] bg-white/[0.02] p-3">
+          <p className="text-sm text-slate-300">Atlas is running local-only. Your data is on this device and in any backup you have made.</p>
+          {/* The specific reason, so setting it up means fixing a named
+              value rather than guessing. Never echoes the values. */}
+          {configurationReason ? <p className="atlas-muted mt-1.5 text-xs">Reason: {configurationReason}</p> : null}
+        </div>
       )}
 
       {isCloudSyncAvailable && isAuthLoading && <p className="mt-2 text-sm text-slate-400">Checking session…</p>}
@@ -78,6 +101,54 @@ function CloudSyncPanel() {
           </button>
         </div>
       )}
+
+      {needsReconciliation && cloudComparison ? (
+        <div className="mt-4 rounded-xl border border-amber-400/40 bg-amber-400/[0.07] p-4" data-testid="reconciliation-required">
+          <p className="text-sm font-semibold text-amber-100">Existing cloud data detected. Initial sync requires reconciliation.</p>
+          <p className="atlas-muted mt-1 text-xs">
+            This device has not synced with this project before, yet the cloud already holds data. Nothing has been changed in either place. Review the comparison, then decide.
+          </p>
+
+          <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+            <p className="atlas-muted">
+              Local keys: <span className="text-white">{cloudComparison.localKeyCount}</span> · only here: <span className="text-white">{cloudComparison.localOnlyKeys.length}</span>
+            </p>
+            <p className="atlas-muted">
+              Cloud keys: <span className="text-white">{cloudComparison.cloudKeyCount}</span> · only there: <span className="text-white">{cloudComparison.cloudOnlyKeys.length}</span>
+            </p>
+            <p className="atlas-muted">
+              Differing: <span className="text-white">{cloudComparison.differingKeys.length}</span>
+            </p>
+            <p className="atlas-muted">
+              Identical: <span className="text-white">{cloudComparison.identicalKeys.length}</span>
+            </p>
+          </div>
+
+          {cloudComparison.entities.length > 0 ? (
+            <div className="mt-3 grid gap-x-4 gap-y-0.5 sm:grid-cols-2">
+              {cloudComparison.entities.map((entity) => (
+                <div key={entity.key} className="flex items-baseline justify-between gap-2 text-xs">
+                  <span className="atlas-muted truncate">{entity.label}</span>
+                  <span className="shrink-0 text-white/90">
+                    {entity.local ?? "—"} local · {entity.cloud ?? "—"} cloud
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          <p className="atlas-muted mt-3 text-xs">
+            Continuing runs Atlas&rsquo;s existing merge: entities from both sides are kept and combined by id. Back up first if you have not already.
+          </p>
+          <button
+            type="button"
+            onClick={() => void confirmReconciliation()}
+            className="mt-3 rounded-xl border border-amber-400/50 bg-amber-400/10 px-4 py-2 text-sm font-semibold text-amber-100 transition hover:bg-amber-400/20"
+          >
+            Merge local and cloud
+          </button>
+        </div>
+      ) : null}
 
       {isCloudSyncAvailable && !isAuthLoading && user && (
         <div className="mt-4 space-y-3 rounded-xl border border-slate-800 bg-slate-950/45 p-4">
@@ -120,12 +191,14 @@ export default function DataSettingsPanel() {
     <div className="space-y-5">
       <CloudSyncPanel />
 
+      <DataSafetyPanel />
+
       <Card className="p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-rose-300">Data</p>
             <h2 className="mt-2 text-2xl font-black text-white">Stored on this device</h2>
-            <p className="mt-2 text-sm text-slate-400">This clears only data stored on this device. Signed-in users should Sync Now after clearing to update the cloud copy.</p>
+            <p className="mt-2 text-sm text-slate-400">This clears only data stored on this device. Create a backup above first — clearing cannot be undone. Signed-in users should Sync Now after clearing to update the cloud copy.</p>
           </div>
           <button type="button" onClick={clearAll} className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-sm font-semibold text-rose-100 transition hover:border-rose-300">Clear All Local Data</button>
         </div>
