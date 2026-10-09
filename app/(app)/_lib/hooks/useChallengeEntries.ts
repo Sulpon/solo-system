@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { useLocalStorageState } from "./use-local-storage-state";
 import { STORAGE_KEYS } from "../storage-keys";
 import { deleteDocumentFile } from "../document-store";
+import { entryKey, QUEST_LINKED_ENTRY_SOURCE, QUEST_LINKED_ENTRY_VALUE, type QuestLinkedEntryKey } from "../engines/challenge-quest-sync";
 import type { ChallengeEntry } from "../types/challenge";
 
 function generateEntryId() {
@@ -67,6 +68,56 @@ export function useChallengeEntries() {
     [entries, setEntries],
   );
 
+  // Makes the quest-derived entries exactly match `desired`, in ONE write.
+  //
+  // Scoped twice over, deliberately: it only considers entries whose
+  // metric is currently quest-linked (metricIds), and within those only
+  // entries it created itself (source === "quest"). A day the user logged
+  // by hand has no source and is never added, changed or removed - an
+  // explicit value always beats a derived one. Unlinking a metric drops it
+  // out of metricIds, so previously derived days are left in place rather
+  // than being deleted out from under the user.
+  //
+  // Returns nothing and writes nothing when already in sync, so the
+  // effect that calls it on every render cannot loop.
+  const reconcileQuestEntries = useCallback(
+    (desired: ReadonlyArray<QuestLinkedEntryKey>, metricIds: ReadonlySet<string>) => {
+      const desiredKeys = new Set(desired.map(entryKey));
+
+      setEntries((current) => {
+        const now = new Date().toISOString();
+
+        const kept = current.filter((entry) => {
+          const isOurs = entry.source === QUEST_LINKED_ENTRY_SOURCE && metricIds.has(entry.metricId);
+          return !isOurs || desiredKeys.has(entryKey(entry));
+        });
+
+        const existingKeys = new Set(kept.map(entryKey));
+        const added: ChallengeEntry[] = desired
+          .filter((key) => !existingKeys.has(entryKey(key)))
+          .map((key) => ({
+            id: generateEntryId(),
+            challengeId: key.challengeId,
+            metricId: key.metricId,
+            date: key.date,
+            value: QUEST_LINKED_ENTRY_VALUE,
+            source: QUEST_LINKED_ENTRY_SOURCE,
+            createdAt: now,
+            updatedAt: now,
+          }));
+
+        // Same array identity when nothing changed - useLocalStorageState
+        // would otherwise write and broadcast on every pass.
+        if (added.length === 0 && kept.length === current.length) {
+          return current;
+        }
+
+        return [...kept, ...added];
+      });
+    },
+    [setEntries],
+  );
+
   const deleteEntriesForChallenge = useCallback(
     async (challengeId: string) => {
       const toDelete = entries.filter((entry) => entry.challengeId === challengeId && entry.photoId);
@@ -76,5 +127,5 @@ export function useChallengeEntries() {
     [entries, setEntries],
   );
 
-  return { entries, getEntriesForChallenge, setEntryValue, setEntryPhoto, deleteEntriesForChallenge, hasLoaded } as const;
+  return { entries, getEntriesForChallenge, setEntryValue, setEntryPhoto, reconcileQuestEntries, deleteEntriesForChallenge, hasLoaded } as const;
 }

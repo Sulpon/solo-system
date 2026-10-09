@@ -21,6 +21,7 @@ import QuestReflectionModal from "./QuestReflectionModal";
 import UndoCompletionModal from "./UndoCompletionModal";
 import QuestList from "./QuestList";
 import QuestKindSection from "./QuestKindSection";
+import ActiveChallengesPanel from "./ActiveChallengesPanel";
 import QuestDetailPanel from "./QuestDetailPanel";
 import { useQuestCompletionFlow } from "./useQuestCompletionFlow";
 import { createQuestFormModel, toQuestForm, upsertQuestFromForm } from "./quest-form.utils";
@@ -274,6 +275,10 @@ export default function QuestManagerPage({}: QuestManagerPageProps) {
             {filter}
           </button>
         ))}
+      </div>
+
+      <div className="mt-5">
+        <ActiveChallengesPanel quests={quests} />
       </div>
 
       {sortedQuests.length === 0 ? (

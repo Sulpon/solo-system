@@ -26,6 +26,14 @@ export type ChallengeMetric = Readonly<{
   unit?: string;
   required: boolean;
   position: number;
+  // A Quest that logs this metric: completing the Quest on a given day
+  // marks that day done, un-completing it clears it again (see
+  // engines/challenge-quest-sync.ts).
+  //
+  // Only meaningful for type "boolean". A Quest completion is a yes/no
+  // fact - it carries no number, rating, text or photo - so letting it
+  // fill any other metric type would mean inventing the value.
+  linkedQuestId?: string;
 }>;
 
 // One logged value for one metric on one day. Exactly one of `value`/
@@ -39,6 +47,12 @@ export type ChallengeEntry = Readonly<{
   date: string;
   value?: number | string;
   photoId?: string;
+  // Absent means the user logged this by hand. "quest" means it was
+  // derived from a linked Quest completion, and is therefore owned by the
+  // sync - it may be removed again when that completion goes away. A
+  // hand-logged entry is never touched by the sync, so an explicit value
+  // always wins over a derived one.
+  source?: "quest";
   createdAt: string;
   updatedAt: string;
 }>;

@@ -5,6 +5,7 @@ import { getLocalDayKey, parseLocalDayKey } from "../../_lib/local-day";
 import type { ChallengeDraft } from "../../_lib/hooks/useChallenges";
 import type { ChallengeMetricDraft } from "../../_lib/hooks/useChallengeMetrics";
 import type { ChallengeMetricType } from "../../_lib/types/challenge";
+import { useProgression } from "../../_lib/hooks/useProgression";
 
 const inputClass = "w-full rounded-xl border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none transition focus:border-purple-400";
 const labelClass = "text-xs font-semibold uppercase tracking-[0.18em] text-slate-500";
@@ -24,10 +25,12 @@ type MetricRowDraft = Readonly<{
   target: string;
   unit: string;
   required: boolean;
+  // "" means no linked Quest.
+  linkedQuestId: string;
 }>;
 
 function createMetricRow(): MetricRowDraft {
-  return { key: `row-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name: "", type: "boolean", target: "", unit: "", required: true };
+  return { key: `row-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name: "", type: "boolean", target: "", unit: "", required: true, linkedQuestId: "" };
 }
 
 function addDaysToDayKey(dayKey: string, days: number): string {
@@ -50,6 +53,8 @@ export default function ChallengeForm({ onSave, onCancel }: ChallengeFormProps) 
   const [startDate, setStartDate] = useState(getLocalDayKey());
   const [durationDays, setDurationDays] = useState("21");
   const [metricRows, setMetricRows] = useState<MetricRowDraft[]>([createMetricRow()]);
+  const { questDefinitions } = useProgression();
+  const linkableQuests = questDefinitions.filter((quest) => quest.status === "active");
 
   const parsedDuration = Math.max(1, Math.min(365, Number(durationDays) || 0));
   const computedEndDate = durationDays.trim() !== "" && parsedDuration > 0 ? addDaysToDayKey(startDate, parsedDuration - 1) : null;
@@ -87,6 +92,10 @@ export default function ChallengeForm({ onSave, onCancel }: ChallengeFormProps) 
       target: row.target.trim() === "" ? undefined : Number(row.target),
       unit: row.unit.trim() || undefined,
       required: row.required,
+      // Dropped for any non-boolean type, so switching a linked metric to
+      // Number cannot leave a stale link behind that the sync would ignore
+      // but the UI would still show.
+      linkedQuestId: row.type === "boolean" && row.linkedQuestId ? row.linkedQuestId : undefined,
     }));
 
     return { challengeDraft, metricDrafts };
@@ -178,6 +187,23 @@ export default function ChallengeForm({ onSave, onCancel }: ChallengeFormProps) 
               <button type="button" onClick={() => removeRow(row.key)} className="text-xs text-rose-300 hover:text-rose-200">
                 Remove
               </button>
+
+              {/* Only boolean metrics can be quest-linked: a completion is a
+                  yes/no fact and carries no number, rating, text or photo. */}
+              {row.type === "boolean" ? (
+                <label className="flex flex-col gap-1 sm:col-span-6">
+                  <span className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Log this from a Quest (optional)</span>
+                  <select value={row.linkedQuestId} onChange={(event) => updateRow(row.key, { linkedQuestId: event.target.value })} className={inputClass}>
+                    <option value="">No linked Quest - log by hand</option>
+                    {linkableQuests.map((quest) => (
+                      <option key={quest.id} value={quest.id}>
+                        {quest.title}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-[11px] text-slate-500">Completing that Quest marks this metric done for the day. Un-completing it clears the day again.</span>
+                </label>
+              ) : null}
             </div>
           ))}
         </div>

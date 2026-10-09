@@ -19,6 +19,8 @@ export type ChallengeMetricDraft = Readonly<{
   target?: number;
   unit?: string;
   required?: boolean;
+  // Boolean metrics only - see engines/challenge-quest-sync.ts.
+  linkedQuestId?: string;
 }>;
 
 function renumber(metrics: ReadonlyArray<ChallengeMetric>): ChallengeMetric[] {
@@ -41,6 +43,10 @@ export function useChallengeMetrics() {
         target: draft.target,
         unit: draft.unit,
         required: draft.required ?? true,
+        // Only ever stored for boolean metrics - the sync ignores it
+        // elsewhere, and persisting it would be a link that silently does
+        // nothing.
+        linkedQuestId: draft.type === "boolean" ? draft.linkedQuestId : undefined,
         position: siblingCount,
       };
 

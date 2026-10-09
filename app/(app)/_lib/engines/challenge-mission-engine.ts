@@ -14,12 +14,15 @@ function startOfDay(date: Date): Date {
   return next;
 }
 
-export function getChallengeDayKeys(challenge: Challenge): string[] {
+// Every day key from start to end, inclusive. Extracted from
+// getChallengeDayKeys so the quest-link sync can walk a partial range
+// (start..today) without a second copy of this loop.
+export function eachDayKeyInclusive(startDayKey: string, endDayKey: string): string[] {
   const keys: string[] = [];
-  let cursor = challenge.startDate;
+  let cursor = startDayKey;
   let guard = 0;
 
-  while (cursor <= challenge.endDate && guard < 1000) {
+  while (cursor <= endDayKey && guard < 1000) {
     keys.push(cursor);
     const date = parseLocalDayKey(cursor);
     date.setDate(date.getDate() + 1);
@@ -28,6 +31,10 @@ export function getChallengeDayKeys(challenge: Challenge): string[] {
   }
 
   return keys;
+}
+
+export function getChallengeDayKeys(challenge: Challenge): string[] {
+  return eachDayKeyInclusive(challenge.startDate, challenge.endDate);
 }
 
 // 1-indexed, clamped to [1, durationDays] - "Day 2 of 21" style. A challenge
