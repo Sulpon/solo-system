@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { useLocalStorageState } from "./use-local-storage-state";
 import { STORAGE_KEYS } from "../storage-keys";
 import { getLocalDayKey, parseLocalDayKey } from "../local-day";
+import { isReadableChallenge, partitionChallenges } from "../engines/challenge-engine";
 import type { Challenge, ChallengeReview } from "../types/challenge";
 
 function generateChallengeId() {
@@ -30,7 +31,19 @@ export type ChallengeDraft = Readonly<{
 }>;
 
 export function useChallenges() {
-  const [challenges, setChallenges, hasLoaded] = useLocalStorageState<Challenge[]>(STORAGE_KEYS.challenges, []);
+  // Stored as unknown[] deliberately: localStorage may still hold records
+  // from the pre-redesign Challenge shape, and typing them as Challenge is
+  // what let an undefined startDate reach parseLocalDayKey and crash the
+  // page. Mutations below all map over this RAW array, so holding a record
+  // back from the UI never removes it from storage.
+  const [storedChallenges, setChallenges, hasLoaded] = useLocalStorageState<unknown[]>(STORAGE_KEYS.challenges, []);
+  const { readable: challenges, unreadable: unreadableChallenges } = useMemo(() => partitionChallenges(storedChallenges), [storedChallenges]);
+
+  const mapChallenge = useCallback(
+    (id: string, transform: (challenge: Challenge) => Challenge) =>
+      setChallenges((current) => current.map((entry) => (isReadableChallenge(entry) && entry.id === id ? transform(entry) : entry))),
+    [setChallenges],
+  );
 
   const createChallenge = useCallback(
     (draft: ChallengeDraft, status: "draft" | "active" = "active") => {
@@ -57,9 +70,9 @@ export function useChallenges() {
 
   const updateChallenge = useCallback(
     (id: string, patch: Partial<Pick<Challenge, "title" | "description" | "icon" | "category" | "tags">>) => {
-      setChallenges((current) => current.map((challenge) => (challenge.id === id ? { ...challenge, ...patch } : challenge)));
+      mapChallenge(id, (challenge) => ({ ...challenge, ...patch }));
     },
-    [setChallenges],
+    [mapChallenge],
   );
 
   // Only a draft challenge can be (re)started - once active, startDate/
@@ -67,46 +80,40 @@ export function useChallenges() {
   // duration should remain fixed").
   const startChallenge = useCallback(
     (id: string, startDate: string = getLocalDayKey()) => {
-      setChallenges((current) =>
-        current.map((challenge) =>
-          challenge.id === id && challenge.status === "draft"
-            ? { ...challenge, status: "active", startDate, endDate: addDaysToDayKey(startDate, challenge.durationDays - 1) }
-            : challenge,
-        ),
+      mapChallenge(id, (challenge) =>
+        challenge.status === "draft" ? { ...challenge, status: "active", startDate, endDate: addDaysToDayKey(startDate, challenge.durationDays - 1) } : challenge,
       );
     },
-    [setChallenges],
+    [mapChallenge],
   );
 
   const completeChallenge = useCallback(
     (id: string) => {
-      setChallenges((current) =>
-        current.map((challenge) => (challenge.id === id && challenge.status === "active" ? { ...challenge, status: "completed", completedAt: new Date().toISOString() } : challenge)),
-      );
+      mapChallenge(id, (challenge) => (challenge.status === "active" ? { ...challenge, status: "completed", completedAt: new Date().toISOString() } : challenge));
     },
-    [setChallenges],
+    [mapChallenge],
   );
 
   const abandonChallenge = useCallback(
     (id: string) => {
-      setChallenges((current) => current.map((challenge) => (challenge.id === id && (challenge.status === "active" || challenge.status === "draft") ? { ...challenge, status: "abandoned" } : challenge)));
+      mapChallenge(id, (challenge) => (challenge.status === "active" || challenge.status === "draft" ? { ...challenge, status: "abandoned" } : challenge));
     },
-    [setChallenges],
+    [mapChallenge],
   );
 
   const saveReview = useCallback(
     (id: string, review: Omit<ChallengeReview, "completedAt">) => {
-      setChallenges((current) => current.map((challenge) => (challenge.id === id ? { ...challenge, review: { ...review, completedAt: new Date().toISOString() } } : challenge)));
+      mapChallenge(id, (challenge) => ({ ...challenge, review: { ...review, completedAt: new Date().toISOString() } }));
     },
-    [setChallenges],
+    [mapChallenge],
   );
 
   const deleteChallenge = useCallback(
     (id: string) => {
-      setChallenges((current) => current.filter((challenge) => challenge.id !== id));
+      setChallenges((current) => current.filter((entry) => !(typeof entry === "object" && entry !== null && (entry as { id?: unknown }).id === id)));
     },
     [setChallenges],
   );
 
-  return { challenges, createChallenge, updateChallenge, startChallenge, completeChallenge, abandonChallenge, saveReview, deleteChallenge, hasLoaded } as const;
+  return { challenges, unreadableChallenges, createChallenge, updateChallenge, startChallenge, completeChallenge, abandonChallenge, saveReview, deleteChallenge, hasLoaded } as const;
 }

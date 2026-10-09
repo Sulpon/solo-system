@@ -1,5 +1,6 @@
 import { getLocalDayKey, parseLocalDayKey } from "../local-day";
 import type { QuestChallengeConfig, QuestCompletion } from "../types/quest";
+import type { Challenge } from "../types/challenge";
 
 // Structural rather than the full Quest type, so both Quest and its reduced
 // DailyQuest projection (used by Dashboard widgets) can be passed directly.
@@ -119,4 +120,61 @@ export function deriveChallengeProgress(quest: ChallengeSource, completions: Rea
     todaySettled: todayHasCompletion,
     todayPassed: todayEntry?.passed ?? false,
   };
+}
+
+// ---- Legacy record handling -----------------------------------------------
+//
+// Challenges were redesigned into fixed-duration missions (startDate /
+// endDate / durationDays). Records written by the earlier streak-and-levels
+// design are still in localStorage and carry none of those fields, so
+// anything that reads them - getChallengeDayNumber in particular, via
+// parseLocalDayKey(challenge.startDate) - throws
+// "Cannot read properties of undefined (reading 'split')" and takes the
+// whole Challenges page down.
+//
+// These records are NOT migrated and NOT deleted. There is no honest source
+// for durationDays in the old shape (it had levels and a required streak,
+// not a fixed length), and inventing one would show fabricated progress
+// like "Day 3 of 21". They are simply held back from the UI and reported,
+// so the data survives untouched and the page works.
+
+const REQUIRED_CHALLENGE_FIELDS = ["id", "title", "status", "startDate", "endDate", "durationDays", "createdAt"] as const;
+
+export function isReadableChallenge(candidate: unknown): candidate is Challenge {
+  if (typeof candidate !== "object" || candidate === null) return false;
+
+  const record = candidate as Record<string, unknown>;
+
+  return REQUIRED_CHALLENGE_FIELDS.every((field) => {
+    const value = record[field];
+    if (field === "durationDays") return typeof value === "number" && Number.isFinite(value) && value > 0;
+    return typeof value === "string" && value.length > 0;
+  });
+}
+
+export type PartitionedChallenges = Readonly<{
+  readable: ReadonlyArray<Challenge>;
+  // Kept so the UI can say how many records it is holding back, without
+  // claiming to understand them.
+  unreadable: ReadonlyArray<Readonly<{ id: string; title: string }>>;
+}>;
+
+export function partitionChallenges(stored: ReadonlyArray<unknown>): PartitionedChallenges {
+  const readable: Challenge[] = [];
+  const unreadable: Array<{ id: string; title: string }> = [];
+
+  for (const candidate of stored) {
+    if (isReadableChallenge(candidate)) {
+      readable.push(candidate);
+      continue;
+    }
+
+    const record = (typeof candidate === "object" && candidate !== null ? candidate : {}) as Record<string, unknown>;
+    unreadable.push({
+      id: typeof record.id === "string" ? record.id : "",
+      title: typeof record.title === "string" && record.title.length > 0 ? record.title : "Untitled challenge",
+    });
+  }
+
+  return { readable, unreadable };
 }

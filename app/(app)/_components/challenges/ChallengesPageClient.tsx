@@ -23,7 +23,7 @@ function matchesFilter(challenge: Challenge, tab: FilterTab) {
 }
 
 export default function ChallengesPageClient() {
-  const { challenges, createChallenge, hasLoaded: challengesLoaded } = useChallenges();
+  const { challenges, unreadableChallenges, createChallenge, hasLoaded: challengesLoaded } = useChallenges();
   const { addMetric, hasLoaded: metricsLoaded } = useChallengeMetrics();
   const [showForm, setShowForm] = useState(false);
   const [tab, setTab] = useState<FilterTab>("active");
@@ -60,6 +60,23 @@ export default function ChallengesPageClient() {
           ) : null}
         </div>
       </Card>
+
+      {/* Records from the earlier Challenge design are still in storage but
+          carry none of the fields this page needs. They are reported rather
+          than migrated: the old shape has no duration to translate, and
+          guessing one would show invented progress. Nothing is deleted. */}
+      {unreadableChallenges.length > 0 ? (
+        <Card className="p-4" testId="unreadable-challenges">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-300">Older format</p>
+          <p className="mt-2 text-sm text-slate-300">
+            {unreadableChallenges.length} challenge{unreadableChallenges.length === 1 ? "" : "s"} {unreadableChallenges.length === 1 ? "was" : "were"} saved in an earlier Challenges format and
+            cannot be shown here.
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            {unreadableChallenges.map((entry) => entry.title).join(", ")} — still stored on this device and included in backups, just not readable by the current Challenges screen.
+          </p>
+        </Card>
+      ) : null}
 
       {showForm ? <ChallengeForm onSave={handleSave} onCancel={() => setShowForm(false)} /> : null}
 
