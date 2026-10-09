@@ -556,45 +556,52 @@ export default function GoalTreePage() {
 
   const isEmpty = goalTree.length === 0;
 
+  const isBoard = viewMode === "board";
+
+  // Two ways to read the same tree, not two trees. Hierarchy is the
+  // time-boxed planning lens (Year -> Day); Outline is the existing
+  // type-based browser, kept intact so no workflow that relied on it -
+  // filters, search, the details panel, sequential steps - is lost.
+  // Lifted out of the header because the board renders it in its own title
+  // bar instead, and one switch rendered twice would be two switches.
+  const viewTabs = (
+    <div className="flex items-center gap-1 rounded-xl border border-white/10 p-1">
+      {(
+        [
+          { id: "hierarchy", label: "Hierarchy" },
+          { id: "board", label: "Board" },
+          { id: "outline", label: "Outline" },
+        ] as const
+      ).map((option) => (
+        <button
+          key={option.id}
+          type="button"
+          onClick={() => setViewMode(option.id)}
+          aria-pressed={viewMode === option.id}
+          className={
+            "rounded-lg px-3 py-1.5 text-xs font-semibold transition " +
+            (viewMode === option.id ? "atlas-accent bg-[rgb(var(--atlas-accent,168_85_247)/0.14)]" : "atlas-muted hover:text-white")
+          }
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
     <div className="space-y-5">
-      <ThemeHeader
-        title="Goal Tree"
-        subtitle="From a vision to daily actions."
-        actions={
-          // Two ways to read the same tree, not two trees. Hierarchy is the
-          // time-boxed planning lens (Year -> Day); Outline is the existing
-          // type-based browser, kept intact so no workflow that relied on
-          // it - filters, search, the details panel, sequential steps -
-          // is lost.
-          <div className="flex items-center gap-1 rounded-xl border border-white/10 p-1">
-            {(
-              [
-                { id: "hierarchy", label: "Hierarchy" },
-                { id: "board", label: "Board" },
-                { id: "outline", label: "Outline" },
-              ] as const
-            ).map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() => setViewMode(option.id)}
-                aria-pressed={viewMode === option.id}
-                className={
-                  "rounded-lg px-3 py-1.5 text-xs font-semibold transition " +
-                  (viewMode === option.id ? "atlas-accent bg-[rgb(var(--atlas-accent,168_85_247)/0.14)]" : "atlas-muted hover:text-white")
-                }
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        }
-      />
+      {/* The board is a workspace, not a document: it replaces the page
+          header entirely and takes the full page, carrying the title and
+          the view switch in its own single-line bar. Every other view keeps
+          the standard themed header. */}
+      {isBoard ? (
+        <PeriodBoardView onEditNode={openEdit} viewSwitcher={viewTabs} />
+      ) : (
+        <ThemeHeader title="Goal Tree" subtitle="From a vision to daily actions." actions={viewTabs} />
+      )}
 
       {viewMode === "hierarchy" ? <GoalHierarchyView onEditNode={openEdit} /> : null}
-
-      {viewMode === "board" ? <PeriodBoardView onEditNode={openEdit} /> : null}
 
       {viewMode === "outline" ? (
         <>

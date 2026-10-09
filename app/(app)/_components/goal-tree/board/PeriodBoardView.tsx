@@ -21,6 +21,10 @@ import type { GoalNode, KeyResult } from "../../../_lib/types/goal-tree";
 
 type PeriodBoardViewProps = Readonly<{
   onEditNode?: (nodeId: string) => void;
+  // The page's Hierarchy/Board/Outline switch. The board takes over the
+  // whole page, so it hosts the switch rather than leaving an otherwise
+  // empty page header above it just to hold three buttons.
+  viewSwitcher?: React.ReactNode;
 }>;
 
 const ghostClass = "atlas-muted rounded-lg border border-white/10 px-3 py-1.5 text-xs transition hover:text-white";
@@ -31,7 +35,7 @@ const ghostClass = "atlas-muted rounded-lg border border-white/10 px-3 py-1.5 te
 // the existing periodStart fields, and every "+" opens the creation modal
 // that already exists for that level. No new storage, no second goal model,
 // and the hierarchy view and outline are untouched.
-export default function PeriodBoardView({ onEditNode }: PeriodBoardViewProps = {}) {
+export default function PeriodBoardView({ onEditNode, viewSwitcher }: PeriodBoardViewProps = {}) {
   const { goalTree, hasLoaded, createRootNode, createChildNode, saveNode } = useGoalTree();
   const { isReady, questDefinitions, questCompletions, setQuestDefinitions } = useProgression();
 
@@ -181,9 +185,22 @@ export default function PeriodBoardView({ onEditNode }: PeriodBoardViewProps = {
   const pendingQuarterRange = pendingColumn?.periodType === "quarter" ? parseLocalDayKey(pendingColumn.startKey) : null;
 
   return (
-    <div className="space-y-4">
-      <Card className="p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+    // Full-bleed from md up: the board escapes the page's centred
+    // max-width column so the columns run the whole width of the window,
+    // the way a planning board is actually read. Its height is the
+    // viewport minus the chrome outside this page - the system bar and
+    // main's own padding - so the columns end exactly above the Dock.
+    //
+    // Both are deliberately md-only. 100vw counts the scrollbar while the
+    // content box does not, so breaking out of a page that scrolls
+    // vertically buys a horizontal scrollbar; at md and up this board is
+    // exactly viewport-high and nothing scrolls vertically, so the two
+    // agree. Below md the page scrolls normally, the breakout would gain
+    // only main's 16px of padding, and the columns size to their contents.
+    <div className="flex flex-col gap-3 md:relative md:left-1/2 md:h-[calc(100vh-12.25rem)] md:w-screen md:-translate-x-1/2">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 md:px-6">
+        <h1 className="atlas-display shrink-0 text-2xl font-bold tracking-tight text-white">Goal Tree</h1>
+
           <div className="flex flex-wrap items-center gap-1 rounded-xl border border-white/10 p-1" role="tablist" aria-label="Board scope">
             {BOARD_SCOPES.map((entry) => (
               <button
@@ -220,13 +237,21 @@ export default function PeriodBoardView({ onEditNode }: PeriodBoardViewProps = {
                 +
               </button>
             </div>
-          ) : null}
-        </div>
-      </Card>
+        ) : null}
 
-      {/* Horizontal scroll is the point of this layout: many periods side by
-          side, each readable, rather than squeezed to fit. */}
-      <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-3" data-testid="period-board">
+        {viewSwitcher ? <div className="ml-auto shrink-0">{viewSwitcher}</div> : null}
+      </div>
+
+      {/* Columns take every pixel the title bar leaves, so a period with
+          many objectives shows them instead of becoming a stub. min-h-0 is
+          what lets this shrink inside the flex column - without it the
+          columns' own content would push the board past the Dock. On a
+          narrow screen the parent has no fixed height, so the columns fall
+          back to sizing from their contents and the page scrolls. */}
+      <div
+        className="flex min-h-[22rem] flex-1 overflow-x-auto border-t border-white/[0.06] md:min-h-0"
+        data-testid="period-board"
+      >
         {columns.map((column) => (
           <PeriodColumn
             key={column.id}

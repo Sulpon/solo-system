@@ -1,6 +1,5 @@
 "use client";
 
-import { Target } from "lucide-react";
 import { getColumnStats, type BoardColumn } from "../../../_lib/engines/period-board";
 import { HIERARCHY_LEVELS } from "../hierarchy/hierarchy-levels";
 import type { GoalNode } from "../../../_lib/types/goal-tree";
@@ -12,7 +11,7 @@ type PeriodColumnProps = Readonly<{
   // Day columns only - a day-level objective in Atlas is a Quest.
   quests: ReadonlyArray<CalendarQuestItem>;
   // Null when this level cannot accept a new entry yet, with the reason to
-  // show instead of a dead "+" button.
+  // show instead of a dead add row.
   addBlockedReason: string | null;
   onAdd: () => void;
   onSelectNode: (node: GoalNode) => void;
@@ -30,33 +29,41 @@ function ObjectiveRow({ title, meta, progress, complete, accentFill, onClick }: 
 
   const body = (
     <>
-      <div className="flex items-start gap-2">
-        <span className={"mt-1 h-3 w-3 shrink-0 rounded-full border " + (complete ? accentFill + " border-transparent" : "border-white/25")} aria-hidden />
-        <span className={"min-w-0 flex-1 text-sm " + (complete ? "text-white/55 line-through" : "text-white")}>{title}</span>
-        <span className="atlas-muted shrink-0 text-[0.68rem]">{clamped}%</span>
+      <div className="flex items-start gap-2.5">
+        <span className={"mt-0.5 h-4 w-4 shrink-0 rounded-[0.25rem] border " + (complete ? accentFill + " border-transparent" : "border-white/25")} aria-hidden />
+        <span className={"min-w-0 flex-1 text-sm leading-snug " + (complete ? "text-white/45 line-through" : "text-white/90")}>{title}</span>
+        {/* A percentage is only worth the space once there is progress to
+            report; an untouched objective reads as a plain line. */}
+        {clamped > 0 ? <span className="atlas-muted shrink-0 text-[0.68rem]">{clamped}%</span> : null}
       </div>
-      {meta ? <p className="atlas-muted mt-1 pl-5 text-[0.66rem]">{meta}</p> : null}
-      <div className="mt-2 h-0.5 overflow-hidden rounded-full bg-white/[0.07]">
-        <div className={"h-full rounded-full " + accentFill} style={{ width: `${clamped}%` }} />
-      </div>
+      {meta ? <p className="atlas-muted mt-1 pl-[1.625rem] text-[0.7rem] leading-snug">{meta}</p> : null}
+      {clamped > 0 ? (
+        <div className="ml-[1.625rem] mt-2 h-0.5 overflow-hidden rounded-full bg-white/[0.07]">
+          <div className={"h-full rounded-full " + accentFill} style={{ width: `${clamped}%` }} />
+        </div>
+      ) : null}
     </>
   );
 
   if (!onClick) {
-    return <div className="rounded-lg border border-white/[0.07] bg-white/[0.02] p-2.5">{body}</div>;
+    return <div className="rounded-lg px-2 py-1.5">{body}</div>;
   }
 
   return (
-    <button type="button" onClick={onClick} className="w-full rounded-lg border border-white/[0.07] bg-white/[0.02] p-2.5 text-left transition hover:bg-white/[0.05]">
+    <button type="button" onClick={onClick} className="w-full rounded-lg px-2 py-1.5 text-left transition hover:bg-white/[0.05]">
       {body}
     </button>
   );
 }
 
-// One period of the board. Shows only what Atlas actually stores: how many
-// objectives sit in this period and how far they have come. Deliberately no
-// planned/spent hours - Atlas records no time estimate per goal, so those
-// figures would be invented.
+// One period of the board, as a pane rather than a card: columns are
+// divided by a hairline and run the full height of the page, so the board
+// reads as one surface split by time instead of a row of boxes.
+//
+// Shows only what Atlas actually stores: how many objectives sit in this
+// period and how far they have come. Deliberately no planned/spent hours -
+// Atlas records no time estimate per goal, so those figures would be
+// invented.
 export default function PeriodColumn({ column, nodes, quests, addBlockedReason, onAdd, onSelectNode }: PeriodColumnProps) {
   const isDay = column.periodType === "day";
   const level = HIERARCHY_LEVELS[isDay ? "day" : column.periodType];
@@ -70,35 +77,28 @@ export default function PeriodColumn({ column, nodes, quests, addBlockedReason, 
     <section
       data-testid={`board-column-${column.id}`}
       className={
-        "flex w-[260px] shrink-0 flex-col rounded-2xl border p-3 sm:w-[280px] " +
-        (column.isCurrent ? level.accentBorder + " " + level.accentWash : "border-white/[0.07] bg-white/[0.015]")
+        // grow + a basis equal to the minimum means a handful of columns
+        // spread across the whole window, while a year of weeks keeps a
+        // readable width and scrolls sideways instead of being crushed.
+        "flex min-w-[15.5rem] grow basis-[15.5rem] flex-col border-l border-white/[0.06] px-3 py-3 first:border-l-0 " +
+        (column.isCurrent ? level.accentWash : "")
       }
     >
-      <header className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <h3 className={"atlas-display truncate text-sm font-bold " + (column.isCurrent ? "text-white" : "text-white/80")}>{column.title}</h3>
-          <p className={"mt-0.5 truncate text-[0.62rem] uppercase tracking-[0.18em] " + level.accentText}>{column.subtitle}</p>
+      <header className="px-2">
+        <div className="flex items-baseline gap-2">
+          <h3 className={"atlas-display truncate text-xl font-bold tracking-tight " + (column.isCurrent ? "text-white" : "text-white/70")}>
+            {column.title}
+          </h3>
+          <span className={"truncate text-[0.7rem] font-medium " + level.accentText}>{column.subtitle}</span>
         </div>
-        <button
-          type="button"
-          onClick={onAdd}
-          disabled={Boolean(addBlockedReason)}
-          title={addBlockedReason ?? "Add"}
-          aria-label={`Add to ${column.title}`}
-          className="atlas-muted shrink-0 rounded-md border border-white/10 px-2 py-0.5 text-sm leading-none transition hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
-        >
-          +
-        </button>
+
+        <p className="atlas-muted mt-1 text-[0.68rem]">
+          {completed}/{total} done
+          {total > 0 ? <span className="opacity-60"> · {isDay ? `${quests.length} quest${quests.length === 1 ? "" : "s"}` : `${stats.progress}%`}</span> : null}
+        </p>
       </header>
 
-      <div className="mt-2.5 flex items-center justify-between rounded-lg border border-white/[0.07] bg-white/[0.02] px-2.5 py-1.5">
-        <span className="atlas-muted text-[0.68rem]">
-          {completed}/{total} done
-        </span>
-        {total > 0 ? <span className="atlas-muted text-[0.68rem]">{isDay ? `${quests.length} quest${quests.length === 1 ? "" : "s"}` : `${stats.progress}%`}</span> : null}
-      </div>
-
-      <div className="mt-2.5 flex-1 space-y-2">
+      <div className="mt-2 min-h-0 flex-1 space-y-0.5 overflow-y-auto">
         {isDay
           ? quests.map((item) => (
               <ObjectiveRow
@@ -122,19 +122,23 @@ export default function PeriodColumn({ column, nodes, quests, addBlockedReason, 
               />
             ))}
 
-        {total === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-8 text-center">
-            <Target aria-hidden className={"h-5 w-5 opacity-40 " + level.accentText} />
-            <p className="atlas-muted text-xs">{isDay ? "No quests this day" : "No objectives yet"}</p>
-            {addBlockedReason ? (
-              <p className="atlas-muted max-w-[200px] text-[0.66rem] leading-relaxed">{addBlockedReason}</p>
-            ) : (
-              <button type="button" onClick={onAdd} className={"text-xs font-semibold transition hover:text-white " + level.accentText}>
-                + Add
-              </button>
-            )}
-          </div>
-        ) : null}
+        {/* The add affordance lives at the end of the list, where the next
+            objective would go, rather than as a separate button in the
+            header. When the level cannot accept one yet, the reason takes
+            its place instead of a dead control. */}
+        {addBlockedReason ? (
+          <p className="atlas-muted px-2 py-1.5 text-[0.68rem] leading-relaxed">{addBlockedReason}</p>
+        ) : (
+          <button
+            type="button"
+            onClick={onAdd}
+            aria-label={`Add to ${column.title}`}
+            className="atlas-muted flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-sm transition hover:bg-white/[0.04] hover:text-white"
+          >
+            <span className="h-4 w-4 shrink-0 rounded-[0.25rem] border border-dashed border-white/20" aria-hidden />
+            Add...
+          </button>
+        )}
       </div>
     </section>
   );
