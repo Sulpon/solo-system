@@ -24,6 +24,7 @@ import GoalTreeSummaryCards from "./GoalTreeSummaryCards";
 import GoalTreeTable from "./GoalTreeTable";
 import GoalTreeChildTypeModal from "./GoalTreeChildTypeModal";
 import GoalHierarchyView from "./hierarchy/GoalHierarchyView";
+import PeriodBoardView from "./board/PeriodBoardView";
 import ThemeHeader from "../theme/ThemeHeader";
 import QuestForm, { type QuestFormModel } from "../quests/QuestForm";
 import { createQuestFormModel, toQuestForm, upsertQuestFromForm } from "../quests/quest-form.utils";
@@ -197,7 +198,7 @@ export default function GoalTreePage() {
   const [pendingChildParentId, setPendingChildParentId] = useState<string | null>(null);
   // Hierarchy is the default: it is the planning lens the page is built
   // around. Outline stays one click away and is unchanged.
-  const [viewMode, setViewMode] = useState<"hierarchy" | "outline">("hierarchy");
+  const [viewMode, setViewMode] = useState<"hierarchy" | "board" | "outline">("hierarchy");
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState<GoalTreeFilterKey>("all");
   const [editorForm, setEditorForm] = useState<GoalNodeFormState | null>(null);
@@ -570,6 +571,7 @@ export default function GoalTreePage() {
             {(
               [
                 { id: "hierarchy", label: "Hierarchy" },
+                { id: "board", label: "Board" },
                 { id: "outline", label: "Outline" },
               ] as const
             ).map((option) => (
@@ -591,6 +593,8 @@ export default function GoalTreePage() {
       />
 
       {viewMode === "hierarchy" ? <GoalHierarchyView onEditNode={openEdit} /> : null}
+
+      {viewMode === "board" ? <PeriodBoardView onEditNode={openEdit} /> : null}
 
       {viewMode === "outline" ? (
         <>
