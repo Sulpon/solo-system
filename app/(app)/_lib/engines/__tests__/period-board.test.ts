@@ -35,12 +35,20 @@ describe("buildBoardColumns", () => {
     expect(columns.every((column) => column.isCurrent)).toBe(true);
   });
 
-  it("gives seven day columns for the day scope", () => {
+  it("gives one column per day of the year for the day scope", () => {
     const columns = buildBoardColumns("day", 2026, TODAY);
 
-    expect(columns).toHaveLength(7);
+    // 2026 is not a leap year.
+    expect(columns).toHaveLength(365);
+    expect(columns[0].startKey).toBe("2026-01-01");
+    expect(columns[columns.length - 1].startKey).toBe("2026-12-31");
     expect(columns.every((column) => column.periodType === "day")).toBe(true);
     expect(columns.filter((column) => column.isCurrent)).toHaveLength(1);
+    expect(columns.findIndex((column) => column.isCurrent)).toBe(281);
+  });
+
+  it("covers the extra day of a leap year", () => {
+    expect(buildBoardColumns("day", 2028, TODAY)).toHaveLength(366);
   });
 
   it("walks the weeks of a year and marks the current one", () => {

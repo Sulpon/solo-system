@@ -159,10 +159,19 @@ export function buildBoardColumns(scope: BoardScope, year: number, today: Date =
   }
 
   if (scope === "day") {
-    // The selected year's current week, or its first week when looking at
-    // another year - seven day columns is a readable board; 365 is not.
-    const anchor = today.getFullYear() === year ? startOfWeekMonday(today) : startOfWeekMonday(new Date(year, 0, 4));
-    return [0, 1, 2, 3, 4, 5, 6].map((offset) => dayColumn(addDays(anchor, offset), today));
+    // Every day of the selected year, so the day scope pages the same way
+    // the others do - the board renders only the handful around today,
+    // never the whole list, and the window can walk off either end of the
+    // current week instead of stopping at Sunday.
+    const columns: BoardColumn[] = [];
+    const cursor = new Date(year, 0, 1);
+
+    while (cursor.getFullYear() === year) {
+      columns.push(dayColumn(new Date(cursor), today));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    return columns;
   }
 
   if (scope === "week") {

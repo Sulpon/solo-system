@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import Card from "../../Card";
 import PeriodColumn from "./PeriodColumn";
 import CreateAnnualGoalModal from "../hierarchy/CreateAnnualGoalModal";
@@ -29,6 +30,41 @@ type PeriodBoardViewProps = Readonly<{
 
 const ghostClass = "atlas-muted rounded-lg border border-white/10 px-3 py-1.5 text-xs transition hover:text-white";
 
+const pagerArrowClass = "atlas-muted rounded-lg p-1.5 transition hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:bg-transparent";
+
+// How many periods are on screen at once. The board pages a whole
+// screenful at a time rather than scrolling, so this is also the step.
+const COLUMNS_PER_PAGE = 4;
+
+// The board is a view from now, so width follows how close a period is.
+//
+// In a single-horizon scope that is literal distance: the current period
+// dominates, the next two step down, and the one just gone is the
+// narrowest of the four. A page with no "now" on it - another year, or
+// pages either side - falls through to the base width and sits even,
+// which is honest: nothing on it is closer to now than anything else.
+const WEIGHT_BY_DISTANCE: ReadonlyMap<number, number> = new Map([
+  [-1, 0.85],
+  [0, 1.5],
+  [1, 1.1],
+  [2, 0.95],
+]);
+
+// The overview has no distance to measure - every one of its columns
+// contains today - so it ramps by horizon instead: today, then the week
+// around it, out to the year.
+const OVERVIEW_WEIGHTS: ReadonlyArray<number> = [1.4, 1.15, 1, 0.9, 0.8];
+
+// Everything outside that reach sits at the narrowest width, so a period
+// further from now can never be wider than a nearer one - which is what
+// happens if the fallback sits above the minimum (Q1 and Q2 outgrowing
+// the quarter that only just ended).
+const BASE_WEIGHT = 0.85;
+
+function clamp(value: number, low: number, high: number): number {
+  return Math.min(high, Math.max(low, value));
+}
+
 // The Goal Tree as columns of time.
 //
 // A second READING of the same tree - every column is calendar maths over
@@ -50,6 +86,39 @@ export default function PeriodBoardView({ onEditNode, viewSwitcher }: PeriodBoar
   const columns = useMemo(() => buildBoardColumns(scope, year, today), [scope, year, today]);
   const years = useMemo(() => [...new Set([...getYearsWithGoals(viewTree), year])].sort((a, b) => a - b), [viewTree, year]);
   const undatedDreams = useMemo(() => getUndatedDreams(viewTree), [viewTree]);
+
+  // Where the visible window starts. Null means "wherever today is",
+  // which is what every scope change resets to; paging pins it to an
+  // absolute index so the clamp at either end sticks exactly.
+  const [windowStart, setWindowStart] = useState<number | null>(null);
+
+  // The overview is one page of horizons, never paged. Every other scope
+  // shows a window of four periods.
+  const isOverview = scope === "current";
+  const slots = Math.max(1, isOverview ? columns.length : Math.min(COLUMNS_PER_PAGE, columns.length));
+  const maxStart = Math.max(0, columns.length - slots);
+
+  const currentIndex = columns.findIndex((column) => column.isCurrent);
+  // The home window puts the current period second, so the one just gone
+  // stays beside it rather than falling off the left edge.
+  const homeStart = clamp(currentIndex >= 0 ? currentIndex - 1 : 0, 0, maxStart);
+  const start = clamp(windowStart ?? homeStart, 0, maxStart);
+  const visibleColumns = columns.slice(start, start + slots);
+
+  const canPrevious = start > 0;
+  const canNext = start + slots < columns.length;
+
+  function shiftWindow(direction: 1 | -1) {
+    setWindowStart(clamp(start + direction * slots, 0, maxStart));
+  }
+
+  const weightOf = (index: number) =>
+    isOverview ? OVERVIEW_WEIGHTS[index] ?? BASE_WEIGHT : currentIndex < 0 ? BASE_WEIGHT : WEIGHT_BY_DISTANCE.get(index - currentIndex) ?? BASE_WEIGHT;
+
+  // Widths as fr units in the grid template. minmax(0, …) rather than a
+  // bare fr so a long objective title cannot set a floor and push the
+  // board wider than the page.
+  const columnTemplate = visibleColumns.map((_, offset) => `minmax(0,${weightOf(start + offset)}fr)`).join(" ");
 
   if (!hasLoaded || !isReady) {
     return (
@@ -197,7 +266,7 @@ export default function PeriodBoardView({ onEditNode, viewSwitcher }: PeriodBoar
     // exactly viewport-high and nothing scrolls vertically, so the two
     // agree. Below md the page scrolls normally, the breakout would gain
     // only main's 16px of padding, and the columns size to their contents.
-    <div className="flex flex-col gap-3 md:relative md:left-1/2 md:h-[calc(100vh-12.25rem)] md:w-screen md:-translate-x-1/2">
+    <div className="relative flex flex-col gap-3 md:left-1/2 md:h-[calc(100vh-12.25rem)] md:w-screen md:-translate-x-1/2">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 md:px-6">
         <h1 className="atlas-display shrink-0 text-2xl font-bold tracking-tight text-white">Goal Tree</h1>
 
@@ -208,7 +277,7 @@ export default function PeriodBoardView({ onEditNode, viewSwitcher }: PeriodBoar
                 type="button"
                 role="tab"
                 aria-selected={scope === entry.id}
-                onClick={() => setScope(entry.id)}
+                onClick={() => { setScope(entry.id); setWindowStart(null); }}
                 className={"rounded-lg px-3 py-1.5 text-xs font-semibold transition " + (scope === entry.id ? "atlas-accent bg-[rgb(var(--atlas-accent,168_85_247)/0.14)]" : "atlas-muted hover:text-white")}
               >
                 {entry.label}
@@ -220,20 +289,20 @@ export default function PeriodBoardView({ onEditNode, viewSwitcher }: PeriodBoar
               anchored to today. */}
           {scope !== "current" ? (
             <div className="flex flex-wrap items-center gap-2">
-              <button type="button" onClick={() => setYear((current) => current - 1)} className={ghostClass} aria-label="Previous year">
+              <button type="button" onClick={() => { setYear((current) => current - 1); setWindowStart(null); }} className={ghostClass} aria-label="Previous year">
                 −
               </button>
               {years.map((option) => (
                 <button
                   key={option}
                   type="button"
-                  onClick={() => setYear(option)}
+                  onClick={() => { setYear(option); setWindowStart(null); }}
                   className={"rounded-lg border px-3 py-1.5 text-sm font-semibold transition " + (option === year ? "border-amber-300/40 bg-amber-300/10 text-amber-100" : "atlas-muted border-white/10 hover:text-white")}
                 >
                   {option}
                 </button>
               ))}
-              <button type="button" onClick={() => setYear((current) => current + 1)} className={ghostClass} aria-label="Next year">
+              <button type="button" onClick={() => { setYear((current) => current + 1); setWindowStart(null); }} className={ghostClass} aria-label="Next year">
                 +
               </button>
             </div>
@@ -248,11 +317,23 @@ export default function PeriodBoardView({ onEditNode, viewSwitcher }: PeriodBoar
           columns' own content would push the board past the Dock. On a
           narrow screen the parent has no fixed height, so the columns fall
           back to sizing from their contents and the page scrolls. */}
+      {/* A page of periods, not a strip that scrolls: only this page's
+          columns are rendered, and the pager swaps them. Four even slots
+          from md up, driven by a custom property because the count drops
+          for a scope with fewer periods than a page; stacked below md,
+          where four columns side by side would be unreadable. */}
       <div
-        className="flex min-h-[22rem] flex-1 overflow-x-auto border-t border-white/[0.06] md:min-h-0"
+        style={{ "--board-columns": columnTemplate } as React.CSSProperties}
+        // grid-rows-1 is minmax(0,1fr), which pins the row to the board's
+        // own height instead of letting a packed column grow the row and
+        // spill past the Dock. It is what gives the columns a definite
+        // height to scroll their lists inside.
+        className="grid min-h-[22rem] flex-1 grid-cols-1 border-t border-white/[0.06] md:min-h-0 md:grid-rows-1 md:[grid-template-columns:var(--board-columns)]"
         data-testid="period-board"
+        data-window-start={start}
+        data-total-columns={columns.length}
       >
-        {columns.map((column) => (
+        {visibleColumns.map((column) => (
           <PeriodColumn
             key={column.id}
             column={column}
@@ -264,6 +345,32 @@ export default function PeriodBoardView({ onEditNode, viewSwitcher }: PeriodBoar
           />
         ))}
       </div>
+
+      {/* Paging through the horizons, with a way straight back to the page
+          holding today. Hidden when the whole board is one page. */}
+      {canPrevious || canNext ? (
+        // Below md the columns stack into a tall page, so the pager floats
+        // above it rather than sitting at the bottom of the stack where it
+        // could only be reached by scrolling past every column. The Dock is
+        // hidden at that width, so nothing collides.
+        <div className="fixed bottom-4 right-4 z-20 flex items-center gap-1 rounded-xl border border-white/10 bg-black/70 p-1 shadow-lg backdrop-blur-md md:absolute md:z-10">
+          <button type="button" onClick={() => shiftWindow(-1)} disabled={!canPrevious} aria-label="Previous page of periods" className={pagerArrowClass}>
+            <ChevronLeft aria-hidden className="h-4 w-4" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setWindowStart(null)}
+            className="atlas-muted rounded-lg px-2.5 py-1 text-xs font-semibold transition hover:bg-white/[0.06] hover:text-white"
+          >
+            Today
+          </button>
+
+          <button type="button" onClick={() => shiftWindow(1)} disabled={!canNext} aria-label="Next page of periods" className={pagerArrowClass}>
+            <ChevronRight aria-hidden className="h-4 w-4" />
+          </button>
+        </div>
+      ) : null}
 
       {pendingColumn?.periodType === "year" ? (
         <CreateAnnualGoalModal

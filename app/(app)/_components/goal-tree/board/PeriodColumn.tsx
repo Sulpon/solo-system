@@ -77,10 +77,13 @@ export default function PeriodColumn({ column, nodes, quests, addBlockedReason, 
     <section
       data-testid={`board-column-${column.id}`}
       className={
-        // grow + a basis equal to the minimum means a handful of columns
-        // spread across the whole window, while a year of weeks keeps a
-        // readable width and scrolls sideways instead of being crushed.
-        "flex min-w-[15.5rem] grow basis-[15.5rem] flex-col border-l border-white/[0.06] px-3 py-3 first:border-l-0 " +
+        // The board's grid owns the width - a column just fills its slot.
+        // min-w-0 is what lets it: without it a long title would set a
+        // floor and push the grid wider than the page.
+        "flex min-w-0 flex-col border-white/[0.06] px-4 py-3 " +
+        // Hairlines run between columns side by side, and between rows
+        // once they stack on a narrow screen.
+        "border-t first:border-t-0 md:border-l md:border-t-0 md:first:border-l-0 " +
         (column.isCurrent ? level.accentWash : "")
       }
     >
