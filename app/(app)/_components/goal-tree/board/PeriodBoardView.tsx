@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { DndContext, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Card from "../../Card";
 import PeriodColumn from "./PeriodColumn";
@@ -17,7 +18,9 @@ import { parseLocalDayKey } from "../../../_lib/local-day";
 import { getQuestsForDate } from "../../../_lib/engines/quest-calendar-engine";
 import { getQuarterRange } from "../../../_lib/engines/planning-engine";
 import { getCurrentYear, getUndatedDreams, getYearsWithGoals, yearPeriodKeys } from "../../../_lib/engines/year-planning";
-import { BOARD_SCOPES, buildBoardColumns, findParentCandidates, selectNodesForColumn, type BoardColumn, type BoardScope } from "../../../_lib/engines/period-board";
+import { BOARD_SCOPES, buildBoardColumns, findParentCandidates, planNodeMove, planQuestMove, selectNodesForColumn, type BoardColumn, type BoardScope } from "../../../_lib/engines/period-board";
+import { useLocalStorageState } from "../../../_lib/hooks/use-local-storage-state";
+import { BOARD_COLUMN_WIDTHS_KEY } from "../../../_lib/storage-keys";
 import type { GoalNode, KeyResult } from "../../../_lib/types/goal-tree";
 
 type PeriodBoardViewProps = Readonly<{
@@ -72,7 +75,7 @@ function clamp(value: number, low: number, high: number): number {
 // that already exists for that level. No new storage, no second goal model,
 // and the hierarchy view and outline are untouched.
 export default function PeriodBoardView({ onEditNode, viewSwitcher }: PeriodBoardViewProps = {}) {
-  const { goalTree, hasLoaded, createRootNode, createChildNode, saveNode } = useGoalTree();
+  const { goalTree, hasLoaded, createRootNode, createChildNode, saveNode, moveNode, findNode } = useGoalTree();
   const { isReady, questDefinitions, questCompletions, setQuestDefinitions } = useProgression();
 
   const [scope, setScope] = useState<BoardScope>("current");
@@ -86,6 +89,10 @@ export default function PeriodBoardView({ onEditNode, viewSwitcher }: PeriodBoar
   const columns = useMemo(() => buildBoardColumns(scope, year, today), [scope, year, today]);
   const years = useMemo(() => [...new Set([...getYearsWithGoals(viewTree), year])].sort((a, b) => a - b), [viewTree, year]);
   const undatedDreams = useMemo(() => getUndatedDreams(viewTree), [viewTree]);
+
+  // A few pixels of travel before a drag starts, so a row still responds
+  // to a plain click by opening its editor.
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   // Where the visible window starts. Null means "wherever today is",
   // which is what every scope change resets to; paging pins it to an
@@ -115,10 +122,107 @@ export default function PeriodBoardView({ onEditNode, viewSwitcher }: PeriodBoar
   const weightOf = (index: number) =>
     isOverview ? OVERVIEW_WEIGHTS[index] ?? BASE_WEIGHT : currentIndex < 0 ? BASE_WEIGHT : WEIGHT_BY_DISTANCE.get(index - currentIndex) ?? BASE_WEIGHT;
 
+  // Widths dragged by hand, per scope and per slot, replacing the computed
+  // ramp once the user has an opinion. Stored per scope because each has
+  // its own column count and its own sensible shape.
+  const [widthOverrides, setWidthOverrides] = useLocalStorageState<Partial<Record<BoardScope, number[]>>>(BOARD_COLUMN_WIDTHS_KEY, {});
+  const boardRef = useRef<HTMLDivElement | null>(null);
+
+  const scopeOverride = widthOverrides[scope];
+  const weights = scopeOverride?.length === visibleColumns.length ? scopeOverride : visibleColumns.map((_, offset) => weightOf(start + offset));
+
   // Widths as fr units in the grid template. minmax(0, …) rather than a
   // bare fr so a long objective title cannot set a floor and push the
   // board wider than the page.
-  const columnTemplate = visibleColumns.map((_, offset) => `minmax(0,${weightOf(start + offset)}fr)`).join(" ");
+  const columnTemplate = weights.map((weight) => `minmax(0,${weight}fr)`).join(" ");
+
+  // Dragging the hairline between two columns trades width between those
+  // two only, so the board still fills the page exactly and the columns
+  // either side stay put. Pixels are converted back to fr on the way out.
+  function startResize(dividerIndex: number, event: React.PointerEvent<HTMLElement>) {
+    const board = boardRef.current;
+
+    if (!board) {
+      return;
+    }
+
+    event.preventDefault();
+    const cells = [...board.children].filter((child) => child instanceof HTMLElement) as HTMLElement[];
+    const pixelWidths = cells.map((cell) => cell.getBoundingClientRect().width);
+    const total = pixelWidths.reduce((sum, width) => sum + width, 0);
+    const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+    const startX = event.clientX;
+    const leftStart = pixelWidths[dividerIndex];
+    const rightStart = pixelWidths[dividerIndex + 1];
+    const pairWidth = leftStart + rightStart;
+    // Enough for a heading and a checkbox row; below this a column is not
+    // a column any more.
+    const minimum = Math.min(140, pairWidth / 2);
+
+    const apply = (clientX: number) => {
+      const left = Math.min(pairWidth - minimum, Math.max(minimum, leftStart + (clientX - startX)));
+      const next = pixelWidths.map((width, index) => (index === dividerIndex ? left : index === dividerIndex + 1 ? pairWidth - left : width));
+
+      setWidthOverrides((current) => ({ ...current, [scope]: next.map((width) => Number(((width / total) * totalWeight).toFixed(4))) }));
+    };
+
+    const onMove = (move: PointerEvent) => apply(move.clientX);
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }
+
+  function resetWidths() {
+    setWidthOverrides((current) => {
+      const next = { ...current };
+      delete next[scope];
+      return next;
+    });
+  }
+
+  // A drop only ever retimes - the engine refuses anything that would
+  // convert one kind of objective into another, so an impossible drag
+  // simply lands nowhere rather than rewriting the item.
+  function handleDragEnd(event: DragEndEvent) {
+    const overId = String(event.over?.id ?? "");
+    const activeId = String(event.active?.id ?? "");
+
+    if (!overId.startsWith("column:")) {
+      return;
+    }
+
+    const column = columns.find((entry) => `column:${entry.id}` === overId);
+
+    if (!column) {
+      return;
+    }
+
+    if (activeId.startsWith("quest:")) {
+      const questId = activeId.slice("quest:".length);
+      const quest = questDefinitions.find((entry) => entry.id === questId);
+      const plan = quest ? planQuestMove(quest, column) : { ok: false as const, reason: "Quest not found." };
+
+      if (plan.ok) {
+        setQuestDefinitions(questDefinitions.map((entry) => (entry.id === questId ? { ...entry, scheduledDate: plan.scheduledDate, updatedAt: new Date().toISOString() } : entry)));
+      }
+
+      return;
+    }
+
+    if (activeId.startsWith("node:")) {
+      const nodeId = activeId.slice("node:".length);
+      const node = findNode(nodeId);
+      const plan = node ? planNodeMove(viewTree, node, column) : { ok: false as const, reason: "Goal not found." };
+
+      if (plan.ok) {
+        moveNode(nodeId, { periodStart: plan.periodStart, periodEnd: plan.periodEnd, parentId: plan.parentId });
+      }
+    }
+  }
 
   if (!hasLoaded || !isReady) {
     return (
@@ -322,29 +426,54 @@ export default function PeriodBoardView({ onEditNode, viewSwitcher }: PeriodBoar
           from md up, driven by a custom property because the count drops
           for a scope with fewer periods than a page; stacked below md,
           where four columns side by side would be unreadable. */}
-      <div
-        style={{ "--board-columns": columnTemplate } as React.CSSProperties}
-        // grid-rows-1 is minmax(0,1fr), which pins the row to the board's
-        // own height instead of letting a packed column grow the row and
-        // spill past the Dock. It is what gives the columns a definite
-        // height to scroll their lists inside.
-        className="grid min-h-[22rem] flex-1 grid-cols-1 border-t border-white/[0.06] md:min-h-0 md:grid-rows-1 md:[grid-template-columns:var(--board-columns)]"
-        data-testid="period-board"
-        data-window-start={start}
-        data-total-columns={columns.length}
-      >
-        {visibleColumns.map((column) => (
-          <PeriodColumn
-            key={column.id}
-            column={column}
-            nodes={selectNodesForColumn(viewTree, column)}
-            quests={column.periodType === "day" ? getQuestsForDate(questDefinitions, questCompletions, parseLocalDayKey(column.startKey), today) : []}
-            addBlockedReason={blockedReason(column)}
-            onAdd={() => openAdd(column)}
-            onSelectNode={(node: GoalNode) => onEditNode?.(node.id)}
-          />
-        ))}
-      </div>
+      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+        <div className="relative flex min-h-0 flex-1 flex-col">
+          <div
+            ref={boardRef}
+            style={{ "--board-columns": columnTemplate } as React.CSSProperties}
+            // grid-rows-1 is minmax(0,1fr), which pins the row to the board's
+            // own height instead of letting a packed column grow the row and
+            // spill past the Dock. It is what gives the columns a definite
+            // height to scroll their lists inside.
+            className="grid min-h-[22rem] flex-1 grid-cols-1 border-t border-white/[0.06] md:min-h-0 md:grid-rows-1 md:[grid-template-columns:var(--board-columns)]"
+            data-testid="period-board"
+            data-window-start={start}
+            data-total-columns={columns.length}
+          >
+            {visibleColumns.map((column) => (
+              <PeriodColumn
+                key={column.id}
+                column={column}
+                nodes={selectNodesForColumn(viewTree, column)}
+                quests={column.periodType === "day" ? getQuestsForDate(questDefinitions, questCompletions, parseLocalDayKey(column.startKey), today) : []}
+                addBlockedReason={blockedReason(column)}
+                onAdd={() => openAdd(column)}
+                onSelectNode={(node: GoalNode) => onEditNode?.(node.id)}
+              />
+            ))}
+          </div>
+
+          {/* One grab strip per boundary, laid over the hairline. They sit
+              outside the grid so they cannot become grid items, and a
+              double-click hands the scope back to the computed ramp. */}
+          {weights.slice(0, -1).map((_, index) => (
+            <div
+              key={visibleColumns[index].id}
+              role="separator"
+              aria-orientation="vertical"
+              aria-label={`Resize ${visibleColumns[index].title}`}
+              data-testid={`board-resize-${index}`}
+              onPointerDown={(event) => startResize(index, event)}
+              onDoubleClick={resetWidths}
+              title="Drag to resize, double-click to reset"
+              className="group absolute top-0 hidden h-full w-3 -translate-x-1/2 cursor-col-resize touch-none md:block"
+              style={{ left: `${(weights.slice(0, index + 1).reduce((sum, weight) => sum + weight, 0) / weights.reduce((sum, weight) => sum + weight, 0)) * 100}%` }}
+            >
+              <div className="mx-auto h-full w-px transition group-hover:bg-[rgb(var(--atlas-accent,168_85_247)/0.7)]" />
+            </div>
+          ))}
+        </div>
+      </DndContext>
 
       {/* Paging through the horizons, with a way straight back to the page
           holding today. Hidden when the whole board is one page. */}

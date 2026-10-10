@@ -72,6 +72,30 @@ export function useGoalTree() {
     commitGoalTree(normalizeGoalTree(removeGoalNode(goalTreeRef.current, nodeId)));
   }
 
+  // Retime a node and re-hang it under a new parent. The tree is nested,
+  // so a parent change is a lift and a re-insert, not a field edit - the
+  // node travels with its own children, which keeps a month's weeks
+  // attached when the month moves. Goes through commitGoalTree like every
+  // other mutation, so XP and activity bookkeeping is unchanged.
+  function moveNode(nodeId: string, target: Readonly<{ periodStart: string; periodEnd: string; parentId: string | null }>) {
+    const existing = findGoalNode(goalTreeRef.current, nodeId);
+
+    if (!existing) {
+      return;
+    }
+
+    const moved: GoalNode = {
+      ...existing,
+      parentId: target.parentId ?? undefined,
+      periodStart: target.periodStart,
+      periodEnd: target.periodEnd,
+      updatedAt: new Date().toISOString(),
+    };
+
+    const without = removeGoalNode(goalTreeRef.current, nodeId);
+    commitGoalTree(normalizeGoalTree(insertGoalNode(without, target.parentId, moved)));
+  }
+
   function updateProgressGoal(nodeId: string, increment: number) {
     const beforeNode = findGoalNode(goalTreeRef.current, nodeId);
     const nextTree = normalizeGoalTree(adjustProgressGoalValue(goalTreeRef.current, nodeId, increment));
@@ -118,6 +142,7 @@ export function useGoalTree() {
     createChildNode,
     saveNode,
     deleteNode,
+    moveNode,
     updateProgressGoal,
     completeSequentialStep,
     undoSequentialStep,

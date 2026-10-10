@@ -200,6 +200,83 @@ export function buildBoardColumns(scope: BoardScope, year: number, today: Date =
   return [year - 1, year, year + 1, year + 2].map((entry) => yearColumn(entry, today));
 }
 
+// Dragging an objective from one column to another. A move only ever
+// retimes something - it never converts it - so the plan is computed here
+// and refused in full rather than half-applied by the UI.
+export type BoardMovePlan =
+  | Readonly<{ ok: true; periodStart: string; periodEnd: string; parentId: string | null }>
+  | Readonly<{ ok: false; reason: string }>;
+
+export type QuestMovePlan = Readonly<{ ok: true; scheduledDate: string }> | Readonly<{ ok: false; reason: string }>;
+
+const PERIOD_LABEL: Readonly<Record<BoardPeriodType, string>> = {
+  day: "daily",
+  week: "weekly",
+  month: "monthly",
+  quarter: "quarterly",
+  year: "annual",
+};
+
+// Where a GoalNode would land if dropped on this column.
+//
+// Levels are not interchangeable: a weekly progress_goal and a monthly
+// milestone are different types with different required fields, so a drag
+// across levels is refused rather than silently rewriting the node. Within
+// a level the period moves, and the node re-parents to whatever covers its
+// new period - the hierarchy is strict, so a month goal dragged out from
+// under its quarter would otherwise be orphaned.
+export function planNodeMove(goalTree: GoalTree, node: GoalNode, column: BoardColumn): BoardMovePlan {
+  if (column.periodType === "day") {
+    return { ok: false, reason: "A day holds Quests, not goals." };
+  }
+
+  if (node.periodType !== column.periodType) {
+    return { ok: false, reason: `A ${PERIOD_LABEL[node.periodType ?? "week"]} goal cannot become ${PERIOD_LABEL[column.periodType]} by dragging.` };
+  }
+
+  if (node.periodStart === column.startKey) {
+    return { ok: false, reason: "Already in this period." };
+  }
+
+  // A year goal is a root: it has no level above it to hang from.
+  if (column.periodType === "year") {
+    return { ok: true, periodStart: column.startKey, periodEnd: column.endKey, parentId: null };
+  }
+
+  const candidates = findParentCandidates(goalTree, column);
+
+  if (candidates.length === 0) {
+    const needed = column.periodType === "quarter" ? "an annual goal" : column.periodType === "month" ? "a quarterly goal" : "a monthly goal";
+    return { ok: false, reason: `Create ${needed} covering ${column.title} first — every objective hangs off the level above it.` };
+  }
+
+  // Keep the current parent when it still covers the new period, so a move
+  // inside one month does not silently re-hang the goal elsewhere.
+  const unchanged = candidates.find((candidate) => candidate.id === node.parentId);
+
+  return { ok: true, periodStart: column.startKey, periodEnd: column.endKey, parentId: (unchanged ?? candidates[0]).id };
+}
+
+// Where a Quest would land. Only a one-time Quest can be retimed: a
+// recurring one has no per-occurrence exception to record, so moving it
+// would silently shift every occurrence - the same rule the Calendar
+// already applies to its drag-move.
+export function planQuestMove(quest: Readonly<{ scheduledDate?: string | null; scheduledDays?: ReadonlyArray<number> }>, column: BoardColumn): QuestMovePlan {
+  if (column.periodType !== "day") {
+    return { ok: false, reason: "A Quest is a day-level objective." };
+  }
+
+  if (!quest.scheduledDate && (quest.scheduledDays?.length ?? 0) > 0) {
+    return { ok: false, reason: "This Quest repeats — change its schedule instead of moving one day." };
+  }
+
+  if (quest.scheduledDate === column.startKey) {
+    return { ok: false, reason: "Already on this day." };
+  }
+
+  return { ok: true, scheduledDate: column.startKey };
+}
+
 function flattenGoalTree(nodes: GoalTree): GoalNode[] {
   return nodes.flatMap((node) => [node, ...flattenGoalTree(node.children)]);
 }

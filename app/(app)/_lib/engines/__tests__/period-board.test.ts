@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildBoardColumns, findParentCandidates, getColumnStats, getIsoWeekNumber, selectNodesForColumn } from "../period-board";
+import { buildBoardColumns, findParentCandidates, getColumnStats, getIsoWeekNumber, planNodeMove, planQuestMove, selectNodesForColumn } from "../period-board";
 import type { GoalNode, GoalNodePeriodType, GoalTree } from "../../types/goal-tree";
 
 const TODAY = new Date(2026, 9, 9); // Fri 9 Oct 2026 - ISO week 41, Q4
@@ -183,5 +183,93 @@ describe("findParentCandidates", () => {
 
   it("needs no parent for a year column", () => {
     expect(findParentCandidates(tree, buildBoardColumns("year", 2026, TODAY)[0])).toEqual([]);
+  });
+});
+
+describe("planNodeMove", () => {
+  const columns = buildBoardColumns("week", 2026, TODAY);
+  const week41 = columns.find((column) => column.isCurrent) as ReturnType<typeof buildBoardColumns>[number];
+  const week42 = columns[columns.indexOf(week41) + 1];
+  // A quarter -> month -> week chain, so week columns have a real parent.
+  const movable: GoalTree = [
+    periodNode("y", "year", "2026-01-01", "2026-12-31", {
+      children: [
+        periodNode("q", "quarter", "2026-10-01", "2026-12-31", {
+          children: [
+            periodNode("m", "month", "2026-10-01", "2026-10-31", {
+              children: [periodNode("w", "week", week41.startKey, week41.endKey, { parentId: "m" })],
+            }),
+          ],
+        }),
+      ],
+    }),
+  ];
+  const weekNode = periodNode("w", "week", week41.startKey, week41.endKey, { parentId: "m" });
+
+  it("retimes a goal inside its level and keeps a parent that still covers it", () => {
+    const plan = planNodeMove(movable, weekNode, week42);
+
+    expect(plan).toEqual({ ok: true, periodStart: week42.startKey, periodEnd: week42.endKey, parentId: "m" });
+  });
+
+  it("refuses a drag across levels rather than rewriting the node's type", () => {
+    const monthColumn = buildBoardColumns("month", 2026, TODAY)[9];
+    const plan = planNodeMove(movable, weekNode, monthColumn);
+
+    expect(plan.ok).toBe(false);
+    expect((plan as { reason: string }).reason).toMatch(/cannot become/);
+  });
+
+  it("refuses a day column, which holds Quests", () => {
+    expect(planNodeMove(movable, weekNode, buildBoardColumns("day", 2026, TODAY)[0]).ok).toBe(false);
+  });
+
+  it("refuses when nothing at the level above covers the target period", () => {
+    // Week 2 sits in January; the only month goal is October.
+    const plan = planNodeMove(movable, weekNode, columns[1]);
+
+    expect(plan.ok).toBe(false);
+    expect((plan as { reason: string }).reason).toMatch(/Create a monthly goal/);
+  });
+
+  it("treats a drop on the column it already sits in as no move", () => {
+    expect(planNodeMove(movable, weekNode, week41).ok).toBe(false);
+  });
+
+  it("moves a year goal without needing a parent", () => {
+    const yearColumns = buildBoardColumns("year", 2026, TODAY);
+    const yearNode = periodNode("y", "year", "2026-01-01", "2026-12-31");
+    const plan = planNodeMove(movable, yearNode, yearColumns[2]);
+
+    expect(plan).toEqual({ ok: true, periodStart: yearColumns[2].startKey, periodEnd: yearColumns[2].endKey, parentId: null });
+  });
+});
+
+describe("planQuestMove", () => {
+  const days = buildBoardColumns("day", 2026, TODAY);
+  const today = days.find((column) => column.isCurrent) as ReturnType<typeof buildBoardColumns>[number];
+  const tomorrow = days[days.indexOf(today) + 1];
+
+  it("retimes a one-time Quest to the dropped day", () => {
+    expect(planQuestMove({ scheduledDate: today.startKey }, tomorrow)).toEqual({ ok: true, scheduledDate: tomorrow.startKey });
+  });
+
+  it("schedules a Quest that had no date at all", () => {
+    expect(planQuestMove({}, tomorrow)).toEqual({ ok: true, scheduledDate: tomorrow.startKey });
+  });
+
+  it("refuses a recurring Quest, which has no per-occurrence exception to record", () => {
+    const plan = planQuestMove({ scheduledDays: [1, 3, 5] }, tomorrow);
+
+    expect(plan.ok).toBe(false);
+    expect((plan as { reason: string }).reason).toMatch(/repeats/);
+  });
+
+  it("refuses a column that is not a day", () => {
+    expect(planQuestMove({ scheduledDate: today.startKey }, buildBoardColumns("week", 2026, TODAY)[0]).ok).toBe(false);
+  });
+
+  it("treats a drop on the Quest's own day as no move", () => {
+    expect(planQuestMove({ scheduledDate: today.startKey }, today).ok).toBe(false);
   });
 });

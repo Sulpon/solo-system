@@ -173,3 +173,10 @@ export const NOTIFICATIONS_LAST_SEEN_KEY = "atlas-notifications-last-seen";
 // NOTIFICATIONS_LAST_SEEN_KEY above - a plain array of already-seen moment
 // ids, not a second achievement database.
 export const ACHIEVEMENT_MOMENTS_SEEN_KEY = "atlas-achievement-moments-seen";
+
+// Deliberately NOT under the "menace-" prefix, for the reason documented
+// above: the cloud snapshot sweeps every "menace-*" key, and how wide a
+// board column is dragged belongs to the screen it was dragged on, not to
+// the account. Losing it costs a redrag; syncing it would push a 32-inch
+// layout onto a laptop.
+export const BOARD_COLUMN_WIDTHS_KEY = "atlas-board-column-widths";

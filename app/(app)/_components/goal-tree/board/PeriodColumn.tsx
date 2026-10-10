@@ -1,5 +1,6 @@
 "use client";
 
+import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { getColumnStats, type BoardColumn } from "../../../_lib/engines/period-board";
 import { HIERARCHY_LEVELS } from "../hierarchy/hierarchy-levels";
 import type { GoalNode } from "../../../_lib/types/goal-tree";
@@ -17,7 +18,11 @@ type PeriodColumnProps = Readonly<{
   onSelectNode: (node: GoalNode) => void;
 }>;
 
-function ObjectiveRow({ title, meta, progress, complete, accentFill, onClick }: Readonly<{
+function ObjectiveRow({ dragId, title, meta, progress, complete, accentFill, onClick }: Readonly<{
+  // Null for an objective that cannot be retimed by dragging - a
+  // recurring Quest, whose day belongs to its schedule, not to one
+  // occurrence.
+  dragId: string | null;
   title: string;
   meta?: string;
   progress: number;
@@ -26,6 +31,7 @@ function ObjectiveRow({ title, meta, progress, complete, accentFill, onClick }: 
   onClick?: () => void;
 }>) {
   const clamped = Math.min(100, Math.max(0, Math.round(progress)));
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: dragId ?? "undraggable", disabled: dragId === null });
 
   const body = (
     <>
@@ -45,12 +51,25 @@ function ObjectiveRow({ title, meta, progress, complete, accentFill, onClick }: 
     </>
   );
 
+  // The dragged row keeps its place in the list at low opacity rather than
+  // collapsing it, so the column does not reflow under the cursor.
+  const shared = {
+    ref: setNodeRef,
+    className:
+      "w-full rounded-lg px-2 py-1.5 text-left transition " +
+      (dragId ? "cursor-grab touch-none active:cursor-grabbing " : "") +
+      (isDragging ? "opacity-35 " : "") +
+      (onClick ? "hover:bg-white/[0.05]" : ""),
+    ...attributes,
+    ...listeners,
+  };
+
   if (!onClick) {
-    return <div className="rounded-lg px-2 py-1.5">{body}</div>;
+    return <div {...shared}>{body}</div>;
   }
 
   return (
-    <button type="button" onClick={onClick} className="w-full rounded-lg px-2 py-1.5 text-left transition hover:bg-white/[0.05]">
+    <button type="button" onClick={onClick} {...shared}>
       {body}
     </button>
   );
@@ -73,9 +92,17 @@ export default function PeriodColumn({ column, nodes, quests, addBlockedReason, 
   const total = isDay ? quests.length : stats.total;
   const completed = isDay ? completedQuests : stats.completed;
 
+  const { setNodeRef: setDropRef, isOver, active } = useDroppable({ id: `column:${column.id}` });
+  // Only light up for a drag that could actually land here. The plan is
+  // recomputed on drop anyway; this just avoids promising a move that
+  // the engine will refuse.
+  const isDropCandidate = Boolean(active) && String(active?.id ?? "").startsWith(isDay ? "quest:" : "node:");
+
   return (
     <section
+      ref={setDropRef}
       data-testid={`board-column-${column.id}`}
+      data-drop-active={isOver && isDropCandidate ? "true" : undefined}
       className={
         // The board's grid owns the width - a column just fills its slot.
         // min-w-0 is what lets it: without it a long title would set a
@@ -84,6 +111,7 @@ export default function PeriodColumn({ column, nodes, quests, addBlockedReason, 
         // Hairlines run between columns side by side, and between rows
         // once they stack on a narrow screen.
         "border-t first:border-t-0 md:border-l md:border-t-0 md:first:border-l-0 " +
+        (isOver && isDropCandidate ? "bg-white/[0.06] " : "") +
         (column.isCurrent ? level.accentWash : "")
       }
     >
@@ -106,6 +134,7 @@ export default function PeriodColumn({ column, nodes, quests, addBlockedReason, 
           ? quests.map((item) => (
               <ObjectiveRow
                 key={item.quest.id}
+                dragId={item.isRecurring ? null : `quest:${item.quest.id}`}
                 title={item.quest.title}
                 meta={item.startTime ?? undefined}
                 progress={item.status === "completed" ? 100 : 0}
@@ -116,6 +145,7 @@ export default function PeriodColumn({ column, nodes, quests, addBlockedReason, 
           : nodes.map((node) => (
               <ObjectiveRow
                 key={node.id}
+                dragId={`node:${node.id}`}
                 title={node.title}
                 meta={node.description}
                 progress={node.progress}
