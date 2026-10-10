@@ -1,7 +1,10 @@
 "use client";
 
+import { FileText, Image as ImageIcon, Link2, Paperclip, PlayCircle } from "lucide-react";
 import Card from "../Card";
-import type { Note } from "../../_lib/types/note";
+import { getNoteKind, getUrlHost, type NoteKind } from "../../_lib/engines/note-inbox-engine";
+import { NOTE_CATEGORIES } from "../../_lib/types/note";
+import type { Note, NoteCategory } from "../../_lib/types/note";
 
 type NoteCardProps = Readonly<{
   note: Note;
@@ -9,21 +12,78 @@ type NoteCardProps = Readonly<{
   onTogglePin: () => void;
   onToggleArchive: () => void;
   onDelete: () => void;
+  // Supplied only in the inbox, where filing is the whole point. Absent
+  // elsewhere so a filed note's card stays as it was.
+  onFile?: (category: NoteCategory) => void;
 }>;
 
-export default function NoteCard({ note, onOpen, onTogglePin, onToggleArchive, onDelete }: NoteCardProps) {
+const KIND_ICON: Readonly<Record<NoteKind, typeof FileText>> = {
+  text: FileText,
+  link: Link2,
+  video: PlayCircle,
+  image: ImageIcon,
+  file: Paperclip,
+};
+
+export default function NoteCard({ note, onOpen, onTogglePin, onToggleArchive, onDelete, onFile }: NoteCardProps) {
   const displayTitle = note.title || note.content.split("\n")[0].slice(0, 60) || "Untitled";
   const preview = note.content.length > 160 ? `${note.content.slice(0, 160)}...` : note.content;
+  const kind = getNoteKind(note);
+  const KindIcon = KIND_ICON[kind];
+  const attachmentCount = note.attachments?.length ?? 0;
 
   return (
     <Card className="flex h-full flex-col gap-3 p-4">
       <div className="min-w-0 flex-1 cursor-pointer" onClick={onOpen}>
         <div className="flex items-start justify-between gap-2">
-          <h3 className="min-w-0 truncate text-sm font-semibold text-white">{displayTitle}</h3>
+          <h3 className="flex min-w-0 items-start gap-1.5 text-sm font-semibold text-white">
+            <KindIcon aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" />
+            <span className="min-w-0 truncate">{displayTitle}</span>
+          </h3>
           {note.pinned ? <span className="shrink-0 text-amber-300">📌</span> : null}
         </div>
         <p className="mt-1.5 line-clamp-3 whitespace-pre-line text-xs leading-5 text-slate-400">{preview}</p>
       </div>
+
+      {note.url || attachmentCount > 0 ? (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+          {note.url ? (
+            <a
+              href={note.url}
+              target="_blank"
+              rel="noreferrer noopener"
+              onClick={(event) => event.stopPropagation()}
+              className="flex min-w-0 items-center gap-1 text-purple-300 transition hover:text-purple-200"
+            >
+              <Link2 aria-hidden className="h-3 w-3 shrink-0" />
+              <span className="truncate">{getUrlHost(note.url) ?? note.url}</span>
+            </a>
+          ) : null}
+          {attachmentCount > 0 ? (
+            <span className="flex items-center gap-1 text-slate-500">
+              <Paperclip aria-hidden className="h-3 w-3" />
+              {attachmentCount} file{attachmentCount === 1 ? "" : "s"}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
+      {/* Filing is one click, right on the card - the whole point of a
+          triage pass is not having to open anything. */}
+      {onFile && !note.category ? (
+        <div className="flex flex-wrap gap-1" data-testid={`note-triage-${note.id}`}>
+          {NOTE_CATEGORIES.map((category) => (
+            <button
+              key={category}
+              type="button"
+              onClick={() => onFile(category)}
+              className="rounded-full border border-slate-700 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-slate-500 transition hover:border-purple-400/60 hover:bg-purple-500/10 hover:text-purple-200"
+            >
+              {category}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {note.category || (note.tags && note.tags.length > 0) ? (
         <div className="flex flex-wrap gap-1.5">

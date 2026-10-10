@@ -10,18 +10,23 @@ import { useProgression } from "../../_lib/hooks/useProgression";
 import { useLibrary } from "../../_lib/hooks/useLibrary";
 import { searchNotes, getAllTags } from "../../_lib/engines/note-search-engine";
 import { getNoteRelationships } from "../../_lib/relationships";
-import { NOTE_CATEGORIES } from "../../_lib/types/note";
+import { isInboxNote, NOTE_CATEGORIES } from "../../_lib/types/note";
+import { sortForInbox } from "../../_lib/engines/note-inbox-engine";
+import { createAttachmentId } from "../../_lib/types/attachment";
+import { putDocumentFile } from "../../_lib/document-store";
+import InboxComposer from "./InboxComposer";
 import type { Note, NoteCategory } from "../../_lib/types/note";
 import NoteCard from "./NoteCard";
 import NoteEditor from "./NoteEditor";
 import NoteLinkPicker from "./NoteLinkPicker";
 import RelatedEntitiesPanel from "../relationships/RelatedEntitiesPanel";
 
-type StatusFilter = "all" | "pinned" | "archived";
+type StatusFilter = "inbox" | "all" | "pinned" | "archived";
 
 const inputClass = "w-full rounded-xl border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none transition focus:border-purple-400";
 
 const STATUS_TABS: ReadonlyArray<{ id: StatusFilter; label: string }> = [
+  { id: "inbox", label: "Inbox" },
   { id: "all", label: "All Notes" },
   { id: "pinned", label: "Pinned" },
   { id: "archived", label: "Archived" },
@@ -30,12 +35,13 @@ const STATUS_TABS: ReadonlyArray<{ id: StatusFilter; label: string }> = [
 type EditorState = { mode: "closed" } | { mode: "create" } | { mode: "edit"; note: Note };
 
 export default function NotesPageClient() {
-  const { notes, addNote, updateNote, deleteNote, setPinned, setArchived, addLink, removeLink, hasLoaded } = useNotes();
+  const { notes, addNote, updateNote, deleteNote, setPinned, setArchived, setCategory, addAttachments, removeAttachment, addLink, removeLink, hasLoaded } = useNotes();
   const { goalTree } = useGoalTree();
   const { attributes } = useAttributes();
   const { questDefinitions } = useProgression();
   const { items: libraryItems } = useLibrary();
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  // The inbox is the landing view: the page exists to be dumped into.
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("inbox");
   const [categoryFilter, setCategoryFilter] = useState<NoteCategory | "all">("all");
   const [tagFilter, setTagFilter] = useState<string | "all">("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -49,6 +55,12 @@ export default function NotesPageClient() {
 
     if (statusFilter === "pinned") {
       scoped = scoped.filter((note) => note.pinned);
+    }
+
+    // Everything not yet filed, newest first. A pinned-first sort would be
+    // wrong here: the inbox is a stack you work down, not a shelf.
+    if (statusFilter === "inbox") {
+      return sortForInbox(searchNotes(searchQuery, scoped.filter(isInboxNote)));
     }
 
     if (categoryFilter !== "all") {
@@ -94,6 +106,10 @@ export default function NotesPageClient() {
           </button>
         </div>
       </Card>
+
+      {/* Always open, above everything else: the cost of writing a
+          thought down has to be one click and one field. */}
+      <InboxComposer onCapture={(draft) => addNote(draft)} />
 
       <Card className="p-5">
         <div className="flex flex-wrap gap-2">
@@ -166,7 +182,13 @@ export default function NotesPageClient() {
       {visibleNotes.length === 0 ? (
         <Card className="p-8">
           <div className="text-center text-sm text-slate-400">
-            {notes.length === 0 ? "No notes yet. Capture your first idea." : "No notes match your filters."}
+            {statusFilter === "inbox"
+              ? notes.length === 0
+                ? "Nothing captured yet. Write the first thing above."
+                : "Inbox clear — everything is filed."
+              : notes.length === 0
+                ? "No notes yet. Capture your first idea."
+                : "No notes match your filters."}
           </div>
         </Card>
       ) : (
@@ -179,6 +201,7 @@ export default function NotesPageClient() {
               onTogglePin={() => setPinned(note.id, !note.pinned)}
               onToggleArchive={() => setArchived(note.id, !note.archived)}
               onDelete={() => deleteNote(note.id)}
+              onFile={statusFilter === "inbox" ? (category) => setCategory(note.id, category) : undefined}
             />
           ))}
         </div>
@@ -188,6 +211,21 @@ export default function NotesPageClient() {
         <Modal title={editorState.mode === "create" ? "New Note" : "Edit Note"} onClose={() => setEditorState({ mode: "closed" })} wide>
           <NoteEditor
             existingNote={editorState.mode === "edit" ? editorState.note : null}
+            onAddFiles={
+              editorState.mode === "edit"
+                ? async (files) => {
+                    const noteId = editorState.note.id;
+                    const stored = [];
+                    for (const file of files) {
+                      const id = createAttachmentId("note-file");
+                      await putDocumentFile(id, file);
+                      stored.push({ id, fileName: file.name, fileType: file.type || "application/octet-stream", fileSize: file.size, uploadedAt: new Date().toISOString() });
+                    }
+                    addAttachments(noteId, stored);
+                  }
+                : undefined
+            }
+            onRemoveFile={editorState.mode === "edit" ? (attachmentId) => removeAttachment(editorState.note.id, attachmentId) : undefined}
             onCancel={() => setEditorState({ mode: "closed" })}
             onSave={(draft) => {
               if (editorState.mode === "edit") {

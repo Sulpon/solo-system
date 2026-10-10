@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import AttachmentsPanel from "../attachments/AttachmentsPanel";
 import type { NoteDraft } from "../../_lib/hooks/useNotes";
+import type { EntityAttachment } from "../../_lib/types/attachment";
 import { NOTE_CATEGORIES } from "../../_lib/types/note";
 import type { Note, NoteCategory } from "../../_lib/types/note";
 
@@ -12,13 +14,20 @@ type NoteEditorProps = Readonly<{
   existingNote: Note | null;
   onSave: (draft: NoteDraft) => void;
   onCancel: () => void;
+  // Attachments are persisted immediately, not on Save: the bytes are
+  // already in IndexedDB by the time these fire, so deferring the metadata
+  // to a Save the user might cancel would orphan them.
+  onAddFiles?: (files: ReadonlyArray<File>) => Promise<void> | void;
+  onRemoveFile?: (attachmentId: string) => void;
 }>;
 
-export default function NoteEditor({ existingNote, onSave, onCancel }: NoteEditorProps) {
+export default function NoteEditor({ existingNote, onSave, onCancel, onAddFiles, onRemoveFile }: NoteEditorProps) {
   const [title, setTitle] = useState(existingNote?.title ?? "");
   const [content, setContent] = useState(existingNote?.content ?? "");
   const [category, setCategory] = useState<NoteCategory | "">(existingNote?.category ?? "");
   const [tagsInput, setTagsInput] = useState((existingNote?.tags ?? []).join(", "));
+  const [url, setUrl] = useState(existingNote?.url ?? "");
+  const attachments: ReadonlyArray<EntityAttachment> = existingNote?.attachments ?? [];
 
   function handleSave() {
     if (!content.trim()) {
@@ -35,6 +44,7 @@ export default function NoteEditor({ existingNote, onSave, onCancel }: NoteEdito
       content: content.trim(),
       category: category || undefined,
       tags: tags.length > 0 ? tags : undefined,
+      url: url.trim() || undefined,
     });
   }
 
@@ -75,6 +85,15 @@ export default function NoteEditor({ existingNote, onSave, onCancel }: NoteEdito
           <input value={tagsInput} onChange={(event) => setTagsInput(event.target.value)} placeholder="comma, separated, tags" className={inputClass} />
         </label>
       </div>
+
+      <label className="space-y-1.5 block">
+        <span className={labelClass}>Link (optional)</span>
+        <input value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://" className={inputClass} />
+      </label>
+
+      {existingNote && onAddFiles && onRemoveFile ? (
+        <AttachmentsPanel attachments={attachments} onAdd={onAddFiles} onRemove={onRemoveFile} label="Pictures and documents" emptyHint="No files attached yet." testId="note-attachments" />
+      ) : null}
 
       <div className="flex justify-end gap-3">
         <button type="button" onClick={onCancel} className="rounded-xl border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:text-white">

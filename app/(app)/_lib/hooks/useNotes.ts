@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { useLocalStorageState } from "./use-local-storage-state";
 import { STORAGE_KEYS } from "../storage-keys";
 import type { Note, NoteCategory, NoteLink } from "../types/note";
+import type { EntityAttachment } from "../types/attachment";
 
 function generateNoteId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -18,6 +19,8 @@ export type NoteDraft = Readonly<{
   content: string;
   category?: NoteCategory;
   tags?: ReadonlyArray<string>;
+  url?: string;
+  attachments?: ReadonlyArray<EntityAttachment>;
 }>;
 
 export function useNotes() {
@@ -32,6 +35,8 @@ export function useNotes() {
         content: draft.content,
         category: draft.category,
         tags: draft.tags,
+        url: draft.url,
+        attachments: draft.attachments,
         pinned: false,
         archived: false,
         createdAt: now,
@@ -107,5 +112,42 @@ export function useNotes() {
     [setNotes],
   );
 
-  return { notes, addNote, updateNote, deleteNote, setPinned, setArchived, addLink, removeLink, hasLoaded } as const;
+  // Filing something from the inbox. Separate from updateNote, which takes
+  // a whole draft from the editor - triage touches one field and must not
+  // need the rest of the note in hand. Passing undefined sends it back to
+  // the inbox, which is how an accidental file is undone.
+  const setCategory = useCallback(
+    (id: string, category: NoteCategory | undefined) => {
+      setNotes((current) => current.map((note) => (note.id === id ? { ...note, category, updatedAt: new Date().toISOString() } : note)));
+    },
+    [setNotes],
+  );
+
+  const addAttachments = useCallback(
+    (id: string, attachments: ReadonlyArray<EntityAttachment>) => {
+      if (attachments.length === 0) {
+        return;
+      }
+
+      setNotes((current) =>
+        current.map((note) => (note.id === id ? { ...note, attachments: [...(note.attachments ?? []), ...attachments], updatedAt: new Date().toISOString() } : note)),
+      );
+    },
+    [setNotes],
+  );
+
+  // Metadata only - the blob is deleted by the caller (AttachmentsPanel
+  // removes it before calling back), exactly as the Library does.
+  const removeAttachment = useCallback(
+    (id: string, attachmentId: string) => {
+      setNotes((current) =>
+        current.map((note) =>
+          note.id === id ? { ...note, attachments: (note.attachments ?? []).filter((entry) => entry.id !== attachmentId), updatedAt: new Date().toISOString() } : note,
+        ),
+      );
+    },
+    [setNotes],
+  );
+
+  return { notes, addNote, updateNote, deleteNote, setPinned, setArchived, setCategory, addAttachments, removeAttachment, addLink, removeLink, hasLoaded } as const;
 }
