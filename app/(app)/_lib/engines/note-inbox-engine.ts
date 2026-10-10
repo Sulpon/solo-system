@@ -1,4 +1,5 @@
-import type { Note } from "../types/note";
+import { getLocalDayKey } from "../local-day";
+import { isInboxNote, type Note } from "../types/note";
 
 // Turning a raw dump into something scannable.
 //
@@ -108,4 +109,84 @@ export function countByKind(notes: ReadonlyArray<Note>): InboxCounts {
 // is the thing most likely still being thought about.
 export function sortForInbox(notes: ReadonlyArray<Note>): Note[] {
   return [...notes].sort((first, second) => second.createdAt.localeCompare(first.createdAt));
+}
+
+// "Read later" and "watch later" are tags, not new fields. They are
+// exactly what a tag is for, they already search, filter and round-trip
+// through the cloud snapshot, and adding two booleans beside them would
+// leave two sources of truth for one idea.
+export const READ_LATER_TAG = "read-later";
+export const WATCH_LATER_TAG = "watch-later";
+
+export function hasTag(note: Note, tag: string): boolean {
+  return (note.tags ?? []).some((entry) => entry.toLowerCase() === tag.toLowerCase());
+}
+
+// Returns the tag list a note should have after toggling one, or the same
+// array when nothing changed, so a caller can skip a pointless write.
+export function toggleTag(tags: ReadonlyArray<string> | undefined, tag: string): ReadonlyArray<string> {
+  const current = tags ?? [];
+  const index = current.findIndex((entry) => entry.toLowerCase() === tag.toLowerCase());
+
+  return index < 0 ? [...current, tag] : current.filter((_, position) => position !== index);
+}
+
+export type InboxSummary = Readonly<{ total: number; uncategorized: number; capturedToday: number }>;
+
+// The three figures worth showing above an inbox, all counted from the
+// notes themselves. "total" is everything still live, so the number does
+// not jump when something is filed - only archiving removes it.
+export function summariseInbox(notes: ReadonlyArray<Note>, now: Date = new Date()): InboxSummary {
+  const today = getLocalDayKey(now);
+  let total = 0;
+  let uncategorized = 0;
+  let capturedToday = 0;
+
+  for (const note of notes) {
+    if (note.archived) {
+      continue;
+    }
+
+    total += 1;
+
+    if (isInboxNote(note)) {
+      uncategorized += 1;
+    }
+
+    // createdAt is an ISO instant; compare in local days so "today" means
+    // the user's today, not UTC's.
+    if (getLocalDayKey(new Date(note.createdAt)) === today) {
+      capturedToday += 1;
+    }
+  }
+
+  return { total, uncategorized, capturedToday };
+}
+
+export type NoteKindFilter = NoteKind | "all";
+
+export function filterByKind(notes: ReadonlyArray<Note>, kind: NoteKindFilter): ReadonlyArray<Note> {
+  return kind === "all" ? notes : notes.filter((note) => getNoteKind(note) === kind);
+}
+
+export type NoteSort = "newest" | "oldest" | "updated";
+
+export const NOTE_SORTS: ReadonlyArray<Readonly<{ id: NoteSort; label: string }>> = [
+  { id: "newest", label: "Newest" },
+  { id: "oldest", label: "Oldest" },
+  { id: "updated", label: "Recently updated" },
+];
+
+export function sortNotes(notes: ReadonlyArray<Note>, sort: NoteSort): Note[] {
+  const copy = [...notes];
+
+  if (sort === "oldest") {
+    return copy.sort((first, second) => first.createdAt.localeCompare(second.createdAt));
+  }
+
+  if (sort === "updated") {
+    return copy.sort((first, second) => second.updatedAt.localeCompare(first.updatedAt));
+  }
+
+  return copy.sort((first, second) => second.createdAt.localeCompare(first.createdAt));
 }

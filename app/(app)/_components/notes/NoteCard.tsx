@@ -2,7 +2,8 @@
 
 import { FileText, Image as ImageIcon, Link2, Paperclip, PlayCircle } from "lucide-react";
 import Card from "../Card";
-import { getNoteKind, getUrlHost, type NoteKind } from "../../_lib/engines/note-inbox-engine";
+import { getNoteKind, getUrlHost, hasTag, READ_LATER_TAG, WATCH_LATER_TAG, type NoteKind } from "../../_lib/engines/note-inbox-engine";
+import { useDocumentPhotoUrl } from "../../_lib/hooks/useDocumentPhotoUrl";
 import { NOTE_CATEGORIES } from "../../_lib/types/note";
 import type { Note, NoteCategory } from "../../_lib/types/note";
 
@@ -15,7 +16,28 @@ type NoteCardProps = Readonly<{
   // Supplied only in the inbox, where filing is the whole point. Absent
   // elsewhere so a filed note's card stays as it was.
   onFile?: (category: NoteCategory) => void;
+  // Flips the read-later / watch-later tag. Absent where the action does
+  // not belong, e.g. the archive.
+  onToggleLater?: (tag: string) => void;
 }>;
+
+// Its own component because the blob lookup is a hook, and a card without
+// a picture must not call it. Renders nothing at all when the blob is not
+// on this device - a broken frame would be worse than no frame.
+function AttachmentPreview({ attachmentId, alt }: Readonly<{ attachmentId: string; alt: string }>) {
+  const url = useDocumentPhotoUrl(attachmentId);
+
+  if (!url) {
+    return null;
+  }
+
+  return (
+    <div className="-mx-1 overflow-hidden rounded-lg border border-slate-800">
+      {/* eslint-disable-next-line @next/next/no-img-element -- an object URL from IndexedDB, which next/image cannot optimise. */}
+      <img src={url} alt={alt} className="h-32 w-full object-cover" />
+    </div>
+  );
+}
 
 const KIND_ICON: Readonly<Record<NoteKind, typeof FileText>> = {
   text: FileText,
@@ -25,12 +47,15 @@ const KIND_ICON: Readonly<Record<NoteKind, typeof FileText>> = {
   file: Paperclip,
 };
 
-export default function NoteCard({ note, onOpen, onTogglePin, onToggleArchive, onDelete, onFile }: NoteCardProps) {
+export default function NoteCard({ note, onOpen, onTogglePin, onToggleArchive, onDelete, onFile, onToggleLater }: NoteCardProps) {
   const displayTitle = note.title || note.content.split("\n")[0].slice(0, 60) || "Untitled";
   const preview = note.content.length > 160 ? `${note.content.slice(0, 160)}...` : note.content;
   const kind = getNoteKind(note);
   const KindIcon = KIND_ICON[kind];
   const attachmentCount = note.attachments?.length ?? 0;
+  const previewImage = (note.attachments ?? []).find((attachment) => attachment.fileType.startsWith("image/"));
+  const readLater = hasTag(note, READ_LATER_TAG);
+  const watchLater = hasTag(note, WATCH_LATER_TAG);
 
   return (
     <Card className="flex h-full flex-col gap-3 p-4">
@@ -44,6 +69,8 @@ export default function NoteCard({ note, onOpen, onTogglePin, onToggleArchive, o
         </div>
         <p className="mt-1.5 line-clamp-3 whitespace-pre-line text-xs leading-5 text-slate-400">{preview}</p>
       </div>
+
+      {previewImage ? <AttachmentPreview attachmentId={previewImage.id} alt={previewImage.fileName} /> : null}
 
       {note.url || attachmentCount > 0 ? (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
@@ -101,6 +128,16 @@ export default function NoteCard({ note, onOpen, onTogglePin, onToggleArchive, o
       <div className="mt-auto flex items-center justify-between border-t border-slate-800 pt-2.5 text-[11px] text-slate-500">
         <span>{new Date(note.updatedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</span>
         <div className="flex items-center gap-3">
+          {onToggleLater ? (
+            <button
+              type="button"
+              onClick={() => onToggleLater(kind === "video" ? WATCH_LATER_TAG : READ_LATER_TAG)}
+              title={kind === "video" ? "Watch later" : "Read later"}
+              className={"transition hover:text-white " + (readLater || watchLater ? "text-cyan-300" : "text-slate-500")}
+            >
+              {kind === "video" ? (watchLater ? "Watching" : "Watch later") : readLater ? "Reading" : "Read later"}
+            </button>
+          ) : null}
           <button type="button" onClick={onTogglePin} className={"transition hover:text-white " + (note.pinned ? "text-amber-300" : "text-slate-500")}>
             {note.pinned ? "Unpin" : "Pin"}
           </button>

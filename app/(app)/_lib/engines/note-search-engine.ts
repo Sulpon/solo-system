@@ -13,7 +13,22 @@ export function searchNotes(query: string, notes: ReadonlyArray<Note>): Readonly
       return true;
     }
 
-    return (note.tags ?? []).some((tag) => tag.toLowerCase().includes(trimmed));
+    if ((note.tags ?? []).some((tag) => tag.toLowerCase().includes(trimmed))) {
+      return true;
+    }
+
+    // Everything else the note actually carries. Searching for "youtube"
+    // or "invoice.pdf" months later is the point of an inbox you dump
+    // links and documents into, and neither lives in the body text.
+    if (note.category?.toLowerCase().includes(trimmed)) {
+      return true;
+    }
+
+    if (note.url?.toLowerCase().includes(trimmed)) {
+      return true;
+    }
+
+    return (note.attachments ?? []).some((attachment) => attachment.fileName.toLowerCase().includes(trimmed));
   });
 }
 
