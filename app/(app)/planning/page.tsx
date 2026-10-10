@@ -1,5 +1,5 @@
-import PlanningPageClient from "../_components/planning/PlanningPageClient";
+import PlanningStudioClient from "../_components/planning/PlanningStudioClient";
 
 export default function Page() {
-  return <PlanningPageClient />;
+  return <PlanningStudioClient />;
 }

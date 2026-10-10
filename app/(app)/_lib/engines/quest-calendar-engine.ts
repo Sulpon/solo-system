@@ -415,6 +415,12 @@ export function applyQuestSchedule(quest: Quest, patch: QuestSchedulePatch, now 
 
 export type CalendarDayCell = Readonly<{ date: Date; dayKey: string; inCurrentPeriod: boolean; items: CalendarQuestItem[] }>;
 
+// Exported so the Planning Studio can render one day through the same
+// CalendarTimeGrid the Calendar uses, instead of a second day model.
+export function buildCalendarDay(quests: ReadonlyArray<Quest>, completions: ReadonlyArray<QuestCompletion>, date: Date, referenceDate = new Date()): CalendarDayCell {
+  return buildCalendarDayCell(quests, completions, date, referenceDate, true);
+}
+
 function buildCalendarDayCell(quests: ReadonlyArray<Quest>, completions: ReadonlyArray<QuestCompletion>, date: Date, referenceDate: Date, inCurrentPeriod: boolean): CalendarDayCell {
   return { date: new Date(date), dayKey: getLocalDayKey(date), inCurrentPeriod, items: getQuestsForDate(quests, completions, date, referenceDate) };
 }

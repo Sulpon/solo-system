@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Card from "../../Card";
 import ThemeEmptyState from "../../theme/ThemeEmptyState";
+import GoalTreeGraph from "./GoalTreeGraph";
 import HierarchyBand from "./HierarchyBand";
 import HierarchyCard from "./HierarchyCard";
 import QuestLine from "./QuestLine";
@@ -19,6 +20,7 @@ import { useProgression } from "../../../_lib/hooks/useProgression";
 import { calculateGoalTree } from "../../../_lib/goal-tree-progress";
 import { getLocalDayKey, parseLocalDayKey } from "../../../_lib/local-day";
 import { formatDateRange, getMonthlyMilestones, getMonthsInQuarter, getQuarterRange, getQuestsForWeeklyMilestone, getWeeklyMilestones } from "../../../_lib/engines/planning-engine";
+import { collectExpandableIds, findAncestorIds, findNodeInTree, flattenVisibleTree } from "../../../_lib/engines/goal-tree-graph";
 import { findAnnualGoalsForYear, getCurrentYear, getQuarterlyGoalsForAnnualGoal, getUndatedDreams, getYearsWithGoals, pickCurrentNode, yearPeriodKeys } from "../../../_lib/engines/year-planning";
 import { Target } from "lucide-react";
 import type { GoalNode, KeyResult } from "../../../_lib/types/goal-tree";
@@ -104,12 +106,81 @@ export default function GoalHierarchyView({ onEditNode }: GoalHierarchyViewProps
     return getMonthsInQuarter({ year: start.getFullYear(), quarterIndex: (Math.floor(start.getMonth() / 3) + 1) as 1 | 2 | 3 | 4 });
   }, [selectedQuarter]);
 
+  // The connected tree's own state. Collapsed by default: a year of goals
+  // opened all at once is a wall, and the chevrons make the structure
+  // obvious without one.
+  const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() => new Set<string>());
+  const treeRows = useMemo(() => flattenVisibleTree(annualGoals, expandedIds), [annualGoals, expandedIds]);
+  const expandableIds = useMemo(() => collectExpandableIds(annualGoals), [annualGoals]);
+
   if (!hasLoaded || !isReady) {
     return (
       <Card className="p-5">
         <p className="atlas-muted text-sm">Loading Goal Tree...</p>
       </Card>
     );
+  }
+
+  function toggleExpanded(nodeId: string) {
+    setExpandedIds((current) => {
+      const next = new Set(current);
+
+      if (next.has(nodeId)) {
+        next.delete(nodeId);
+      } else {
+        next.add(nodeId);
+      }
+
+      return next;
+    });
+  }
+
+  // Selecting in the tree drives the same selection the bands below already
+  // use, so both stay on one node rather than disagreeing. The ancestor
+  // chain is walked so clicking a week also selects its month, quarter and
+  // year - which is what the detail bands need in order to render.
+  function selectFromTree(node: GoalNode) {
+    const ancestors = findAncestorIds(annualGoals, node.id)
+      .map((id) => findNodeInTree(annualGoals, id))
+      .filter((entry): entry is GoalNode => entry !== null);
+
+    const chain = [...ancestors, node];
+
+    setAnnualId(chain.find((entry) => entry.periodType === "year")?.id ?? null);
+    setQuarterId(chain.find((entry) => entry.periodType === "quarter")?.id ?? null);
+    setMonthId(chain.find((entry) => entry.periodType === "month")?.id ?? null);
+    setWeekId(chain.find((entry) => entry.periodType === "week")?.id ?? null);
+  }
+
+  // What a node's children are called, or null where the level takes none
+  // through this control. A week's children are Quests, which are added
+  // from the quest line below rather than here.
+  function addChildLabel(node: GoalNode): string | null {
+    if (node.periodType === "year") return "Add a quarterly goal";
+    if (node.periodType === "quarter") return "Add a monthly milestone";
+    if (node.periodType === "month") return "Add a weekly milestone";
+    return null;
+  }
+
+  function addChildFromTree(node: GoalNode) {
+    selectFromTree(node);
+
+    if (node.periodType === "year") {
+      // Default to the quarter we are actually in when the year is the
+      // current one; the modal shows the range either way.
+      const isThisYear = today.getFullYear() === year;
+      setPendingQuarterIndex(isThisYear ? ((Math.floor(today.getMonth() / 3) + 1) as 1 | 2 | 3 | 4) : 1);
+      return;
+    }
+
+    if (node.periodType === "quarter") {
+      setPendingMonthParent(node);
+      return;
+    }
+
+    if (node.periodType === "month") {
+      setPendingWeekParent(node);
+    }
   }
 
   function stepYear(delta: number) {
@@ -287,6 +358,41 @@ export default function GoalHierarchyView({ onEditNode }: GoalHierarchyViewProps
           </nav>
         ) : null}
       </Card>
+
+      {/* The connected hierarchy: real parent/child edges, drawn as rails
+          and elbows rather than as separate columns. Selecting here drives
+          the same selection the detail bands below use, so the two never
+          disagree about which node is open. */}
+      {annualGoals.length > 0 ? (
+        <Card className="p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="atlas-display text-sm font-bold text-white">Hierarchy</h2>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setExpandedIds(new Set(expandableIds))}
+                disabled={expandableIds.length === 0}
+                className={ghostButtonClass + " disabled:cursor-not-allowed disabled:opacity-30"}
+              >
+                Expand all
+              </button>
+              <button type="button" onClick={() => setExpandedIds(new Set())} className={ghostButtonClass}>
+                Collapse all
+              </button>
+            </div>
+          </div>
+
+          <GoalTreeGraph
+            rows={treeRows}
+            selectedId={selectedWeek?.id ?? selectedMonth?.id ?? selectedQuarter?.id ?? selectedAnnual?.id ?? null}
+            today={today}
+            onToggle={toggleExpanded}
+            onSelect={selectFromTree}
+            addChildLabel={addChildLabel}
+            onAddChild={addChildFromTree}
+          />
+        </Card>
+      ) : null}
 
       {annualGoals.length === 0 ? (
         <ThemeEmptyState

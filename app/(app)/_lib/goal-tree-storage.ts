@@ -652,3 +652,32 @@ export function undoSequentialMilestoneStep(nodes: GoalTree, nodeId: string): Go
 
   return normalizeGoalTree(nextNodes);
 }
+
+// Guarantees the SHAPE every traversal in Atlas assumes, without changing
+// any value the user owns.
+//
+// A dozen readers across planning, progress, the world map and the board
+// walk `node.children` directly, so one record missing that array - a
+// hand-edited localStorage entry, a record written before the field
+// existed, a partial cloud merge - takes down the whole Goals page with
+// "Cannot read properties of undefined". Guarding each reader is
+// whack-a-mole; guarding where the tree enters the app is one place.
+//
+// Deliberately conservative: it only ever ADDS the empty array and drops
+// entries that are not objects at all. Titles, progress, periods, links
+// and unknown future fields are passed through untouched, so this can
+// never be the thing that loses someone's data.
+export function ensureGoalTreeShape(nodes: unknown): GoalNode[] {
+  if (!Array.isArray(nodes)) {
+    return [];
+  }
+
+  return nodes.flatMap((entry) => {
+    if (!entry || typeof entry !== "object") {
+      return [];
+    }
+
+    const node = entry as GoalNode;
+    return [{ ...node, children: ensureGoalTreeShape((node as { children?: unknown }).children) }];
+  });
+}

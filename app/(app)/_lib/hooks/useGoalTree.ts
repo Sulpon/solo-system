@@ -8,6 +8,7 @@ import {
   completeSequentialMilestoneStep,
   collectProgressGoalNodes,
   createGoalNode,
+  ensureGoalTreeShape,
   findGoalNode,
   insertGoalNode,
   removeGoalNode,
@@ -23,10 +24,16 @@ import { addActivityEvents, createGoalCompletionActivityEvents, createGoalXpActi
 import type { ActivityEvent } from "../types/activity-event";
 
 export function useGoalTree() {
-  const [goalTree, setGoalTree, hasLoaded, resetGoalTree] = useLocalStorageState<GoalTree>(STORAGE_KEYS.goalTree, []);
+  const [storedGoalTree, setGoalTree, hasLoaded, resetGoalTree] = useLocalStorageState<GoalTree>(STORAGE_KEYS.goalTree, []);
+  // Everything downstream - progress roll-up, planning traversals, the
+  // board, the world map - walks node.children directly. Sanitising once
+  // here means a legacy or hand-edited record cannot take the page down,
+  // and no reader needs its own guard. Nothing is removed or rewritten;
+  // see ensureGoalTreeShape.
+  const goalTree = useMemo(() => ensureGoalTreeShape(storedGoalTree), [storedGoalTree]);
   const [goalXpEvents, setGoalXpEvents] = useLocalStorageState<ReadonlyArray<XpEvent>>(STORAGE_KEYS.goalXpEvents, []);
   const [, setActivityEvents] = useLocalStorageState<ActivityEvent[]>(STORAGE_KEYS.activityEvents, []);
-  const goalTreeRef = useRef(goalTree);
+  const goalTreeRef = useRef<GoalTree>(goalTree);
   const goalXpEventsRef = useRef(goalXpEvents);
 
   useEffect(() => {
