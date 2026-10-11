@@ -1,9 +1,13 @@
 "use client";
 
 import { useDocumentPhotoUrl } from "../../_lib/hooks/useDocumentPhotoUrl";
-import { usePageWallpaper } from "../../_lib/hooks/usePageWallpaper";
+import { usePageBackdrop } from "../../_lib/hooks/usePageBackdrop";
+import { environmentObjectPosition } from "../../_lib/theme/environments";
+import type { Environment } from "../../_lib/theme/environments";
+import type { Wallpaper } from "../../_lib/types/custom-theme";
 
-// The page's own picture, behind everything.
+// The picture behind a page: the user's own wallpaper if they pinned one,
+// otherwise the domain's built-in environment.
 //
 // Rendered INSIDE ThemeBackground's single fixed layer rather than as a
 // new wrapper, for the reason documented there: a wrapper would put
@@ -11,16 +15,15 @@ import { usePageWallpaper } from "../../_lib/hooks/usePageWallpaper";
 // their own drag contexts.
 //
 // It sits ABOVE the ambient wash on purpose. That wash ends in an opaque
-// dark gradient, so a picture behind it would simply never be seen.
-export default function PageWallpaper() {
-  const wallpaper = usePageWallpaper();
-  const url = useDocumentPhotoUrl(wallpaper?.id);
+// dark gradient, so a picture behind it would never be seen.
 
-  // No picture for this page, or its bytes are not on this device -
-  // pictures live in the browser they were uploaded in, same as every
-  // other attachment. Rendering nothing is the honest answer; a broken
-  // image frame behind the whole app would not be.
-  if (!wallpaper || !url) {
+function UploadedWallpaper({ wallpaper }: Readonly<{ wallpaper: Wallpaper }>) {
+  const url = useDocumentPhotoUrl(wallpaper.id);
+
+  // Its bytes are not on this device - pictures live in the browser they
+  // were uploaded in, same as every other attachment. Rendering nothing
+  // is the honest answer; a broken frame behind the whole app is not.
+  if (!url) {
     return null;
   }
 
@@ -34,16 +37,40 @@ export default function PageWallpaper() {
           backgroundImage: `url(${url})`,
           backgroundSize: tile ? "auto" : wallpaper.fit,
           backgroundRepeat: tile ? "repeat" : "no-repeat",
-          // The blur is pushed outwards so the softened edge never shows
-          // as a pale border around the viewport.
+          // Pushed outwards so the softened edge never shows as a pale
+          // border around the viewport.
           filter: wallpaper.blur > 0 ? `blur(${wallpaper.blur}px)` : undefined,
           transform: wallpaper.blur > 0 ? `scale(${1 + wallpaper.blur / 100})` : undefined,
         }}
       />
-
-      {/* The readability guard. Atlas text is white, so the picture is
-          knocked back towards black by the amount the user chose. */}
       <div className="absolute inset-0 bg-black" style={{ opacity: wallpaper.dim }} />
     </div>
+  );
+}
+
+function DomainEnvironment({ environment, src }: Readonly<{ environment: Environment; src: string }>) {
+  return (
+    <div aria-hidden data-testid="page-environment" data-environment-id={environment.id} className="absolute inset-0 overflow-hidden">
+      {/* eslint-disable-next-line @next/next/no-img-element -- a full-bleed
+          backdrop, not content: next/image would add a layout wrapper
+          inside this fixed layer for no benefit at one image per page.
+          Its existence was already confirmed before this renders. */}
+      <img src={src} alt="" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: environmentObjectPosition(environment.position) }} />
+      <div className="absolute inset-0 bg-black" style={{ opacity: environment.overlay }} />
+    </div>
+  );
+}
+
+export default function PageWallpaper() {
+  const backdrop = usePageBackdrop();
+
+  if (!backdrop) {
+    return null;
+  }
+
+  return backdrop.kind === "wallpaper" ? (
+    <UploadedWallpaper wallpaper={backdrop.wallpaper} />
+  ) : (
+    <DomainEnvironment environment={backdrop.environment} src={backdrop.src} />
   );
 }

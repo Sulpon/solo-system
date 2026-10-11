@@ -11,7 +11,7 @@ import ThemeBackground from "./theme/ThemeBackground";
 import { useProgression } from "../_lib/hooks/useProgression";
 import { useLocalStorageState } from "../_lib/hooks/use-local-storage-state";
 import { useDomainThemeStyle } from "../_lib/hooks/useDomainTheme";
-import { usePageWallpaper } from "../_lib/hooks/usePageWallpaper";
+import { usePageBackdrop } from "../_lib/hooks/usePageBackdrop";
 import { NOTIFICATIONS_LAST_SEEN_KEY } from "../_lib/storage-keys";
 
 export default function AppShell({
@@ -36,7 +36,7 @@ export default function AppShell({
   // shell its own stacking context lifts the layer above body - applied
   // only while a wallpaper is shown, so every page without one looks
   // exactly as it did.
-  const wallpaper = usePageWallpaper();
+  const backdrop = usePageBackdrop();
 
   const unreadCount = useMemo(() => {
     if (!lastSeenAt) {
@@ -48,7 +48,7 @@ export default function AppShell({
   }, [activityEvents, lastSeenAt]);
 
   return (
-    <div data-domain={theme.id} style={wallpaper ? { ...style, isolation: "isolate" } : style} className="relative flex min-h-screen flex-col text-white">
+    <div data-domain={theme.id} style={backdrop ? { ...style, isolation: "isolate" } : style} className="relative flex min-h-screen flex-col text-white">
       <ThemeBackground />
       {/* The System Bar is a full-bleed sticky strip above everything else -
           a sibling of the Sidebar/main content, never a wrapper around it,

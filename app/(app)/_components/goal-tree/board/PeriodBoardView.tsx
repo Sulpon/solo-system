@@ -18,6 +18,7 @@ import { parseLocalDayKey } from "../../../_lib/local-day";
 import { getQuestsForDate } from "../../../_lib/engines/quest-calendar-engine";
 import { getQuarterRange } from "../../../_lib/engines/planning-engine";
 import { getCurrentYear, getUndatedDreams, getYearsWithGoals, yearPeriodKeys } from "../../../_lib/engines/year-planning";
+import { usePageBackdrop } from "../../../_lib/hooks/usePageBackdrop";
 import { BOARD_SCOPES, buildBoardColumns, findParentCandidates, planNodeMove, planQuestMove, selectNodesForColumn, type BoardColumn, type BoardScope } from "../../../_lib/engines/period-board";
 import { useLocalStorageState } from "../../../_lib/hooks/use-local-storage-state";
 import { BOARD_COLUMN_WIDTHS_KEY } from "../../../_lib/storage-keys";
@@ -93,6 +94,15 @@ export default function PeriodBoardView({ onEditNode, viewSwitcher }: PeriodBoar
   // A few pixels of travel before a drag starts, so a row still responds
   // to a plain click by opening its editor.
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+
+  // The board is drawn as bare panes divided by hairlines, with no panel
+  // behind them - which reads well on a flat dark page and not at all
+  // over a picture. When a backdrop is behind the page the board gets a
+  // translucent scrim: enough to carry white text, sheer enough to keep
+  // the artwork visible through it. No backdrop, no scrim, so a page
+  // without one looks exactly as it did.
+  const backdrop = usePageBackdrop();
+  const scrim = backdrop ? "bg-[rgb(2_6_23/0.58)] backdrop-blur-[2px] " : "";
 
   // Where the visible window starts. Null means "wherever today is",
   // which is what every scope change resets to; paging pins it to an
@@ -371,7 +381,7 @@ export default function PeriodBoardView({ onEditNode, viewSwitcher }: PeriodBoar
     // agree. Below md the page scrolls normally, the breakout would gain
     // only main's 16px of padding, and the columns size to their contents.
     <div className="relative flex flex-col gap-3 md:left-1/2 md:h-[calc(100vh-12.25rem)] md:w-screen md:-translate-x-1/2">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 md:px-6">
+      <div className={"flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 md:px-6 " + (backdrop ? "bg-[rgb(2_6_23/0.5)] backdrop-blur-[2px]" : "")}>
         <h1 className="atlas-display shrink-0 text-2xl font-bold tracking-tight text-white">Goal Tree</h1>
 
           <div className="flex flex-wrap items-center gap-1 rounded-xl border border-white/10 p-1" role="tablist" aria-label="Board scope">
@@ -435,7 +445,7 @@ export default function PeriodBoardView({ onEditNode, viewSwitcher }: PeriodBoar
             // own height instead of letting a packed column grow the row and
             // spill past the Dock. It is what gives the columns a definite
             // height to scroll their lists inside.
-            className="grid min-h-[22rem] flex-1 grid-cols-1 border-t border-white/[0.06] md:min-h-0 md:grid-rows-1 md:[grid-template-columns:var(--board-columns)]"
+            className={scrim + "grid min-h-[22rem] flex-1 grid-cols-1 border-t border-white/[0.06] md:min-h-0 md:grid-rows-1 md:[grid-template-columns:var(--board-columns)]"}
             data-testid="period-board"
             data-window-start={start}
             data-total-columns={columns.length}
