@@ -1,3 +1,4 @@
+import PageWallpaper from "./PageWallpaper";
 import ThemeDecorativeLayer from "./ThemeDecorativeLayer";
 
 // The page atmosphere: the domain's ambient wash plus its motif, fixed
@@ -13,6 +14,10 @@ export default function ThemeBackground() {
   return (
     <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
       <div className="atlas-themed atlas-ambient-fade absolute inset-0" />
+      {/* Above the ambient wash, below the motif: the wash is opaque, so a
+          picture behind it would never be seen, and the motif reads as
+          part of the theme sitting over whatever is behind it. */}
+      <PageWallpaper />
       <ThemeDecorativeLayer />
       {/* Keeps the lower half of long pages legible: the ambient wash is
           concentrated at the top, so content further down would otherwise

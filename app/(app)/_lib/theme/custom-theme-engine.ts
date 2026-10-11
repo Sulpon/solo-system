@@ -1,7 +1,8 @@
 import { DEFAULT_DOMAIN_THEME_ID, DOMAIN_THEMES } from "./domain-themes";
 import { resolveDomainTheme } from "./route-theme";
 import type { DomainTheme, DomainThemeId, DomainThemeTokens } from "./domain-themes";
-import type { CustomTheme, PageThemeSettings } from "../types/custom-theme";
+import { DEFAULT_WALLPAPER_DIM } from "../types/custom-theme";
+import type { CustomTheme, PageThemeSettings, Wallpaper } from "../types/custom-theme";
 
 // Custom themes, and pinning any theme to a page.
 //
@@ -167,7 +168,7 @@ export function upsertCustomTheme(settings: PageThemeSettings, theme: CustomThem
 export function deleteCustomTheme(settings: PageThemeSettings, themeId: string): PageThemeSettings {
   const routeThemes = Object.fromEntries(Object.entries(settings.routeThemes).filter(([, id]) => id !== themeId));
 
-  return { customThemes: settings.customThemes.filter((entry) => entry.id !== themeId), routeThemes };
+  return { ...settings, customThemes: settings.customThemes.filter((entry) => entry.id !== themeId), routeThemes };
 }
 
 // Passing null clears the override, handing the page back to the built-in
@@ -227,14 +228,20 @@ export function findThemeById(settings: PageThemeSettings, themeId: string): Res
 // A page's theme: the user's own choice first, longest prefix wins, then
 // the built-in route map. An override naming a theme that no longer
 // exists is ignored rather than rendering the page unthemed.
-export function resolveThemeFor(pathname: string, settings: PageThemeSettings): ResolvedTheme {
+// The prefixes that cover a path, longest first. One implementation,
+// shared by themes and wallpapers, so the two can never disagree about
+// which page an assignment covers. "/" matches only the root, otherwise
+// it would swallow every page in the app.
+export function matchingPrefixes(pathname: string, assignments: Readonly<Record<string, string>>): string[] {
   const normalized = normalizePathname(pathname);
 
-  const matches = Object.keys(settings.routeThemes)
+  return Object.keys(assignments)
     .filter((prefix) => (prefix === "/" ? normalized === "/" : normalized === prefix || normalized.startsWith(`${prefix}/`)))
     .sort((first, second) => second.length - first.length);
+}
 
-  for (const prefix of matches) {
+export function resolveThemeFor(pathname: string, settings: PageThemeSettings): ResolvedTheme {
+  for (const prefix of matchingPrefixes(pathname, settings.routeThemes)) {
     const found = findThemeById(settings, settings.routeThemes[prefix]);
 
     if (found) {
@@ -242,5 +249,55 @@ export function resolveThemeFor(pathname: string, settings: PageThemeSettings): 
     }
   }
 
-  return asResolved(resolveDomainTheme(normalized));
+  return asResolved(resolveDomainTheme(normalizePathname(pathname)));
+}
+
+// The picture behind a page, or null for none. An assignment naming a
+// wallpaper that was deleted resolves to null rather than leaving the
+// page pointing at missing bytes.
+export function resolveWallpaperFor(pathname: string, settings: PageThemeSettings): Wallpaper | null {
+  for (const prefix of matchingPrefixes(pathname, settings.routeWallpapers)) {
+    const found = (settings.wallpapers ?? []).find((entry) => entry.id === settings.routeWallpapers[prefix]);
+
+    if (found) {
+      return found;
+    }
+  }
+
+  return null;
+}
+
+export function addWallpaper(settings: PageThemeSettings, wallpaper: Wallpaper): PageThemeSettings {
+  const wallpapers = settings.wallpapers ?? [];
+  const exists = wallpapers.some((entry) => entry.id === wallpaper.id);
+
+  return { ...settings, wallpapers: exists ? wallpapers.map((entry) => (entry.id === wallpaper.id ? wallpaper : entry)) : [...wallpapers, wallpaper] };
+}
+
+// Releases the pages using it, the same way deleting a theme does. The
+// caller deletes the blob; this only drops the metadata.
+export function removeWallpaper(settings: PageThemeSettings, wallpaperId: string): PageThemeSettings {
+  const routeWallpapers = Object.fromEntries(Object.entries(settings.routeWallpapers ?? {}).filter(([, id]) => id !== wallpaperId));
+
+  return { ...settings, wallpapers: (settings.wallpapers ?? []).filter((entry) => entry.id !== wallpaperId), routeWallpapers };
+}
+
+export function assignRouteWallpaper(settings: PageThemeSettings, prefix: string, wallpaperId: string | null): PageThemeSettings {
+  const routeWallpapers = { ...(settings.routeWallpapers ?? {}) };
+
+  if (wallpaperId === null) {
+    delete routeWallpapers[prefix];
+  } else {
+    routeWallpapers[prefix] = wallpaperId;
+  }
+
+  return { ...settings, routeWallpapers };
+}
+
+export function clampDim(value: number): number {
+  return Math.min(0.95, Math.max(0, Number.isFinite(value) ? value : DEFAULT_WALLPAPER_DIM));
+}
+
+export function clampBlur(value: number): number {
+  return Math.min(40, Math.max(0, Number.isFinite(value) ? Math.round(value) : 0));
 }

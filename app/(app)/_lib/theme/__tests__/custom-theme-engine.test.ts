@@ -13,11 +13,17 @@ import {
   rgbTripletToHex,
   tokensFromDraft,
   upsertCustomTheme,
+  addWallpaper,
+  assignRouteWallpaper,
+  clampBlur,
+  clampDim,
+  removeWallpaper,
+  resolveWallpaperFor,
   validateDraft,
   type CustomThemeDraft,
 } from "../custom-theme-engine";
 import { DOMAIN_THEMES } from "../domain-themes";
-import { EMPTY_PAGE_THEME_SETTINGS, type PageThemeSettings } from "../../types/custom-theme";
+import { EMPTY_PAGE_THEME_SETTINGS, type PageThemeSettings, type Wallpaper } from "../../types/custom-theme";
 
 function draft(overrides: Partial<CustomThemeDraft> = {}): CustomThemeDraft {
   return { ...draftFromTheme(DOMAIN_THEMES["home-base"]), label: "Midnight", ...overrides };
@@ -117,6 +123,7 @@ describe("storing themes", () => {
 describe("resolveThemeFor", () => {
   const custom = buildCustomTheme(draft({ label: "Midnight", accent: "10 20 30" }), null);
   const settings: PageThemeSettings = {
+    ...EMPTY_PAGE_THEME_SETTINGS,
     customThemes: [custom],
     routeThemes: { "/notes": custom.id, "/career-hub": "peace", "/career-hub/applications": "trading" },
   };
@@ -159,7 +166,7 @@ describe("resolveThemeFor", () => {
   });
 
   it("falls back when an override names a theme that was deleted", () => {
-    const stale: PageThemeSettings = { customThemes: [], routeThemes: { "/library": "custom-gone" } };
+    const stale: PageThemeSettings = { ...EMPTY_PAGE_THEME_SETTINGS, routeThemes: { "/library": "custom-gone" } };
 
     expect(resolveThemeFor("/library", stale).id).toBe("reading");
   });
@@ -189,5 +196,87 @@ describe("findThemeById / materialiseCustomTheme", () => {
     const orphan = { ...buildCustomTheme(draft(), null), baseThemeId: "deleted-theme" };
 
     expect(() => materialiseCustomTheme(orphan)).not.toThrow();
+  });
+});
+
+function wallpaper(id: string, overrides: Partial<Wallpaper> = {}): Wallpaper {
+  return { id, fileName: `${id}.jpg`, fileType: "image/jpeg", fileSize: 1024, addedAt: "2026-10-11T00:00:00.000Z", fit: "cover", dim: 0.55, blur: 0, ...overrides };
+}
+
+describe("wallpapers", () => {
+  const forest = wallpaper("wp-forest");
+  const city = wallpaper("wp-city");
+  let settings = addWallpaper(addWallpaper(EMPTY_PAGE_THEME_SETTINGS, forest), city);
+  settings = assignRouteWallpaper(settings, "/notes", forest.id);
+  settings = assignRouteWallpaper(settings, "/career-hub", city.id);
+  settings = assignRouteWallpaper(settings, "/career-hub/applications", forest.id);
+
+  it("has none until one is assigned", () => {
+    expect(resolveWallpaperFor("/goals", settings)).toBeNull();
+    expect(resolveWallpaperFor("/notes", EMPTY_PAGE_THEME_SETTINGS)).toBeNull();
+  });
+
+  it("returns the picture pinned to a page", () => {
+    expect(resolveWallpaperFor("/notes", settings)?.id).toBe(forest.id);
+  });
+
+  it("covers child routes, longest prefix winning", () => {
+    expect(resolveWallpaperFor("/career-hub/companies", settings)?.id).toBe(city.id);
+    expect(resolveWallpaperFor("/career-hub/applications", settings)?.id).toBe(forest.id);
+  });
+
+  it("ignores a trailing slash and a query string", () => {
+    expect(resolveWallpaperFor("/notes/?x=1", settings)?.id).toBe(forest.id);
+  });
+
+  it("does not let a root assignment cover every page", () => {
+    const rooted = assignRouteWallpaper(EMPTY_PAGE_THEME_SETTINGS, "/", forest.id);
+    const withPicture = addWallpaper(rooted, forest);
+
+    expect(resolveWallpaperFor("/", withPicture)?.id).toBe(forest.id);
+    expect(resolveWallpaperFor("/notes", withPicture)).toBeNull();
+  });
+
+  it("resolves to nothing when the assignment points at a deleted picture", () => {
+    const stale = assignRouteWallpaper(EMPTY_PAGE_THEME_SETTINGS, "/notes", "wp-gone");
+
+    expect(resolveWallpaperFor("/notes", stale)).toBeNull();
+  });
+
+  it("releases the pages using a wallpaper it removes, and leaves the others", () => {
+    const after = removeWallpaper(settings, forest.id);
+
+    expect(after.wallpapers.map((entry) => entry.id)).toEqual([city.id]);
+    expect(after.routeWallpapers).toEqual({ "/career-hub": city.id });
+  });
+
+  it("clears an assignment without touching the picture", () => {
+    const after = assignRouteWallpaper(settings, "/notes", null);
+
+    expect(after.routeWallpapers["/notes"]).toBeUndefined();
+    expect(after.wallpapers).toHaveLength(2);
+  });
+
+  it("replaces a wallpaper edited in place rather than adding a duplicate", () => {
+    const after = addWallpaper(settings, { ...forest, dim: 0.8 });
+
+    expect(after.wallpapers).toHaveLength(2);
+    expect(after.wallpapers.find((entry) => entry.id === forest.id)?.dim).toBe(0.8);
+  });
+
+  it("keeps themes and wallpapers independent on the same page", () => {
+    const themed = assignRouteTheme(settings, "/notes", "trading");
+
+    expect(resolveThemeFor("/notes", themed).id).toBe("trading");
+    expect(resolveWallpaperFor("/notes", themed)?.id).toBe(forest.id);
+  });
+
+  it("clamps dim to a readable range and blur to something sane", () => {
+    expect(clampDim(-1)).toBe(0);
+    expect(clampDim(5)).toBe(0.95);
+    expect(clampDim(Number.NaN)).toBe(0.55);
+    expect(clampBlur(-4)).toBe(0);
+    expect(clampBlur(1000)).toBe(40);
+    expect(clampBlur(7.6)).toBe(8);
   });
 });
