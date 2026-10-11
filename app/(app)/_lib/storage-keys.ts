@@ -137,6 +137,10 @@ export const STORAGE_KEYS = {
   // capture/capture-permissions.ts. Default-deny: an absent entry means
   // off, so a new source can never start reading anything by existing.
   capturePermissions: "menace-capture-permissions",
+  // Under the synced prefix on purpose: a theme someone built is theirs,
+  // and should follow the account to every device, unlike a per-screen
+  // layout preference.
+  pageThemes: "menace-page-themes",
 } as const;
 
 export const MENACE_STORAGE_EVENT = "menace-local-storage-change";

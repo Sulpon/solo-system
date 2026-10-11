@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { SettingsSection } from "../../_lib/types/customization";
 import AppearanceSettingsPanel from "./AppearanceSettingsPanel";
+import PageThemesPanel from "./PageThemesPanel";
 import DataSettingsPanel from "./DataSettingsPanel";
 import GeneralSettingsPanel from "./GeneralSettingsPanel";
 
@@ -41,7 +42,12 @@ export default function SettingsPageClient() {
       </div>
 
       {activeSection === "general" ? <GeneralSettingsPanel /> : null}
-      {activeSection === "appearance" ? <AppearanceSettingsPanel /> : null}
+      {activeSection === "appearance" ? (
+        <>
+          <AppearanceSettingsPanel />
+          <PageThemesPanel />
+        </>
+      ) : null}
       {activeSection === "data" ? <DataSettingsPanel /> : null}
     </div>
   );

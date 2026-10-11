@@ -292,7 +292,9 @@ const DISPLAY_FONTS: Readonly<Record<DomainDisplayFont, string>> = {
 // deliberately: it is what makes every EXISTING component (Card,
 // menace-card, menace-progress-fill, Progress) adopt the domain accent
 // without being touched.
-export function domainThemeStyle(theme: DomainTheme): CSSProperties {
+// Takes only what it emits, so a user-made theme resolved at runtime can
+// be styled by the same function as a built-in one.
+export function domainThemeStyle(theme: Pick<DomainTheme, "tokens" | "display" | "motion">): CSSProperties {
   return {
     "--menace-accent": theme.tokens.accent,
     "--atlas-accent": theme.tokens.accent,
