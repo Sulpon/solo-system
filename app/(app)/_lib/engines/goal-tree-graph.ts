@@ -69,6 +69,24 @@ export function flattenVisibleTree(roots: GoalTree, expandedIds: ReadonlySet<str
   return rows;
 }
 
+// Every node in the tree, flattened. Unlike flattenVisibleTree this ignores
+// expansion state entirely - callers that need to ask a question about the
+// whole tree (how many nodes reference an attribute, say) must see nodes
+// that happen to be collapsed.
+export function collectAllNodes(roots: GoalTree): GoalNode[] {
+  const nodes: GoalNode[] = [];
+
+  function walk(current: GoalTree) {
+    for (const node of current) {
+      nodes.push(node);
+      walk(node.children ?? []);
+    }
+  }
+
+  walk(roots);
+  return nodes;
+}
+
 export function collectNodeIds(roots: GoalTree): string[] {
   const ids: string[] = [];
 

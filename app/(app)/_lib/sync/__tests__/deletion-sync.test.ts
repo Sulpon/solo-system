@@ -265,6 +265,55 @@ describe("legacy and malformed data", () => {
   });
 });
 
+// The reported symptom: attributes the user never chose kept reappearing
+// as pages. Category records carry no updatedAt at all, so before
+// tombstones the merge's "neither side has a timestamp" tiebreak returned
+// the remote copy every single time, and the cloud always won.
+describe("attribute pages", () => {
+  const ATTRIBUTES = STORAGE_KEYS.attributes;
+  const DISCIPLINE = { id: "discipline", name: "Discipline", icon: "D", accent: "bg-purple-500" };
+  const CREATIVITY = { id: "creativity", name: "Creativity", icon: "C", accent: "bg-fuchsia-400" };
+  const BUSINESS = { id: "business", name: "Business", icon: "B", accent: "bg-orange-400" };
+
+  it("keeps a removed attribute removed, even though Category has no updatedAt", () => {
+    const local: AtlasSnapshot = {
+      [ATTRIBUTES]: JSON.stringify([DISCIPLINE]),
+      [TOMBSTONES]: serializeTombstones([createTombstone(ATTRIBUTES, "creativity", "2026-10-24T12:00:00.000Z"), createTombstone(ATTRIBUTES, "business", "2026-10-24T12:00:00.000Z")]),
+    };
+    const cloud: AtlasSnapshot = { [ATTRIBUTES]: JSON.stringify([DISCIPLINE, CREATIVITY, BUSINESS]) };
+
+    const merged = mergeAtlasSnapshots(local, cloud);
+
+    expect(JSON.parse(merged[ATTRIBUTES]).map((attribute: { id: string }) => attribute.id)).toEqual(["discipline"]);
+  });
+
+  it("does not delete the quests that were filed under it", () => {
+    const local: AtlasSnapshot = {
+      [ATTRIBUTES]: JSON.stringify([DISCIPLINE]),
+      [QUESTS]: JSON.stringify([{ id: "q1", title: "A creative quest", categoryId: "creativity" }]),
+      [TOMBSTONES]: serializeTombstones([createTombstone(ATTRIBUTES, "creativity", "2026-10-24T12:00:00.000Z")]),
+    };
+
+    const merged = mergeAtlasSnapshots(local, { [ATTRIBUTES]: JSON.stringify([DISCIPLINE, CREATIVITY]), ...snapshotOf([{ id: "q1", title: "A creative quest", categoryId: "creativity" }]) });
+
+    expect(JSON.parse(merged[QUESTS])).toHaveLength(1);
+  });
+
+  it("brings the attribute back if it is deliberately recreated with the same id", () => {
+    // Recreation is how an accidental removal is undone, and how orphaned
+    // quests find their page again.
+    const recreated = { ...CREATIVITY, updatedAt: "2026-10-24T13:00:00.000Z" };
+    const local: AtlasSnapshot = {
+      [ATTRIBUTES]: JSON.stringify([DISCIPLINE, recreated]),
+      [TOMBSTONES]: serializeTombstones([createTombstone(ATTRIBUTES, "creativity", "2026-10-24T12:00:00.000Z")]),
+    };
+
+    const merged = mergeAtlasSnapshots(local, { [ATTRIBUTES]: JSON.stringify([DISCIPLINE]) });
+
+    expect(JSON.parse(merged[ATTRIBUTES]).map((attribute: { id: string }) => attribute.id).sort()).toEqual(["creativity", "discipline"]);
+  });
+});
+
 describe("compaction", () => {
   it("keeps recent deletions", () => {
     const recent = createTombstone(QUESTS, "B", new Date().toISOString());

@@ -7,6 +7,7 @@ import PageThemesPanel from "./PageThemesPanel";
 import PageWallpapersPanel from "./PageWallpapersPanel";
 import DataSettingsPanel from "./DataSettingsPanel";
 import GeneralSettingsPanel from "./GeneralSettingsPanel";
+import AttributePagesPanel from "./AttributePagesPanel";
 
 const sections: { id: SettingsSection; label: string }[] = [
   { id: "general", label: "General" },
@@ -42,7 +43,12 @@ export default function SettingsPageClient() {
         </div>
       </div>
 
-      {activeSection === "general" ? <GeneralSettingsPanel /> : null}
+      {activeSection === "general" ? (
+        <>
+          <GeneralSettingsPanel />
+          <AttributePagesPanel />
+        </>
+      ) : null}
       {activeSection === "appearance" ? (
         <>
           <AppearanceSettingsPanel />
