@@ -165,30 +165,52 @@ export function CloudSyncProvider({ children }: Readonly<{ children: React.React
         // reconnect after a dropped first push) - fall through to the
         // conflict-safe compare-and-swap path below instead of failing.
       } else {
-        const expectedVersion = knownVersionRef.current;
-        const { data, error } = await supabase
+        // Never replace the whole cloud snapshot with a device-local snapshot
+        // directly. A second device can have only a subset of localStorage
+        // keys (fresh install, cleared browser data, partial restore); doing
+        // so would silently delete every cloud-only key. Pull the current
+        // row first, merge both sides, and compare-and-swap the merged result.
+        const { data: currentRow, error: readError } = await supabase
           .from(ATLAS_TABLE)
-          .update({ data: snapshot, updated_at: nowIso, version: expectedVersion + 1 })
+          .select("data, version")
           .eq("user_id", userId)
-          .eq("version", expectedVersion)
-          .select("version");
+          .maybeSingle();
 
-        if (!error && data && data.length > 0) {
-          knownVersionRef.current = expectedVersion + 1;
-          hasPendingChangesRef.current = false;
-          markInitialSyncComplete(userId);
-          setSyncStatus("synced");
-          setLastSyncedAt(nowIso);
-          return;
-        }
-
-        if (error && isLikelyOffline(error)) {
+        if (readError && isLikelyOffline(readError)) {
           setSyncStatus("offline");
           return;
         }
-        // error, or 0 rows matched (another client's push already moved the
-        // version past what we expected) - either way, fall through to the
-        // pull-merge-retry path below rather than reporting a hard failure.
+
+        if (currentRow) {
+          const merged = mergeAtlasSnapshots(snapshot, currentRow.data as AtlasSnapshot);
+          isApplyingRemoteRef.current = true;
+          applyAtlasSnapshot(merged, "merge");
+          isApplyingRemoteRef.current = false;
+
+          const currentVersion = currentRow.version as number;
+          const { data, error } = await supabase
+            .from(ATLAS_TABLE)
+            .update({ data: merged, updated_at: nowIso, version: currentVersion + 1 })
+            .eq("user_id", userId)
+            .eq("version", currentVersion)
+            .select("version");
+
+          if (!error && data && data.length > 0) {
+            knownVersionRef.current = currentVersion + 1;
+            hasPendingChangesRef.current = false;
+            markInitialSyncComplete(userId);
+            setSyncStatus("synced");
+            setLastSyncedAt(nowIso);
+            return;
+          }
+
+          if (error && isLikelyOffline(error)) {
+            setSyncStatus("offline");
+            return;
+          }
+        }
+        // A non-network error or a concurrent version change falls through
+        // to the existing conflict path below, which re-reads and retries.
       }
 
       // Conflict path: another client committed a newer version since we
