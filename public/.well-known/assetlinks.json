@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.atlas.lifeos",
+      "sha256_cert_fingerprints": [
+        "D5:AE:9D:A4:29:1F:16:38:07:48:91:FB:1A:8C:45:18:29:76:18:92:9A:9A:DB:02:EF:77:50:C5:1C:54:C9:20"
+      ]
+    }
+  }
+]
