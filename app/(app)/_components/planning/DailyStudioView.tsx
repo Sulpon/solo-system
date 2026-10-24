@@ -66,7 +66,11 @@ export default function DailyStudioView({ onOpenQuest, onAddQuest }: DailyStudio
 
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(20rem,0.85fr)]">
-      <div className="space-y-4">
+      {/* min-w-0 on both columns, or the grid refuses to shrink them below
+          their content: a long quest title in the timeline pushed the whole
+          card past the right edge of a phone, taking its border and the
+          Today button off-screen with it. */}
+      <div className="min-w-0 space-y-4">
         <Card className="p-4" testId="daily-timeline">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -99,7 +103,7 @@ export default function DailyStudioView({ onOpenQuest, onAddQuest }: DailyStudio
         </Card>
       </div>
 
-      <div className="space-y-4">
+      <div className="min-w-0 space-y-4">
         {/* Only when a session is genuinely running - there is no placeholder
             timer for an idle day. */}
         {activeSession ? (

@@ -245,7 +245,7 @@ export default function CalendarTimeGrid({ days, dayLabels, todayKey, selectedDa
                   onKeyDown={(event) => {
                     if (onSelectDate && (event.key === "Enter" || event.key === " ")) onSelectDate(cell.dayKey);
                   }}
-                  className={"flex-1 border-l border-slate-800 py-1 text-center " + (onSelectDate ? "cursor-pointer " : "") + (isSelected ? "bg-purple-500/10" : "")}
+                  className={"min-w-0 flex-1 border-l border-slate-800 py-1 text-center " + (onSelectDate ? "cursor-pointer " : "") + (isSelected ? "bg-purple-500/10" : "")}
                   style={{ minWidth: columnMinWidth || undefined }}
                 >
                   <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-500">{dayLabels[index]}</p>
@@ -263,7 +263,12 @@ export default function CalendarTimeGrid({ days, dayLabels, todayKey, selectedDa
           {days.map((cell) => {
             const allDayItems = cell.items.filter((item) => !item.startTime);
             return (
-              <div key={cell.dayKey} className="max-h-16 flex-1 space-y-1 overflow-y-auto border-l border-slate-800 p-1" style={{ minWidth: columnMinWidth || undefined }}>
+              // min-w-0 lets a single-day column shrink to the phone's
+              // width instead of being held open by the longest quest
+              // title. Multi-day still gets its explicit columnMinWidth
+              // below, which wins as an inline style, so the week view
+              // keeps scrolling horizontally as designed.
+              <div key={cell.dayKey} className="max-h-16 min-w-0 flex-1 space-y-1 overflow-y-auto border-l border-slate-800 p-1" style={{ minWidth: columnMinWidth || undefined }}>
                 {allDayItems.map((item) => (
                   <QuestChip key={item.quest.id} item={item} onClick={() => onOpenQuest(item.quest.id)} compact />
                 ))}
@@ -293,7 +298,7 @@ export default function CalendarTimeGrid({ days, dayLabels, todayKey, selectedDa
                   beginCreate(cell.dayKey, event);
                 }}
                 style={{ height: bodyHeight, minWidth: columnMinWidth || undefined, touchAction: "none", ...gridBackground }}
-                className="relative flex-1 border-l border-slate-800"
+                className="relative min-w-0 flex-1 border-l border-slate-800"
               >
                 {timedItems.map((item) => {
                   const isBeingMoved = dragState?.kind === "move" && dragState.quest.id === item.quest.id;

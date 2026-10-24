@@ -16,7 +16,11 @@ export default function manifest(): MetadataRoute.Manifest {
     // the difference between a bookmark and something that reads as an
     // app on the home screen.
     display: "standalone",
-    orientation: "portrait-primary",
+    // "any", not "portrait-primary": locking the orientation here is what
+    // stops a tablet from ever turning landscape, however the device is
+    // held. Atlas lays out from the viewport, so the honest default is to
+    // follow whatever the device reports and let the layout adapt.
+    orientation: "any",
     background_color: "#04060f",
     theme_color: "#04060f",
     categories: ["productivity", "lifestyle"],
