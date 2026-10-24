@@ -246,16 +246,26 @@ function QuestRow({
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
           {onSelect ? (
-            <button type="button" onClick={() => onSelect(quest)} className="truncate text-left text-sm font-bold text-white transition hover:text-purple-200 hover:underline">
+            // Two lines on a phone rather than one truncated one: with the
+            // stat columns gone the row has the vertical room, and "Deep
+            // wor..." is not a quest anyone can identify at a glance.
+            <button type="button" onClick={() => onSelect(quest)} className="line-clamp-2 text-left text-sm font-bold text-white transition hover:text-purple-200 hover:underline sm:truncate">
               {quest.title}
             </button>
           ) : (
-            <h3 className="truncate text-sm font-bold text-white">{quest.title}</h3>
+            <h3 className="line-clamp-2 text-sm font-bold text-white sm:truncate">{quest.title}</h3>
           )}
-          <span className="shrink-0 rounded-full border border-yellow-400/40 bg-yellow-400/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-yellow-200">
+          {/* Everything from here down is hidden on a phone.
+              The row reserves three fixed stat columns plus a Log button on
+              the right, which on a 412px screen left the title almost no
+              width at all: it truncated to nothing and these shrink-0
+              badges collided with the chips below. A quest you cannot read
+              the name of is useless, so on a narrow screen the name and the
+              streak are kept and the rest waits for a wider viewport. */}
+          <span className="hidden shrink-0 rounded-full border border-yellow-400/40 bg-yellow-400/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-yellow-200 sm:inline-block">
             Lv {formatQuestMasteryLevel(mastery.currentLevel)} · {masteryTitle}
           </span>
-          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{categoryName}</span>
+          <span className="hidden shrink-0 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 sm:inline">{categoryName}</span>
           {quest.status === "archived" ? (
             <span className="shrink-0 rounded-full border border-slate-700 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-400">Archived</span>
           ) : null}
@@ -270,18 +280,21 @@ function QuestRow({
           >
             {isCore ? "Core" : "Bonus"}
           </span>
-          <span className="rounded-full border border-slate-700 px-1.5 py-0.5 text-slate-400">{quest.cadence.replace("-", " ")}</span>
-          <span className="rounded-full border border-slate-700 bg-slate-950/50 px-1.5 py-0.5 text-slate-400">{formatSchedule(quest)}</span>
-          {quest.linkedProgressGoalId ? <span className="rounded-full border border-cyan-400/20 bg-cyan-400/5 px-1.5 py-0.5 text-cyan-200">Linked Goal</span> : null}
-          {quest.linkedWorkoutTemplateId ? <span className="rounded-full border border-emerald-400/20 bg-emerald-400/5 px-1.5 py-0.5 text-emerald-200">Linked Workout</span> : null}
+          <span className="hidden rounded-full border border-slate-700 px-1.5 py-0.5 text-slate-400 sm:inline-block">{quest.cadence.replace("-", " ")}</span>
+          <span className="hidden rounded-full border border-slate-700 bg-slate-950/50 px-1.5 py-0.5 text-slate-400 sm:inline-block">{formatSchedule(quest)}</span>
+          {quest.linkedProgressGoalId ? <span className="hidden rounded-full border border-cyan-400/20 bg-cyan-400/5 px-1.5 py-0.5 text-cyan-200 sm:inline-block">Linked Goal</span> : null}
+          {quest.linkedWorkoutTemplateId ? <span className="hidden rounded-full border border-emerald-400/20 bg-emerald-400/5 px-1.5 py-0.5 text-emerald-200 sm:inline-block">Linked Workout</span> : null}
+          {/* The flame column on the right says the same thing with more
+              room, so this duplicate only earns its place once there is
+              space for both. */}
           {streak > 0 ? (
-            <span className="text-slate-500">
+            <span className="hidden text-slate-500 sm:inline">
               <span className="font-semibold text-orange-300">{streak}</span> day streak
             </span>
           ) : null}
         </div>
 
-        <div className="mt-1.5 flex items-center gap-2 text-[11px] leading-none">
+        <div className="mt-1.5 hidden items-center gap-2 text-[11px] leading-none sm:flex">
           <div className="h-1 flex-1 overflow-hidden rounded-full bg-slate-900">
             <div className="h-full rounded-full bg-gradient-to-r from-yellow-500 to-amber-300" style={{ width: `${mastery.progressTowardLevel100Percent}%` }} />
           </div>
@@ -333,7 +346,10 @@ function QuestRow({
         ) : null}
       </div>
 
-      <div className="flex shrink-0 items-center gap-4">
+      {/* gap-2 on a phone, gap-4 once the hidden columns come back: three
+          fixed columns plus a button at gap-4 consumed nearly the whole
+          412px row on their own. */}
+      <div className="flex shrink-0 items-center gap-2 sm:gap-4">
         <div className="flex w-10 flex-col items-center gap-0.5">
           <span className="flex items-center gap-1 text-sm font-bold text-orange-300">
             <FlameIcon />
@@ -342,7 +358,7 @@ function QuestRow({
           <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-500">Streak</span>
         </div>
 
-        <div className="flex w-14 flex-col items-center gap-0.5">
+        <div className="hidden w-14 flex-col items-center gap-0.5 sm:flex">
           <div className={"relative flex h-8 w-8 items-center justify-center " + (tier.hasParticles ? "consistency-glow-pulse" : "")}>
             <ConsistencyRing percent={consistency} colorHex={tier.ringHex} />
             <span className="absolute text-[9px] font-bold text-white">{consistency}</span>
@@ -353,7 +369,7 @@ function QuestRow({
           </span>
         </div>
 
-        <div className="flex w-10 flex-col items-center gap-0.5">
+        <div className="hidden w-10 flex-col items-center gap-0.5 sm:flex">
           <span className="text-sm font-bold text-purple-200">
             {quest.xp}
             {streakBonusXp > 0 ? <span className="ml-0.5 text-[11px] font-semibold text-emerald-300">+{streakBonusXp}</span> : null}
