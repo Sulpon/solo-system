@@ -76,6 +76,7 @@ export type CloudSyncStoreValue = Readonly<{
   cloudComparison: SnapshotComparison | null;
   confirmReconciliation: () => Promise<void>;
   isAuthLoading: boolean;
+  isCloudHydrating: boolean;
   user: User | null;
   syncStatus: CloudSyncStatus;
   syncError: string | null;
@@ -121,6 +122,7 @@ export function CloudSyncProvider({ children }: Readonly<{ children: React.React
 
   const [user, setUser] = useState<User | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(cloudSyncAvailable);
+  const [isCloudHydrating, setIsCloudHydrating] = useState(false);
   const [showUploadPrompt, setShowUploadPrompt] = useState(false);
   const [syncStatus, setSyncStatus] = useState<CloudSyncStatus>("idle");
   const [syncError, setSyncError] = useState<string | null>(null);
@@ -280,6 +282,7 @@ export function CloudSyncProvider({ children }: Readonly<{ children: React.React
       return;
     }
 
+    setIsCloudHydrating(true);
     setSyncStatus("syncing");
     setSyncError(null);
 
@@ -375,6 +378,8 @@ export function CloudSyncProvider({ children }: Readonly<{ children: React.React
       authDiag(`hydrateFromCloud: failed - ${thrown instanceof Error ? thrown.message : String(thrown)}`);
       setSyncStatus(isLikelyOffline(thrown) ? "offline" : "error");
       setSyncError(thrown instanceof Error ? thrown.message : "Unknown sync error");
+    } finally {
+      setIsCloudHydrating(false);
     }
   }, [cloudSyncAvailable]);
 
@@ -622,6 +627,7 @@ export function CloudSyncProvider({ children }: Readonly<{ children: React.React
     cloudComparison,
     confirmReconciliation,
     isAuthLoading,
+    isCloudHydrating,
     user,
     syncStatus,
     syncError,
