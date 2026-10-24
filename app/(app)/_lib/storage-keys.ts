@@ -1,4 +1,11 @@
 export const STORAGE_KEYS = {
+  // Durable record of WHAT HAS BEEN DELETED, so a deletion survives a
+  // reload and reaches every other device instead of being quietly undone
+  // by the next merge. Deliberately under "menace-" - unlike the local-only
+  // keys at the bottom of this file, this one MUST travel in the cloud
+  // snapshot, because a deletion that never leaves the device it happened
+  // on is exactly the bug it exists to fix. See sync/deletion-tombstones.ts.
+  deletionTombstones: "menace-deletion-tombstones",
   dashboardLayout: "menace-dashboard-layout",
   dashboardGridLayout: "menace-dashboard-grid-layout",
   questList: "menace-quest-list",

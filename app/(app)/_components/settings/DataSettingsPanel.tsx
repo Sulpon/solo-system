@@ -7,6 +7,7 @@ import { useCloudSync } from "../../_lib/hooks/useCloudSync";
 import DataSafetyPanel from "./DataSafetyPanel";
 import { CONNECTION_STATE_LABELS } from "../../_lib/supabase/config";
 import { MENACE_STORAGE_EVENT, STORAGE_KEYS } from "../../_lib/storage-keys";
+import { recordCollectionDeletions } from "../../_lib/sync/deletion-tombstones";
 
 function useDataItems() {
   const { attributes } = useAttributes();
@@ -177,13 +178,24 @@ function CloudSyncPanel() {
 export default function DataSettingsPanel() {
   const dataItems = useDataItems();
 
+  // Removing the key is not enough on its own: to the merge engine a
+  // missing key is indistinguishable from one this device never had, so the
+  // cloud would simply refill it on the next sync - which is what the
+  // "Sync Now after clearing" note below has always promised and, before
+  // tombstones existed, could not actually deliver.
   function clearKey(key: string) {
+    const previousRaw = window.localStorage.getItem(key);
     window.localStorage.removeItem(key);
+    recordCollectionDeletions(key, previousRaw, []);
     notify(key);
   }
 
   function clearAll() {
-    dataItems.forEach((item) => window.localStorage.removeItem(item.key));
+    dataItems.forEach((item) => {
+      const previousRaw = window.localStorage.getItem(item.key);
+      window.localStorage.removeItem(item.key);
+      recordCollectionDeletions(item.key, previousRaw, []);
+    });
     notify();
   }
 

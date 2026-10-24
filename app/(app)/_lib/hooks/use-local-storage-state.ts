@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MENACE_STORAGE_EVENT } from "../storage-keys";
+import { recordCollectionDeletions } from "../sync/deletion-tombstones";
 
 type StoredStateAction<T> = T | ((current: T) => T);
 
@@ -105,8 +106,11 @@ export function useLocalStorageState<T>(key: string, fallback: T) {
       const current = valueRef.current;
       const next = typeof action === "function" ? (action as (current: T) => T)(current) : action;
 
+      const previousRaw = window.localStorage.getItem(key);
+
       valueRef.current = next;
       window.localStorage.setItem(key, JSON.stringify(next));
+      recordCollectionDeletions(key, previousRaw, next);
       setValue(next);
       notifyStorageChange(key);
     },
@@ -114,8 +118,15 @@ export function useLocalStorageState<T>(key: string, fallback: T) {
   );
 
   const resetStoredValue = useCallback(() => {
+    const previousRaw = window.localStorage.getItem(key);
+
     valueRef.current = fallbackRef.current;
     window.localStorage.removeItem(key);
+    // Clearing a whole collection is still a deletion of every entity in
+    // it. Without this, removing the key locally would simply be refilled
+    // from the cloud on the next merge, because a missing key reads as
+    // "this device never had it".
+    recordCollectionDeletions(key, previousRaw, fallbackRef.current);
     setValue(fallbackRef.current);
     notifyStorageChange(key);
   }, [key]);
