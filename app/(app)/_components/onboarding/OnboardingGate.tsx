@@ -74,7 +74,7 @@ function gateDiag(message: string) {
 }
 
 export default function OnboardingGate({ children }: Readonly<{ children: React.ReactNode }>) {
-  const { isCloudSyncAvailable, isAuthLoading, user, syncStatus } = useCloudSync();
+  const { isCloudSyncAvailable, isAuthLoading, isCloudHydrating, user } = useCloudSync();
   const [onboardingCompleted, setOnboardingCompleted, hasLoadedOnboardingFlag] = useLocalStorageState<boolean>(STORAGE_KEYS.onboardingCompleted, false);
   const [hasMigrated, setHasMigrated, hasLoadedMigrationFlag] = useLocalStorageState<boolean>(STORAGE_KEYS.onboardingMigrated, false);
   const { attributes, setAttributes, hasLoaded: hasLoadedAttributes } = useAttributes();
@@ -83,7 +83,7 @@ export default function OnboardingGate({ children }: Readonly<{ children: React.
   const [hasReconciled, setHasReconciled] = useState(false);
   const [hasStalled, setHasStalled] = useState(false);
 
-  const isWaitingForCloudHydration = isCloudSyncAvailable && !isAuthLoading && Boolean(user) && syncStatus === "syncing";
+  const isWaitingForCloudHydration = isCloudSyncAvailable && !isAuthLoading && Boolean(user) && isCloudHydrating;
   const isLocalStateLoaded = hasLoadedOnboardingFlag && hasLoadedMigrationFlag && hasLoadedAttributes && hasLoadedGoalTree && isProgressionReady;
   const canReconcile = !isAuthLoading && !isWaitingForCloudHydration && isLocalStateLoaded;
 
