@@ -8,6 +8,7 @@ import ActiveWorkoutOverlay from "./_components/workouts/ActiveWorkoutOverlay";
 import GoalMetricSyncEffect from "./_components/goal-tree/GoalMetricSyncEffect";
 import ChallengeQuestSyncEffect from "./_components/challenges/ChallengeQuestSyncEffect";
 import ProgressionEventSyncEffect from "./_components/progression/ProgressionEventSyncEffect";
+import QuestReminderSyncEffect from "./_components/notifications/QuestReminderSyncEffect";
 import DesktopWidgetsBootstrap from "./_components/desktop/DesktopWidgetsBootstrap";
 import OnboardingGate from "./_components/onboarding/OnboardingGate";
 import { CelebrationProvider } from "./_lib/celebration-store";
@@ -37,6 +38,7 @@ export default function MenaceLayout({
                   <GoalMetricSyncEffect />
                   <ChallengeQuestSyncEffect />
                   <ProgressionEventSyncEffect />
+                  <QuestReminderSyncEffect />
                   <DesktopWidgetsBootstrap />
                   <CelebrationHost />
                 </OnboardingGate>

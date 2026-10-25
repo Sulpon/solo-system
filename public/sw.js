@@ -139,6 +139,74 @@ async function cacheFirst(request) {
   return response;
 }
 
+// ---------------------------------------------------------------------
+// Push
+// ---------------------------------------------------------------------
+//
+// This is the part that works with Atlas closed. The page is gone, but the
+// service worker is woken by the push service to show the notification.
+//
+// The browser REQUIRES a visible notification for every push delivered
+// under userVisibleOnly - a push handled silently costs the origin its
+// push permission. So this always shows something, even when the payload
+// is missing or unreadable.
+self.addEventListener("push", (event) => {
+  let payload = {};
+
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    // A payload that is not JSON is still a real push that must be shown.
+  }
+
+  const title = typeof payload.title === "string" && payload.title ? payload.title : "Atlas";
+  const body = typeof payload.body === "string" ? payload.body : "";
+  const url = typeof payload.url === "string" && payload.url ? payload.url : "/";
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon: "/icons/atlas-192.png",
+      badge: "/icons/atlas-192.png",
+      // Collapses repeats of the same reminder rather than stacking them.
+      tag: typeof payload.tag === "string" ? payload.tag : url,
+      data: { url },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+
+  const target = (event.notification.data && event.notification.data.url) || "/";
+
+  // Focus an Atlas window if one is already open rather than piling up new
+  // ones; only open a window when none exists.
+  event.waitUntil(
+    (async () => {
+      const clientList = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+
+      for (const client of clientList) {
+        if ("focus" in client) {
+          try {
+            if ("navigate" in client) {
+              await client.navigate(target);
+            }
+            await client.focus();
+            return;
+          } catch {
+            // A client that refuses to navigate is still worth focusing.
+          }
+        }
+      }
+
+      if (self.clients.openWindow) {
+        await self.clients.openWindow(target);
+      }
+    })(),
+  );
+});
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
 
