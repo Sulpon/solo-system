@@ -163,16 +163,24 @@ self.addEventListener("push", (event) => {
   const body = typeof payload.body === "string" ? payload.body : "";
   const url = typeof payload.url === "string" && payload.url ? payload.url : "/";
 
-  event.waitUntil(
-    self.registration.showNotification(title, {
-      body,
-      icon: "/icons/atlas-192.png",
-      badge: "/icons/atlas-192.png",
-      // Collapses repeats of the same reminder rather than stacking them.
-      tag: typeof payload.tag === "string" ? payload.tag : url,
-      data: { url },
-    }),
-  );
+  // A tag makes the browser REPLACE any showing notification that carries
+  // the same one. That is right for a genuine repeat of a single reminder
+  // and wrong for everything else: tagging by url meant every quest shared
+  // the tag "/planning", so two quests due at the same time collapsed into
+  // one and the first silently disappeared. Only the sender may set a tag,
+  // and it must identify the reminder, not the page it links to.
+  const options = {
+    body,
+    icon: "/icons/atlas-192.png",
+    badge: "/icons/atlas-192.png",
+    data: { url },
+  };
+
+  if (typeof payload.tag === "string" && payload.tag) {
+    options.tag = payload.tag;
+  }
+
+  event.waitUntil(self.registration.showNotification(title, options));
 });
 
 self.addEventListener("notificationclick", (event) => {
