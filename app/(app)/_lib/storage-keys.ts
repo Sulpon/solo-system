@@ -148,6 +148,13 @@ export const STORAGE_KEYS = {
   // and should follow the account to every device, unlike a per-screen
   // layout preference.
   pageThemes: "menace-page-themes",
+  // Index cards - one task per card, see types/card.ts. Two collections
+  // rather than one nested blob, same convention as Challenges: both are
+  // arrays of {id} records, so the generic id-merge and the deletion
+  // tombstones (sync/deletion-tombstones.ts) cover them with no sync-side
+  // code of their own.
+  cards: "menace-cards",
+  cardDecks: "menace-card-decks",
 } as const;
 
 export const MENACE_STORAGE_EVENT = "menace-local-storage-change";

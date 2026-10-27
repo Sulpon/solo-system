@@ -46,7 +46,10 @@ export const PERIOD_NODE_TYPE: Readonly<Record<GoalNodePeriodType, GoalNode["typ
   week: "progress_goal",
 };
 
-function startOfWeekMonday(date: Date): Date {
+// Exported so the card board plans its week the same way the period board
+// does. Two copies of "which day does a week start on" is exactly the kind
+// of thing that drifts and then disagrees on a Sunday.
+export function startOfWeekMonday(date: Date): Date {
   const next = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   next.setDate(next.getDate() - ((next.getDay() + 6) % 7));
   return next;
