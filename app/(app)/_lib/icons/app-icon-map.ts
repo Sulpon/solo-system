@@ -18,6 +18,7 @@ import {
   Target,
   Trophy,
   UserRound,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 import { useAttributes } from "../hooks/useAttributes";
@@ -54,6 +55,7 @@ const staticNavItems: readonly AppNavItem[] = [
   { key: "career-hub", name: "Career Hub", href: "/career-hub", icon: Briefcase },
   { key: "thesis-hub", name: "Thesis Hub", href: "/thesis-hub", icon: GraduationCap },
   { key: "workouts", name: "Workouts", href: "/workouts", icon: Dumbbell },
+  { key: "finance", name: "Finance", href: "/finance", icon: Wallet, pinned: true },
 ];
 
 const trailingNavItems: readonly AppNavItem[] = [{ key: "settings", name: "Settings", href: "/settings", icon: Settings }];
