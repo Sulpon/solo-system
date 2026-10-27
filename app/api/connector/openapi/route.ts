@@ -21,6 +21,40 @@ export async function GET() {
     servers: [{ url: baseUrl }],
     security: [{ AtlasBearer: [] }],
     paths: {
+      "/api/connector/categories": {
+        get: {
+          operationId: "listAtlasCategories",
+          summary: "List Atlas categories",
+          description: "Returns existing Atlas attribute/category IDs and names. Use an existing ID when creating a quest.",
+          responses: {
+            "200": {
+              description: "Category list",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      categories: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            id: { type: "string" },
+                            name: { type: "string" },
+                          },
+                          required: ["id", "name"],
+                        },
+                      },
+                    },
+                    required: ["categories"],
+                  },
+                },
+              },
+            },
+            "401": { description: "Invalid or missing connector key" },
+          },
+        },
+      },
       "/api/connector/quests": {
         get: {
           operationId: "listAtlasQuests",
